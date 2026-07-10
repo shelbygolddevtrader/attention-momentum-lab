@@ -28,8 +28,66 @@ def markdown_table(frame):
 
 def main():
     args = parser().parse_args(); root = Path(f"artifacts/{args.symbol.upper()}/{args.date}")
-    candidates = pd.read_csv(root / "candidate_outcomes.csv"); candidates["timestamp"] = pd.to_datetime(candidates["timestamp"])
-    bars = pd.read_csv(Path(f"data/processed/{args.symbol.upper()}/{args.date}_1min.csv")); bars["timestamp"] = pd.to_datetime(bars["timestamp"])
+    candidates = pd.read_csv(root / "candidate_outcomes.csv")
+    candidates["timestamp"] = pd.to_datetime(candidates["timestamp"])
+
+    if candidates.empty:
+        diagnostic_columns = [
+            "grouping",
+            "metric",
+            "candidate_count",
+            "mean",
+            "median",
+            "standard_deviation",
+            "minimum",
+            "percentile_25",
+            "percentile_75",
+            "maximum",
+            "positive_return_count",
+            "positive_return_rate",
+        ]
+        target_stop_columns = [
+            "timestamp",
+            "horizon_minutes",
+            "target_fraction",
+            "stop_fraction",
+            "outcome",
+            "minutes_to_target",
+            "minutes_to_stop",
+        ]
+
+        pd.DataFrame(columns=diagnostic_columns).to_csv(
+            root / "candidate_diagnostics.csv",
+            index=False,
+        )
+        pd.DataFrame(columns=target_stop_columns).to_csv(
+            root / "target_stop_outcomes.csv",
+            index=False,
+        )
+
+        summary = [
+            f"# Candidate diagnostics: {args.symbol.upper()} {args.date}",
+            "",
+            "Dataset: 0 candidates; 0 episodes.",
+            "",
+            "No candidates met the configured minimum score, so candidate-path "
+            "and feature diagnostics were not calculated.",
+            "",
+            "## Limitations",
+            "A zero-candidate session is a negative-control result, not evidence "
+            "that the strategy is profitable or unprofitable.",
+        ]
+        (root / "diagnostic_summary.md").write_text(
+            "\n".join(summary) + "\n"
+        )
+
+        print(f"Saved zero-candidate diagnostics to {root}")
+        return
+
+    bars = pd.read_csv(
+        Path(f"data/processed/{args.symbol.upper()}/{args.date}_1min.csv")
+    )
+    bars["timestamp"] = pd.to_datetime(bars["timestamp"])
     paths, labels = analyze_candidate_paths(candidates, bars)
     # Keep the independently calculated path metrics under their canonical
     # names; the source candidate artifact's 30m outcome columns remain intact.

@@ -44,11 +44,44 @@ def main():
 
     outcomes = analyze_candidate_outcomes(replay, minimum_score=args.minimum_score)
     features = calculate_candidate_features(replay, minimum_score=args.minimum_score)
-    output = outcomes.merge(features, on="timestamp", how="left", validate="one_to_one")
+
+    if len(outcomes) != len(features):
+        raise RuntimeError(
+            "Candidate outcome and feature calculations returned different row counts: "
+            f"{len(outcomes)} outcomes versus {len(features)} features."
+        )
+
+    if outcomes.empty:
+        feature_columns = [
+            column for column in features.columns if column != "timestamp"
+        ]
+        output = pd.concat(
+            [
+                outcomes.reset_index(drop=True),
+                features[feature_columns].reset_index(drop=True),
+            ],
+            axis=1,
+        )
+    else:
+        output = outcomes.merge(
+            features,
+            on="timestamp",
+            how="left",
+            validate="one_to_one",
+        )
+
     save_path = Path(f"artifacts/{symbol}/{args.date}/candidate_outcomes.csv")
     save_path.parent.mkdir(parents=True, exist_ok=True)
     output.to_csv(save_path, index=False)
     print(f"Saved {len(output)} candidates to {save_path}")
+
+    if output.empty:
+        print(
+            f"No candidates met the minimum score of {args.minimum_score}; "
+            "summary groupings were not calculated."
+        )
+        return
+
     for column in ("session_phase", "episode_signal_ordinal", "first_signal_in_episode"):
         print(f"\nBy {column}:\n{_summary(output, column).to_string()}")
 
