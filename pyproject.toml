@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "attention-momentum-lab"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "requests>=2.32,<3",
+  "python-dotenv>=1.0,<2",
+  "pandas>=2.2,<3",
+  "numpy>=1.26,<3",
+  "matplotlib>=3.9,<4"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "ruff>=0.6,<1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

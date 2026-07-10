@@ -1,0 +1,16 @@
+strategy:
+  id: baseline_price_volume_momentum
+  version: "0.1.0"
+  mode: research_only
+  simulated_capital_usd: 2000
+signal:
+  five_minute_return_threshold: 0.03
+  relative_volume_threshold: 3.0
+  vwap_distance_threshold: 0.01
+  volume_acceleration_threshold: 1.5
+  eligible_score_threshold: 70
+risk:
+  live_trading_enabled: false
+  options_enabled: false
+  margin_enabled: false
+  shorting_enabled: false
