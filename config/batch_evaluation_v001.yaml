@@ -1,0 +1,8 @@
+{
+  "configuration_version": "0.1.0",
+  "complete_session_maximum_missing_percentage": 0.01,
+  "usable_session_maximum_missing_percentage": 0.05,
+  "excluded_quality_bands": ["missing_heavy"],
+  "exclude_quality_flagged_sessions": true,
+  "require_clean_git_worktree": true
+}
