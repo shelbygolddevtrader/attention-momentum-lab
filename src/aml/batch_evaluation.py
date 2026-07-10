@@ -1,38 +1,28 @@
 """Deterministic, session-isolated batch evaluation infrastructure."""
 
 from dataclasses import asdict, dataclass
-from datetime import date, time
+from datetime import date
 import hashlib
 import json
 from pathlib import Path
-from typing import Callable, Protocol
-from zoneinfo import ZoneInfo
+from typing import Callable
 
 import pandas as pd
 
 from aml.candidate_outcomes import analyze_candidate_outcomes
+from aml.market_calendar import (
+    CalendarIdentity, MarketCalendar, NonTradingSessionError, SessionSchedule,
+)
 from aml.replay import replay_to_frame
 from aml.trade_simulator import SimulationConfig, simulate_trades
 
-NY = ZoneInfo("America/New_York")
 SESSION_CLASSES = {"attention_event", "ordinary_control"}
 QUALITY_BANDS = {"complete_or_minor", "moderate_gaps", "missing_heavy", "unknown"}
 MANIFEST_COLUMNS = [
-    "symbol", "trading_date", "session_class", "cohort_id", "selection_rule",
+    "symbol", "trading_date", "calendar_id", "session_class", "cohort_id", "selection_rule",
     "data_source", "data_feed", "inclusion_timestamp", "dataset_vintage",
     "matched_group_id",
 ]
-
-
-@dataclass(frozen=True)
-class SessionSchedule:
-    open_timestamp: pd.Timestamp
-    close_timestamp: pd.Timestamp
-    expected_minutes: pd.DatetimeIndex
-
-
-class MarketCalendar(Protocol):
-    def schedule(self, trading_date: date) -> SessionSchedule: ...
 
 
 @dataclass(frozen=True)
@@ -99,22 +89,6 @@ def load_quality_policy(path: Path) -> QualityPolicy:
     return QualityPolicy(**payload)
 
 
-class ExplicitUSMarketCalendar:
-    """Injectable US regular-session calendar; early closes must be explicit."""
-
-    def __init__(self, early_closes: dict[date, time] | None = None):
-        self.early_closes = early_closes or {}
-
-    def schedule(self, trading_date: date) -> SessionSchedule:
-        close_time = self.early_closes.get(trading_date, time(16, 0))
-        open_ts = pd.Timestamp.combine(trading_date, time(9, 30)).tz_localize(NY)
-        close_ts = pd.Timestamp.combine(trading_date, close_time).tz_localize(NY)
-        if close_ts <= open_ts:
-            raise ValueError("Session close must be after session open")
-        minutes = pd.date_range(open_ts, close_ts, freq="min", inclusive="left")
-        return SessionSchedule(open_ts, close_ts, minutes)
-
-
 @dataclass
 class BatchResult:
     run_id: str
@@ -123,6 +97,7 @@ class BatchResult:
     trades: pd.DataFrame
     candidates: pd.DataFrame
     input_hashes: dict[str, str]
+    calendar_identity: CalendarIdentity
 
 
 def normalize_manifest(manifest: pd.DataFrame) -> pd.DataFrame:
@@ -135,6 +110,7 @@ def normalize_manifest(manifest: pd.DataFrame) -> pd.DataFrame:
         if frame[column].isna().any() or frame[column].eq("").any():
             raise ValueError(f"Missing required provenance: {column}")
     frame["symbol"] = frame["symbol"].str.upper()
+    frame["calendar_id"] = frame["calendar_id"].str.upper()
     parsed_dates = pd.to_datetime(frame["trading_date"], format="%Y-%m-%d", errors="coerce")
     if parsed_dates.isna().any():
         raise ValueError("Malformed trading_date")
@@ -173,6 +149,7 @@ def deterministic_run_id(
     source_commit: str,
     input_hashes: dict[str, str],
     quality_policy_fingerprint: str,
+    calendar_fingerprint: str,
 ) -> str:
     payload = {
         "manifest_sha256": hashlib.sha256(normalized_manifest_bytes(manifest)).hexdigest(),
@@ -181,6 +158,7 @@ def deterministic_run_id(
         "source_commit": source_commit,
         "input_hashes": dict(sorted(input_hashes.items())),
         "quality_policy_fingerprint": quality_policy_fingerprint,
+        "calendar_fingerprint": calendar_fingerprint,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()[:20]
@@ -210,12 +188,13 @@ def _quality(observed: pd.DatetimeIndex, expected: pd.DatetimeIndex, policy: Qua
     return len(observed_regular), len(missing), missing_pct, largest_gap, band
 
 
-def _base_result(row, schedule):
+def _base_result(row, schedule=None):
+    expected_count = len(schedule.expected_minutes) if schedule is not None else None
     return {
         **row.to_dict(), "status": None, "status_detail": "", "exclusion_reason": "",
-        "included_in_aggregate": False, "expected_minute_count": len(schedule.expected_minutes),
-        "observed_minute_count": 0, "missing_minute_count": len(schedule.expected_minutes),
-        "missing_percentage": 1.0, "largest_consecutive_gap": 0,
+        "included_in_aggregate": False, "expected_minute_count": expected_count,
+        "observed_minute_count": None, "missing_minute_count": None,
+        "missing_percentage": None, "largest_consecutive_gap": None,
         "first_observed_timestamp": None, "last_observed_timestamp": None,
         "candidate_count": None, "trade_count": None, "wins": None, "losses": None,
         "session_pnl": None, "session_return": None, "session_maximum_drawdown": None,
@@ -236,16 +215,19 @@ def evaluate_batch(
     normalized = normalize_manifest(manifest)
     config = simulator_config or SimulationConfig()
     policy = quality_policy
+    calendar_identity = calendar.identity(set(normalized["calendar_id"]))
     run_id = deterministic_run_id(
         normalized, strategy_fingerprint, config, source_commit, input_hashes,
         policy.fingerprint(),
+        calendar_identity.fingerprint(),
     )
     session_rows, all_trades, all_candidates = [], [], []
     for _, row in normalized.iterrows():
         trading_day = date.fromisoformat(row["trading_date"])
-        schedule = calendar.schedule(trading_day)
-        result = _base_result(row, schedule)
+        result = _base_result(row)
         try:
+            schedule = calendar.schedule(trading_day, row["calendar_id"])
+            result = _base_result(row, schedule)
             bars = loader(row).copy()
             if bars.empty:
                 raise FileNotFoundError("No bars available")
@@ -309,6 +291,12 @@ def evaluate_batch(
             if not trades.empty:
                 trades = trades.assign(trading_date=row["trading_date"], session_class=row["session_class"], cohort_id=row["cohort_id"], data_quality_band=band)
                 all_trades.append(trades)
+        except NonTradingSessionError as exc:
+            result.update(
+                status="non_trading_session", status_detail=str(exc),
+                exclusion_reason="not_scheduled_by_exchange_calendar",
+                included_in_aggregate=False,
+            )
         except FileNotFoundError as exc:
             result.update(status="no_data", status_detail=str(exc), exclusion_reason="no_data")
         except ValueError as exc:
@@ -321,6 +309,7 @@ def evaluate_batch(
         pd.concat(all_trades, ignore_index=True) if all_trades else pd.DataFrame(),
         pd.concat(all_candidates, ignore_index=True) if all_candidates else pd.DataFrame(),
         dict(sorted(input_hashes.items())),
+        calendar_identity,
     )
 
 

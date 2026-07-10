@@ -5,18 +5,21 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from aml.exchange_calendar_adapter import ExchangeCalendarsAdapter
 from aml.batch_evaluation import (
-    ExplicitUSMarketCalendar, batch_artifact_directory, deterministic_run_id,
-    evaluate_batch, load_quality_policy, normalize_manifest, normalized_manifest_bytes,
+    batch_artifact_directory, deterministic_run_id, evaluate_batch,
+    load_quality_policy, normalize_manifest, normalized_manifest_bytes,
     QualityPolicy, require_reproducible_source,
 )
+from aml.market_calendar import SyntheticMarketCalendar
 from aml.trade_simulator import SimulationConfig
 
 
 def manifest(rows=None):
     rows = rows or [("AAA", "2024-01-02", "attention_event")]
     return pd.DataFrame([{
-        "symbol": symbol, "trading_date": day, "session_class": classification,
+        "symbol": symbol, "trading_date": day, "calendar_id": "SYNTHETIC_TEST",
+        "session_class": classification,
         "cohort_id": "synthetic", "selection_rule": "fixed_before_test",
         "data_source": "synthetic", "data_feed": "synthetic",
         "inclusion_timestamp": "2023-12-01T00:00:00Z",
@@ -51,7 +54,7 @@ def quality_policy(**changes):
 
 def evaluate(frame, loader, calendar=None, input_hashes=None, policy=None, source_commit="source-commit"):
     return evaluate_batch(
-        frame, loader, calendar or ExplicitUSMarketCalendar(), "strategy-hash",
+        frame, loader, calendar or SyntheticMarketCalendar(), "strategy-hash",
         source_commit, input_hashes or {"input": "hash"}, policy or quality_policy(),
         SimulationConfig(),
     )
@@ -81,15 +84,19 @@ def test_manifest_normalization_and_run_id_ignore_row_order():
     frame = manifest([("BBB", "2024-01-03", "ordinary_control"), ("AAA", "2024-01-02", "attention_event")])
     reversed_frame = frame.iloc[::-1].reset_index(drop=True)
     assert normalized_manifest_bytes(frame) == normalized_manifest_bytes(reversed_frame)
-    args = ("strategy", SimulationConfig(), "commit", {"b": "2", "a": "1"}, quality_policy().fingerprint())
+    args = (
+        "strategy", SimulationConfig(), "commit", {"b": "2", "a": "1"},
+        quality_policy().fingerprint(), SyntheticMarketCalendar().identity({"SYNTHETIC_TEST"}).fingerprint(),
+    )
     assert deterministic_run_id(frame, *args) == deterministic_run_id(reversed_frame, *args)
 
 
 def test_run_identity_changes_only_for_content_not_execution_time():
     policy = quality_policy().fingerprint()
-    first = deterministic_run_id(manifest(), "s", SimulationConfig(), "c", {"x": "1"}, policy)
-    second = deterministic_run_id(manifest(), "s", SimulationConfig(), "c", {"x": "1"}, policy)
-    changed = deterministic_run_id(manifest(), "s", SimulationConfig(), "c", {"x": "2"}, policy)
+    calendar = SyntheticMarketCalendar().identity({"SYNTHETIC_TEST"}).fingerprint()
+    first = deterministic_run_id(manifest(), "s", SimulationConfig(), "c", {"x": "1"}, policy, calendar)
+    second = deterministic_run_id(manifest(), "s", SimulationConfig(), "c", {"x": "1"}, policy, calendar)
+    changed = deterministic_run_id(manifest(), "s", SimulationConfig(), "c", {"x": "2"}, policy, calendar)
     assert first == second and first != changed
 
 
@@ -125,6 +132,28 @@ def test_source_commit_changes_run_id():
     first = evaluate(manifest(), lambda row: bars(), source_commit="a")
     second = evaluate(manifest(), lambda row: bars(), source_commit="b")
     assert first.run_id != second.run_id
+
+
+def test_calendar_identity_changes_run_id():
+    policy = quality_policy().fingerprint()
+    synthetic = SyntheticMarketCalendar().identity({"SYNTHETIC_TEST"}).fingerprint()
+    authoritative = ExchangeCalendarsAdapter().identity({"XNYS"}).fingerprint()
+    args = (manifest(), "s", SimulationConfig(), "c", {"x": "1"}, policy)
+    assert deterministic_run_id(*args, synthetic) != deterministic_run_id(*args, authoritative)
+
+
+def test_authoritative_holiday_row_is_retained_without_loading_data():
+    frame = manifest([("AAA", "2024-07-04", "ordinary_control")])
+    frame["calendar_id"] = "XNYS"
+    result = evaluate(
+        frame,
+        lambda row: (_ for _ in ()).throw(AssertionError("loader should not run")),
+        calendar=ExchangeCalendarsAdapter(),
+    )
+    row = result.session_results.iloc[0]
+    assert row["status"] == "non_trading_session"
+    assert row["exclusion_reason"] == "not_scheduled_by_exchange_calendar"
+    assert pd.isna(row["session_return"])
 
 
 def test_manifest_order_does_not_change_session_results_and_equity_resets():
@@ -173,7 +202,7 @@ def test_null_failed_values_remain_blank_in_csv():
 
 
 def test_early_close_coverage_missing_minutes_gap_and_quality():
-    calendar = ExplicitUSMarketCalendar({date(2024, 1, 2): time(13, 0)})
+    calendar = SyntheticMarketCalendar(early_closes={date(2024, 1, 2): time(13, 0)})
     result = evaluate(manifest(), lambda row: bars(periods=210, drop=(5, 6)), calendar)
     row = result.session_results.iloc[0]
     assert row["expected_minute_count"] == 210
