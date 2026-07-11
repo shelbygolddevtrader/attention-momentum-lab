@@ -41,7 +41,7 @@ def artifact_directory(symbol: str, day: date | str, feed: str):
     return feed_paths(symbol, day, feed)[3]
 
 
-def validate_replay_feed(directory: Path, feed: str):
+def validate_replay_feed(directory: Path, feed: str, completeness_mode: str | None = None):
     """Prevent downstream analysis from combining artifacts from another feed."""
     summary_path = directory / "summary.json"
     if feed == LEGACY_FEED:
@@ -53,6 +53,11 @@ def validate_replay_feed(directory: Path, feed: str):
     if recorded != feed:
         raise RuntimeError(
             f"Replay feed mismatch: requested {feed}, metadata records {recorded!r}"
+        )
+    if completeness_mode is not None and summary.get("completeness_mode") != completeness_mode:
+        raise RuntimeError(
+            f"Replay completeness mismatch: requested {completeness_mode}, "
+            f"metadata records {summary.get('completeness_mode')!r}"
         )
 
 

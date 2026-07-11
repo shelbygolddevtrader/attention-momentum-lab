@@ -40,4 +40,31 @@ still works but emits a deprecation warning. The old `paths(symbol, date)`
 helper now intentionally resolves to SIP-qualified paths; Python callers that
 need an unsuffixed path must use `legacy_paths(symbol, date)` explicitly.
 
+## Verified-halt-aware completeness
+
+Historical replay and analysis commands default to `halt_aware` completeness.
+Canonical, source-attributed halt records live at
+`data/market_halts/{SYMBOL}/{DATE}_verified_halts.csv`. Only verified records
+are used; ordinary data gaps are never inferred to be halts. If no halt file
+exists, halt-aware and strict completeness are equivalent.
+
+A minute bar is timestamped at the beginning of its minute. Accordingly, only
+a minute that is non-tradable for its entire interval is removed from the
+expected-minute index. The partial minute in which a halt begins and a partial
+minute in which trading resumes remain expected because either can contain
+trades. Exact wall-clock return endpoints, observed-bar MFE/MAE, and simulator
+execution are unchanged.
+
+Use `--completeness-mode strict` on replay, candidate analysis, candidate
+diagnostics, simulation, or batch evaluation to require every regular-session
+clock minute. Feed and completeness mode are independent, for example:
+
+```bash
+python -m aml.cli replay --symbol GME --date 2024-05-14 --feed sip --completeness-mode strict
+.venv/bin/python scripts/analyze_candidates.py GME 2024-05-14 --feed iex --completeness-mode halt_aware
+```
+
+Halt-aware completeness changes data-quality classification only. It does not
+change strategy scores, entries, exits, stop/target ordering, or P&L.
+
 Start with `FIRST_SESSION.md`.

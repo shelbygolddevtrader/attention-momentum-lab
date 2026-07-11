@@ -8,6 +8,9 @@ from itertools import product
 
 import numpy as np
 import pandas as pd
+from aml.market_halts import (
+    CompletenessMode, HaltSchedule, completeness_metadata, expected_minutes,
+)
 
 HORIZONS = (5, 15, 30)
 TARGETS = (.01, .02, .03, .05)
@@ -27,7 +30,11 @@ def _check(candidates: pd.DataFrame, bars: pd.DataFrame) -> tuple[pd.DataFrame, 
     return c.sort_values("timestamp", kind="mergesort").reset_index(drop=True), b.sort_values("timestamp", kind="mergesort").reset_index(drop=True)
 
 
-def analyze_candidate_paths(candidates: pd.DataFrame, bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def analyze_candidate_paths(
+    candidates: pd.DataFrame, bars: pd.DataFrame,
+    completeness_mode: str | CompletenessMode = CompletenessMode.STRICT,
+    halt_schedule: HaltSchedule | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Return candidate path metrics and target/stop labels.
 
     The entry reference is the candidate ``price``. For each horizon, every
@@ -37,16 +44,20 @@ def analyze_candidate_paths(candidates: pd.DataFrame, bars: pd.DataFrame) -> tup
     attaining the maximum high/minimum low; ties are therefore deterministic.
     """
     candidates, bars = _check(candidates, bars)
+    completeness_mode = CompletenessMode(completeness_mode)
     indexed = bars.set_index("timestamp", drop=False)
     path_rows, label_rows = [], []
     for candidate in candidates.itertuples(index=False):
         timestamp, entry = pd.Timestamp(candidate.timestamp), float(candidate.price)
-        path = {"timestamp": timestamp}
+        metadata = completeness_metadata(completeness_mode, halt_schedule)
+        path = {"timestamp": timestamp, **metadata}
         for horizon in HORIZONS:
-            expected = pd.date_range(timestamp + pd.Timedelta(1, unit="min"), timestamp + pd.Timedelta(horizon, unit="min"), freq="min")
+            raw_expected = pd.date_range(timestamp + pd.Timedelta(1, unit="min"), timestamp + pd.Timedelta(horizon, unit="min"), freq="min")
+            expected = expected_minutes(raw_expected[0], raw_expected[-1], completeness_mode, halt_schedule)
             window = indexed.reindex(expected)
             complete = not window[["high", "low", "close"]].isna().any().any()
             path[f"complete_{horizon}m_path"] = complete
+            path[f"verified_halt_minutes_excluded_{horizon}m"] = len(raw_expected.difference(expected))
             if window.dropna(how="all").empty:
                 for field in ("mfe", "mae", "minutes_to_mfe", "minutes_to_mae", "close_return_at_mfe_time", "close_return_at_mae_time"):
                     path[f"{field}_{horizon}m"] = np.nan
@@ -77,7 +88,11 @@ def analyze_candidate_paths(candidates: pd.DataFrame, bars: pd.DataFrame) -> tup
                 label_rows.append({"timestamp": timestamp, "horizon_minutes": horizon, "target_fraction": target, "stop_fraction": stop, "outcome": result,
                                    "minutes_to_target": np.nan if pd.isna(target_time) else (target_time - timestamp).total_seconds() / 60,
                                    "minutes_to_stop": np.nan if pd.isna(stop_time) else (stop_time - timestamp).total_seconds() / 60,
-                                   "complete_window": complete})
+                                   "complete_window": complete,
+                                   "completeness_mode": completeness_mode.value,
+                                   "verified_halt_count": metadata["verified_halt_count"],
+                                   "verified_halt_minutes_excluded": len(raw_expected.difference(expected)),
+                                   "halt_data_path": metadata["halt_data_path"]})
         path_rows.append(path)
     return pd.DataFrame(path_rows), pd.DataFrame(label_rows)
 

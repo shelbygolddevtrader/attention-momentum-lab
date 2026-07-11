@@ -1,0 +1,17 @@
+symbol,trading_date,halt_timestamp,resume_quote_timestamp,resume_trade_timestamp,halt_code,market,source
+GME,2024-05-14,2024-05-14 09:30:28-04:00,2024-05-14 09:35:33-04:00,2024-05-14 09:35:33-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 09:36:05-04:00,2024-05-14 09:41:16-04:00,2024-05-14 09:41:16-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 09:42:12-04:00,2024-05-14 09:47:12-04:00,2024-05-14 09:47:12-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 09:50:47-04:00,2024-05-14 09:55:47-04:00,2024-05-14 09:55:47-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 09:58:25-04:00,2024-05-14 10:03:25-04:00,2024-05-14 10:03:25-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 10:05:37-04:00,2024-05-14 10:10:37-04:00,2024-05-14 10:10:37-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 10:21:24-04:00,2024-05-14 10:26:24-04:00,2024-05-14 10:26:24-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 11:01:16-04:00,2024-05-14 11:06:16-04:00,2024-05-14 11:06:16-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 12:46:04-04:00,2024-05-14 12:51:04-04:00,2024-05-14 12:51:04-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 12:53:46-04:00,2024-05-14 12:58:46-04:00,2024-05-14 12:58:46-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 13:03:56-04:00,2024-05-14 13:10:02-04:00,2024-05-14 13:10:02-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 13:11:42-04:00,2024-05-14 13:16:53-04:00,2024-05-14 13:16:53-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 13:22:04-04:00,2024-05-14 13:27:07-04:00,2024-05-14 13:27:07-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 13:31:48-04:00,2024-05-14 13:36:48-04:00,2024-05-14 13:36:48-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 14:13:33-04:00,2024-05-14 14:18:33-04:00,2024-05-14 14:18:33-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024
+GME,2024-05-14,2024-05-14 14:24:05-04:00,2024-05-14 14:29:06-04:00,2024-05-14 14:29:06-04:00,M,NYSE,https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&haltdate=05142024

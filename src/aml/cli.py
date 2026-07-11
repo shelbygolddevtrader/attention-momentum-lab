@@ -10,6 +10,7 @@ from aml.data_paths import (
 from aml.replay import replay_to_frame
 from aml.reporting import price_chart, volume_chart
 from aml.settings import Settings
+from aml.market_halts import CompletenessMode, completeness_metadata, load_verified_halts
 
 def parser():
     p = argparse.ArgumentParser(description="Attention Momentum Lab")
@@ -21,6 +22,8 @@ def parser():
         q.add_argument("--date", required=True, type=date.fromisoformat)
         choices = (*RESEARCH_FEEDS, LEGACY_FEED) if name == "replay" else RESEARCH_FEEDS
         q.add_argument("--feed", choices=choices, default=HISTORICAL_DATA_FEED)
+        if name in {"replay", "demo"}:
+            q.add_argument("--completeness-mode", choices=[mode.value for mode in CompletenessMode], default=CompletenessMode.HALT_AWARE.value)
     return p
 
 def paths(symbol, day, feed=HISTORICAL_DATA_FEED):
@@ -50,11 +53,13 @@ def load(symbol, day, feed=None):
     """Compatibility loader; an omitted feed reads legacy unsuffixed IEX data."""
     return load_bars(symbol, day, feed)
 
-def replay(symbol, day, bars, feed=None):
+def replay(symbol, day, bars, feed=None, completeness_mode=CompletenessMode.HALT_AWARE):
     if feed is None:
         actual = bars.attrs.get("data_feed")
         feed = LEGACY_FEED if actual in {None, "legacy_iex"} else actual
     out = artifact_directory(symbol, day, feed)
+    completeness_mode = CompletenessMode(completeness_mode)
+    halts = load_verified_halts(symbol, day)
     out.mkdir(parents=True, exist_ok=True)
     result = replay_to_frame(bars)
     result.to_csv(out / "replay_log.csv", index=False)
@@ -64,12 +69,18 @@ def replay(symbol, day, bars, feed=None):
         "symbol": symbol.upper(), "date": str(day), "minutes_replayed": len(result),
         "requested_feed": feed, "data_feed": bars.attrs.get("data_feed", feed),
         "source_path": bars.attrs.get("source_path"),
+        **completeness_metadata(completeness_mode, halts),
         "eligible_minutes": int(result["eligible"].sum()),
         "maximum_score": int(result["score"].max()),
         "first_eligible_timestamp": str(result.loc[result["eligible"], "timestamp"].iloc[0]) if result["eligible"].any() else None,
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(f"Replay feed: {summary['data_feed']}\nSaved replay artifacts: {out}\n{json.dumps(summary, indent=2)}")
+    print(
+        f"Replay feed: {summary['data_feed']}\nCompleteness mode: {completeness_mode.value}\n"
+        f"Verified halts: {len(halts.records)}\nFull halt minutes excluded: "
+        f"{summary['verified_halt_minutes_excluded']}\nSaved replay artifacts: {out}\n"
+        f"{json.dumps(summary, indent=2)}"
+    )
 
 def main():
     args = parser().parse_args()
@@ -84,12 +95,12 @@ def main():
             client = AlpacaREST(Settings.from_env())
             fetch(client, args.symbol, args.date, args.feed)
         elif args.command == "replay":
-            replay(args.symbol, args.date, load(args.symbol, args.date, args.feed), args.feed)
+            replay(args.symbol, args.date, load(args.symbol, args.date, args.feed), args.feed, args.completeness_mode)
         else:
             client = AlpacaREST(Settings.from_env())
             replay(
                 args.symbol, args.date,
-                fetch(client, args.symbol, args.date, args.feed), args.feed,
+                fetch(client, args.symbol, args.date, args.feed), args.feed, args.completeness_mode,
             )
         return 0
     except Exception as exc:

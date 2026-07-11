@@ -5,6 +5,9 @@ from collections.abc import Iterable
 import numpy as np
 import pandas as pd
 from aml.thresholds import CANDIDATE_SCORE_THRESHOLD
+from aml.market_halts import (
+    CompletenessMode, HaltSchedule, completeness_metadata, expected_minutes,
+)
 
 HORIZONS = (5, 15, 30)
 
@@ -29,10 +32,13 @@ def analyze_candidate_outcomes(
     replay: pd.DataFrame,
     candidate_score_threshold: int = CANDIDATE_SCORE_THRESHOLD,
     horizons: Iterable[int] = HORIZONS,
+    completeness_mode: str | CompletenessMode = CompletenessMode.STRICT,
+    halt_schedule: HaltSchedule | None = None,
 ) -> pd.DataFrame:
     """Calculate outcomes without silently bridging missing minute bars."""
     frame = _validated_frame(replay)
     horizons = tuple(horizons)
+    completeness_mode = CompletenessMode(completeness_mode)
     if any(minutes <= 0 for minutes in horizons):
         raise ValueError("Forward horizons must be positive")
     indexed = frame.set_index("timestamp", drop=False)
@@ -45,6 +51,7 @@ def analyze_candidate_outcomes(
             "symbol": getattr(row, "symbol", ""),
             "price": entry_price,
             "score": int(row.score),
+            **completeness_metadata(completeness_mode, halt_schedule),
         }
         for minutes in horizons:
             target = entry_time + pd.Timedelta(int(minutes), unit="min")
@@ -56,15 +63,26 @@ def analyze_candidate_outcomes(
                 record[f"forward_{minutes}m_return"] = np.nan
                 record[f"forward_{minutes}m_available"] = False
 
+            raw_expected = pd.date_range(
+                entry_time + pd.Timedelta(1, unit="min"), target, freq="min"
+            )
+            expected = expected_minutes(
+                raw_expected[0], raw_expected[-1], completeness_mode, halt_schedule
+            )
+            observed = pd.DatetimeIndex(frame.loc[
+                (frame["timestamp"] > entry_time) & (frame["timestamp"] <= target), "timestamp"
+            ])
+            record[f"missing_minutes_{minutes}m"] = len(expected.difference(observed))
+            record[f"complete_{minutes}m_window"] = record[f"missing_minutes_{minutes}m"] == 0
+            record[f"verified_halt_minutes_excluded_{minutes}m"] = len(raw_expected.difference(expected))
+
         end = entry_time + pd.Timedelta(30, unit="min")
         window = frame.loc[
             (frame["timestamp"] > entry_time) & (frame["timestamp"] <= end)
         ]
-        expected = pd.date_range(entry_time + pd.Timedelta(1, unit="min"), end, freq="min")
-        observed = pd.DatetimeIndex(window["timestamp"])
+        if completeness_mode is CompletenessMode.HALT_AWARE and halt_schedule is not None:
+            window = window.loc[~window["timestamp"].isin(halt_schedule.full_halt_minutes)]
         record["observed_minutes_30m"] = len(window)
-        record["missing_minutes_30m"] = len(expected.difference(observed))
-        record["complete_30m_window"] = record["missing_minutes_30m"] == 0
         if window.empty:
             record["mfe_30m"] = np.nan
             record["mae_30m"] = np.nan
@@ -80,7 +98,12 @@ def analyze_candidate_outcomes(
         records.append(record)
 
     columns = ["timestamp", "symbol", "price", "score"]
+    columns.extend(["completeness_mode", "verified_halt_count", "verified_halt_minutes_excluded", "halt_data_path"])
     for minutes in horizons:
-        columns.extend([f"forward_{minutes}m_return", f"forward_{minutes}m_available"])
-    columns.extend(["mfe_30m", "mae_30m", "observed_minutes_30m", "missing_minutes_30m", "complete_30m_window"])
+        columns.extend([
+            f"forward_{minutes}m_return", f"forward_{minutes}m_available",
+            f"missing_minutes_{minutes}m", f"complete_{minutes}m_window",
+            f"verified_halt_minutes_excluded_{minutes}m",
+        ])
+    columns.extend(["mfe_30m", "mae_30m", "observed_minutes_30m"])
     return pd.DataFrame.from_records(records, columns=columns)

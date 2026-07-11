@@ -144,7 +144,7 @@ def test_missing_minutes_are_counted_without_halt_claim():
     trades, _ = simulate_trades(signals(), bars(drop=(5,)))
     assert trades.iloc[0]["missing_minute_count"] == 1
     assert not trades.iloc[0]["complete_window"]
-    assert not any("halt" in column for column in trades.columns)
+    assert trades.iloc[0]["verified_halt_count"] == 0
 
 
 def test_equity_updates_by_net_pnl():

@@ -13,6 +13,9 @@ from aml.candidate_outcomes import analyze_candidate_outcomes
 from aml.market_calendar import (
     CalendarIdentity, MarketCalendar, NonTradingSessionError, SessionSchedule,
 )
+from aml.market_halts import (
+    CompletenessMode, HaltSchedule, completeness_metadata, load_verified_halts,
+)
 from aml.replay import replay_to_frame
 from aml.trade_simulator import SimulationConfig, simulate_trades
 
@@ -150,6 +153,7 @@ def deterministic_run_id(
     input_hashes: dict[str, str],
     quality_policy_fingerprint: str,
     calendar_fingerprint: str,
+    completeness_mode=CompletenessMode.STRICT,
 ) -> str:
     payload = {
         "manifest_sha256": hashlib.sha256(normalized_manifest_bytes(manifest)).hexdigest(),
@@ -159,6 +163,7 @@ def deterministic_run_id(
         "input_hashes": dict(sorted(input_hashes.items())),
         "quality_policy_fingerprint": quality_policy_fingerprint,
         "calendar_fingerprint": calendar_fingerprint,
+        "completeness_mode": CompletenessMode(completeness_mode).value,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()[:20]
@@ -188,7 +193,7 @@ def _quality(observed: pd.DatetimeIndex, expected: pd.DatetimeIndex, policy: Qua
     return len(observed_regular), len(missing), missing_pct, largest_gap, band
 
 
-def _base_result(row, schedule=None):
+def _base_result(row, schedule=None, completeness_mode=CompletenessMode.STRICT, halts=None):
     expected_count = len(schedule.expected_minutes) if schedule is not None else None
     return {
         **row.to_dict(), "status": None, "status_detail": "", "exclusion_reason": "",
@@ -199,6 +204,7 @@ def _base_result(row, schedule=None):
         "candidate_count": None, "trade_count": None, "wins": None, "losses": None,
         "session_pnl": None, "session_return": None, "session_maximum_drawdown": None,
         "exit_reason_counts": None, "data_quality_band": "missing_heavy",
+        **completeness_metadata(completeness_mode, halts),
     }
 
 
@@ -211,23 +217,32 @@ def evaluate_batch(
     input_hashes: dict[str, str],
     quality_policy: QualityPolicy,
     simulator_config: SimulationConfig | None = None,
+    completeness_mode=CompletenessMode.STRICT,
+    halt_loader: Callable[[pd.Series], HaltSchedule] | None = None,
 ) -> BatchResult:
     normalized = normalize_manifest(manifest)
     config = simulator_config or SimulationConfig()
+    completeness_mode = CompletenessMode(completeness_mode)
     policy = quality_policy
     calendar_identity = calendar.identity(set(normalized["calendar_id"]))
     run_id = deterministic_run_id(
         normalized, strategy_fingerprint, config, source_commit, input_hashes,
         policy.fingerprint(),
         calendar_identity.fingerprint(),
+        completeness_mode,
     )
     session_rows, all_trades, all_candidates = [], [], []
     for _, row in normalized.iterrows():
         trading_day = date.fromisoformat(row["trading_date"])
-        result = _base_result(row)
+        halts = None
+        result = _base_result(row, completeness_mode=completeness_mode)
         try:
             schedule = calendar.schedule(trading_day, row["calendar_id"])
-            result = _base_result(row, schedule)
+            halts = (
+                halt_loader(row) if halt_loader is not None
+                else load_verified_halts(row["symbol"], row["trading_date"])
+            )
+            result = _base_result(row, schedule, completeness_mode, halts)
             bars = loader(row).copy()
             if bars.empty:
                 raise FileNotFoundError("No bars available")
@@ -254,8 +269,15 @@ def evaluate_batch(
             enriched = replay.merge(
                 bars[["timestamp", "high", "low"]], on="timestamp", how="left", validate="one_to_one"
             )
-            candidates = analyze_candidate_outcomes(enriched, config.candidate_score_threshold)
-            trades, summary = simulate_trades(replay, bars, config)
+            candidates = analyze_candidate_outcomes(
+                enriched,
+                candidate_score_threshold=config.candidate_score_threshold,
+                completeness_mode=completeness_mode,
+                halt_schedule=halts,
+            )
+            trades, summary = simulate_trades(
+                replay, bars, config, completeness_mode, halts
+            )
             result.update({
                 "candidate_count": len(candidates), "trade_count": len(trades),
                 "wins": summary["wins"], "losses": summary["losses"],

@@ -9,6 +9,7 @@ from aml.data_paths import (
     load_bars, validate_replay_feed,
 )
 from aml.thresholds import CANDIDATE_SCORE_THRESHOLD
+from aml.market_halts import CompletenessMode, load_verified_halts
 
 
 def parser():
@@ -16,6 +17,7 @@ def parser():
     p.add_argument("symbol", nargs="?", default="GME")
     p.add_argument("date", nargs="?", default="2024-05-13")
     p.add_argument("--feed", choices=(*RESEARCH_FEEDS, LEGACY_FEED), default=HISTORICAL_DATA_FEED)
+    p.add_argument("--completeness-mode", choices=[mode.value for mode in CompletenessMode], default=CompletenessMode.HALT_AWARE.value)
     p.add_argument("--candidate-score-threshold", type=int)
     p.add_argument("--minimum-score", type=int, help=argparse.SUPPRESS)
     return p
@@ -49,7 +51,13 @@ def main():
     args.candidate_score_threshold = resolve_candidate_score_threshold(p, args)
     symbol = args.symbol.upper()
     root = artifact_directory(symbol, args.date, args.feed)
-    validate_replay_feed(root, args.feed)
+    validate_replay_feed(root, args.feed, args.completeness_mode)
+    halts = load_verified_halts(symbol, args.date)
+    print(
+        f"Feed={args.feed}; completeness_mode={args.completeness_mode}; "
+        f"verified_halts={len(halts.records)}; "
+        f"full_halt_minutes={len(halts.full_halt_minutes)}"
+    )
     path = root / "replay_log.csv"
     replay = pd.read_csv(path)
     replay["timestamp"] = pd.to_datetime(replay["timestamp"])
@@ -60,7 +68,10 @@ def main():
         on="timestamp", how="left", validate="one_to_one",
     )
 
-    outcomes = analyze_candidate_outcomes(replay, candidate_score_threshold=args.candidate_score_threshold)
+    outcomes = analyze_candidate_outcomes(
+        replay, candidate_score_threshold=args.candidate_score_threshold,
+        completeness_mode=args.completeness_mode, halt_schedule=halts,
+    )
     features = calculate_candidate_features(replay, candidate_score_threshold=args.candidate_score_threshold)
 
     if len(outcomes) != len(features):

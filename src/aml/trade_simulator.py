@@ -9,6 +9,9 @@ from aml.thresholds import (
     CANDIDATE_SCORE_THRESHOLD, ELIGIBLE_SCORE_THRESHOLD, UNSET_THRESHOLD,
     resolve_deprecated_threshold_alias,
 )
+from aml.market_halts import (
+    CompletenessMode, HaltSchedule, completeness_metadata, expected_minutes,
+)
 
 
 @dataclass(frozen=True, init=False)
@@ -62,6 +65,8 @@ TRADE_COLUMNS = [
     "missing_minute_count", "complete_window", "risk_fraction",
     "entry_slippage_fraction", "exit_slippage_fraction", "stop_fraction",
     "target_fraction", "maximum_holding_minutes", "cooldown_minutes",
+    "completeness_mode", "verified_halt_count",
+    "verified_halt_minutes_excluded", "halt_data_path",
 ]
 
 
@@ -120,9 +125,14 @@ def _exit_position(bars, entry_index, adjusted_entry, config):
     return final_index, "session_end", float(bars.at[final_index, "close"]), stop, target
 
 
-def simulate_trades(signals, bars, config=None):
+def simulate_trades(
+    signals, bars, config=None,
+    completeness_mode: str | CompletenessMode = CompletenessMode.STRICT,
+    halt_schedule: HaltSchedule | None = None,
+):
     """Simulate one long position at a time from point-in-time signal rows."""
     config = config or SimulationConfig()
+    completeness_mode = CompletenessMode(completeness_mode)
     signals, bars = _prepare(signals, bars)
     # Execution is intentionally stricter than research-candidate selection.
     candidates = signals.loc[signals["score"] >= config.eligible_score_threshold]
@@ -169,14 +179,21 @@ def simulate_trades(signals, bars, config=None):
         equity_before = equity
         equity += net_pnl
 
-        expected_during_trade = pd.date_range(
+        raw_expected_during_trade = pd.date_range(
             entry_time + pd.Timedelta(1, unit="min"), exit_time, freq="min"
+        )
+        expected_during_trade = (
+            expected_minutes(raw_expected_during_trade[0], raw_expected_during_trade[-1], completeness_mode, halt_schedule)
+            if len(raw_expected_during_trade) else raw_expected_during_trade
         )
         observed_during_trade = pd.DatetimeIndex(
             bars.loc[(bars["timestamp"] > entry_time) & (bars["timestamp"] <= exit_time), "timestamp"]
         )
         deadline = entry_time + pd.Timedelta(config.maximum_holding_minutes, unit="min")
-        intended_window = pd.date_range(entry_time, deadline, freq="min")
+        raw_intended_window = pd.date_range(entry_time, deadline, freq="min")
+        intended_window = expected_minutes(
+            raw_intended_window[0], raw_intended_window[-1], completeness_mode, halt_schedule
+        )
         observed_window = pd.DatetimeIndex(
             bars.loc[(bars["timestamp"] >= entry_time) & (bars["timestamp"] <= deadline), "timestamp"]
         )
@@ -212,6 +229,7 @@ def simulate_trades(signals, bars, config=None):
             "target_fraction": config.target_fraction,
             "maximum_holding_minutes": config.maximum_holding_minutes,
             "cooldown_minutes": config.cooldown_minutes,
+            **completeness_metadata(completeness_mode, halt_schedule, raw_intended_window),
         })
         cooldown_until = exit_time + pd.Timedelta(config.cooldown_minutes, unit="min")
 

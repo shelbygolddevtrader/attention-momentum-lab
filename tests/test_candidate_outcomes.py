@@ -62,7 +62,7 @@ def test_missing_target_minute_is_not_replaced_by_later_data():
     assert not result["forward_5m_available"]
     assert result["missing_minutes_30m"] == 1
     assert not result["complete_30m_window"]
-    assert not any("halt" in column.lower() for column in result.index)
+    assert result["verified_halt_count"] == 0
 
 
 def test_insufficient_future_data_is_explicit():

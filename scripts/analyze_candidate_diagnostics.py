@@ -7,6 +7,7 @@ from aml.data_paths import (
     HISTORICAL_DATA_FEED, LEGACY_FEED, RESEARCH_FEEDS, artifact_directory,
     load_bars, validate_replay_feed,
 )
+from aml.market_halts import CompletenessMode, load_verified_halts
 
 METRICS = [f"forward_{m}m_return" for m in (5, 15, 30)] + [f"{kind}_{m}m" for kind in ("mfe", "mae") for m in (5, 15, 30)]
 FEATURES = ["episode_signal_ordinal", "signals_last_5m", "signals_last_15m", "minutes_since_previous_signal", "minutes_since_episode_start", "return_from_session_open", "return_3m", "return_5m", "return_15m", "distance_from_session_high", "pullback_from_session_high", "distance_from_session_low", "distance_from_vwap", "vwap_slope_3m", "vwap_slope_10m", "minutes_above_vwap", "volume_vs_trailing_5m_mean", "volume_vs_trailing_20m_mean", "volume_acceleration_3m", "volume_acceleration_5m", "bar_range_pct", "body_to_range_ratio", "close_location_value", "upper_wick_ratio", "lower_wick_ratio"]
@@ -15,6 +16,7 @@ def parser():
     p = argparse.ArgumentParser(description="Research-only candidate diagnostics")
     p.add_argument("symbol", nargs="?", default="GME"); p.add_argument("date", nargs="?", default="2024-05-13")
     p.add_argument("--feed", choices=(*RESEARCH_FEEDS, LEGACY_FEED), default=HISTORICAL_DATA_FEED)
+    p.add_argument("--completeness-mode", choices=[mode.value for mode in CompletenessMode], default=CompletenessMode.HALT_AWARE.value)
     return p
 
 def view(frame, name):
@@ -32,7 +34,13 @@ def markdown_table(frame):
 
 def main():
     args = parser().parse_args(); root = artifact_directory(args.symbol, args.date, args.feed)
-    validate_replay_feed(root, args.feed)
+    validate_replay_feed(root, args.feed, args.completeness_mode)
+    halts = load_verified_halts(args.symbol, args.date)
+    print(
+        f"Feed={args.feed}; completeness_mode={args.completeness_mode}; "
+        f"verified_halts={len(halts.records)}; "
+        f"full_halt_minutes={len(halts.full_halt_minutes)}"
+    )
     candidates = pd.read_csv(root / "candidate_outcomes.csv")
     candidates["timestamp"] = pd.to_datetime(candidates["timestamp"])
 
@@ -74,6 +82,8 @@ def main():
             f"# Candidate diagnostics: {args.symbol.upper()} {args.date}",
             "",
             "Dataset: 0 candidates; 0 episodes.",
+            f"Feed: {args.feed}; completeness mode: {args.completeness_mode}; "
+            f"verified halts: {len(halts.records)}; full halt minutes: {len(halts.full_halt_minutes)}.",
             "",
             "No candidates met the configured minimum score, so candidate-path "
             "and feature diagnostics were not calculated.",
@@ -90,7 +100,9 @@ def main():
         return
 
     bars = load_bars(args.symbol, args.date, args.feed)
-    paths, labels = analyze_candidate_paths(candidates, bars)
+    paths, labels = analyze_candidate_paths(
+        candidates, bars, args.completeness_mode, halts
+    )
     # Keep the independently calculated path metrics under their canonical
     # names; the source candidate artifact's 30m outcome columns remain intact.
     duplicates = [column for column in paths.columns if column != "timestamp" and column in candidates.columns]
@@ -109,7 +121,7 @@ def main():
     comparison, _ = distribution_statistics(first_later, ["signal_group"], ["forward_5m_return", "forward_15m_return", "forward_30m_return", "mfe_30m", "mae_30m"])
     target = labels[(labels.horizon_minutes == 30) & (((labels.target_fraction == .01) & (labels.stop_fraction == .01)) | ((labels.target_fraction == .02) & (labels.stop_fraction == .01)) | ((labels.target_fraction == .03) & (labels.stop_fraction == .02)))].groupby(["target_fraction", "stop_fraction", "outcome"]).size().rename("candidate_count").reset_index()
     strongest = correlations.dropna(subset=["spearman_correlation"]).reindex(correlations.spearman_correlation.abs().sort_values(ascending=False).index).head(10)
-    summary = [f"# Candidate diagnostics: {args.symbol.upper()} {args.date}", "", f"Dataset: {len(enriched)} candidates; {enriched.episode_id.nunique()} episodes.", f"Missing requested outcome columns: {', '.join(sorted(set(missing))) or 'none'}.", "", "## First / second / third-or-later", markdown_table(comparison), "", "## Target-before-stop (30m)", markdown_table(target), "", "## Strongest descriptive rank associations", markdown_table(strongest), "", "## Limitations", "Single symbol/date descriptive analysis only. Missing clock minutes produce insufficient target/stop labels; no forward filling or inference is used. Associations are not claims of prediction, profitability, or statistical significance."]
+    summary = [f"# Candidate diagnostics: {args.symbol.upper()} {args.date}", "", f"Dataset: {len(enriched)} candidates; {enriched.episode_id.nunique()} episodes.", f"Feed: {args.feed}; completeness mode: {args.completeness_mode}; verified halts: {len(halts.records)}; full halt minutes: {len(halts.full_halt_minutes)}.", f"Missing requested outcome columns: {', '.join(sorted(set(missing))) or 'none'}.", "", "## First / second / third-or-later", markdown_table(comparison), "", "## Target-before-stop (30m)", markdown_table(target), "", "## Strongest descriptive rank associations", markdown_table(strongest), "", "## Limitations", "Single symbol/date descriptive analysis only. Missing non-halt expected clock minutes produce insufficient target/stop labels; no forward filling or halt inference is used. Associations are not claims of prediction, profitability, or statistical significance."]
     (root / "diagnostic_summary.md").write_text("\n".join(summary) + "\n")
     print(f"Saved diagnostics for {len(enriched)} candidates to {root}")
     print(target.to_string(index=False))

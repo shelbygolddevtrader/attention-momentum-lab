@@ -14,6 +14,7 @@ from aml.batch_evaluation import (
 from aml.batch_reporting import build_reports
 from aml.exchange_calendar_adapter import ExchangeCalendarsAdapter
 from aml.data_paths import LEGACY_FEED, RESEARCH_FEEDS, feed_paths, legacy_paths, load_bars
+from aml.market_halts import CompletenessMode, load_verified_halts
 from aml.trade_simulator import SimulationConfig
 
 
@@ -28,7 +29,12 @@ def _json_ready(value):
 def main():
     parser = argparse.ArgumentParser(description="Run session-isolated batch research")
     parser.add_argument("manifest", type=Path)
+    parser.add_argument(
+        "--completeness-mode", choices=[mode.value for mode in CompletenessMode],
+        default=CompletenessMode.HALT_AWARE.value,
+    )
     args = parser.parse_args()
+    print(f"Completeness mode={args.completeness_mode}; feeds are selected per manifest row")
     root = Path.cwd()
     manifest = normalize_manifest(pd.read_csv(args.manifest))
     config = SimulationConfig()
@@ -75,6 +81,8 @@ def main():
     result = evaluate_batch(
         manifest, loader, calendar, file_sha256(strategy_path),
         source_commit, input_hashes, quality_policy, config,
+        args.completeness_mode,
+        lambda row: load_verified_halts(row["symbol"], row["trading_date"]),
     )
     reports = build_reports(result.session_results, result.trades)
     output = batch_artifact_directory(root, result.run_id)
@@ -105,6 +113,7 @@ def main():
         "calendar": result.calendar_identity.normalized_payload(),
         "calendar_fingerprint": result.calendar_identity.fingerprint(),
         "simulator_config": asdict(config), "input_hashes": result.input_hashes,
+        "completeness_mode": args.completeness_mode,
     }
     (output / "run_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     print(f"Saved batch artifacts: {output}")
