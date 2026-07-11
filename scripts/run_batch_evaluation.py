@@ -13,6 +13,7 @@ from aml.batch_evaluation import (
 )
 from aml.batch_reporting import build_reports
 from aml.exchange_calendar_adapter import ExchangeCalendarsAdapter
+from aml.data_paths import LEGACY_FEED, RESEARCH_FEEDS, feed_paths, legacy_paths, load_bars
 from aml.trade_simulator import SimulationConfig
 
 
@@ -44,8 +45,16 @@ def main():
     source_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
     ).stdout.strip()
+    def manifest_path(row):
+        feed = str(row.data_feed).lower()
+        if feed in RESEARCH_FEEDS:
+            return root / feed_paths(row.symbol, row.trading_date, feed)[1]
+        if feed in {LEGACY_FEED, "legacy_iex"}:
+            return root / legacy_paths(row.symbol, row.trading_date)[1]
+        return root / "data" / "processed" / row.symbol.upper() / f"{row.trading_date}_{feed}_1min.csv"
+
     input_paths = {
-        f"{row.symbol}:{row.trading_date}": root / "data" / "processed" / row.symbol.upper() / f"{row.trading_date}_1min.csv"
+        f"{row.symbol}:{row.trading_date}": manifest_path(row)
         for row in manifest.itertuples()
     }
     input_hashes = {
@@ -56,6 +65,11 @@ def main():
         path = input_paths[f"{row['symbol']}:{row['trading_date']}"]
         if not path.exists():
             raise FileNotFoundError(f"Missing local session input for {row['symbol']} {row['trading_date']}")
+        feed = str(row["data_feed"]).lower()
+        if feed in RESEARCH_FEEDS:
+            return load_bars(row["symbol"], row["trading_date"], feed)
+        if feed in {LEGACY_FEED, "legacy_iex"}:
+            return load_bars(row["symbol"], row["trading_date"], LEGACY_FEED)
         return pd.read_csv(path)
 
     result = evaluate_batch(

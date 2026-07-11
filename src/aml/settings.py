@@ -1,14 +1,18 @@
 from dataclasses import dataclass
 import os
 from dotenv import load_dotenv
+from aml.data_paths import HISTORICAL_DATA_FEED
 
 @dataclass(frozen=True)
 class Settings:
     api_key: str
     secret_key: str
+    # Legacy/live callers may continue to use ALPACA_DATA_FEED (default IEX).
     data_feed: str = "iex"
     paper_base_url: str = "https://paper-api.alpaca.markets"
     data_base_url: str = "https://data.alpaca.markets"
+    # Historical research commands pass this role explicitly and default to SIP.
+    historical_data_feed: str = HISTORICAL_DATA_FEED
 
     @classmethod
     def from_env(cls):

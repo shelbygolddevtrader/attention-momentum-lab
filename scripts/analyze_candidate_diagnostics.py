@@ -1,9 +1,12 @@
 import argparse
-from pathlib import Path
 
 import pandas as pd
 
 from aml.candidate_diagnostics import analyze_candidate_paths, distribution_statistics, feature_correlations
+from aml.data_paths import (
+    HISTORICAL_DATA_FEED, LEGACY_FEED, RESEARCH_FEEDS, artifact_directory,
+    load_bars, validate_replay_feed,
+)
 
 METRICS = [f"forward_{m}m_return" for m in (5, 15, 30)] + [f"{kind}_{m}m" for kind in ("mfe", "mae") for m in (5, 15, 30)]
 FEATURES = ["episode_signal_ordinal", "signals_last_5m", "signals_last_15m", "minutes_since_previous_signal", "minutes_since_episode_start", "return_from_session_open", "return_3m", "return_5m", "return_15m", "distance_from_session_high", "pullback_from_session_high", "distance_from_session_low", "distance_from_vwap", "vwap_slope_3m", "vwap_slope_10m", "minutes_above_vwap", "volume_vs_trailing_5m_mean", "volume_vs_trailing_20m_mean", "volume_acceleration_3m", "volume_acceleration_5m", "bar_range_pct", "body_to_range_ratio", "close_location_value", "upper_wick_ratio", "lower_wick_ratio"]
@@ -11,6 +14,7 @@ FEATURES = ["episode_signal_ordinal", "signals_last_5m", "signals_last_15m", "mi
 def parser():
     p = argparse.ArgumentParser(description="Research-only candidate diagnostics")
     p.add_argument("symbol", nargs="?", default="GME"); p.add_argument("date", nargs="?", default="2024-05-13")
+    p.add_argument("--feed", choices=(*RESEARCH_FEEDS, LEGACY_FEED), default=HISTORICAL_DATA_FEED)
     return p
 
 def view(frame, name):
@@ -27,7 +31,8 @@ def markdown_table(frame):
     return "\n".join(lines)
 
 def main():
-    args = parser().parse_args(); root = Path(f"artifacts/{args.symbol.upper()}/{args.date}")
+    args = parser().parse_args(); root = artifact_directory(args.symbol, args.date, args.feed)
+    validate_replay_feed(root, args.feed)
     candidates = pd.read_csv(root / "candidate_outcomes.csv")
     candidates["timestamp"] = pd.to_datetime(candidates["timestamp"])
 
@@ -84,10 +89,7 @@ def main():
         print(f"Saved zero-candidate diagnostics to {root}")
         return
 
-    bars = pd.read_csv(
-        Path(f"data/processed/{args.symbol.upper()}/{args.date}_1min.csv")
-    )
-    bars["timestamp"] = pd.to_datetime(bars["timestamp"])
+    bars = load_bars(args.symbol, args.date, args.feed)
     paths, labels = analyze_candidate_paths(candidates, bars)
     # Keep the independently calculated path metrics under their canonical
     # names; the source candidate artifact's 30m outcome columns remain intact.

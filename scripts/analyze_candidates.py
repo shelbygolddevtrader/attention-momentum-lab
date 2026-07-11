@@ -1,10 +1,13 @@
 import argparse
-from pathlib import Path
 
 import pandas as pd
 
 from aml.candidate_outcomes import analyze_candidate_outcomes
 from aml.candidate_features import calculate_candidate_features
+from aml.data_paths import (
+    HISTORICAL_DATA_FEED, LEGACY_FEED, RESEARCH_FEEDS, artifact_directory,
+    load_bars, validate_replay_feed,
+)
 from aml.thresholds import CANDIDATE_SCORE_THRESHOLD
 
 
@@ -12,6 +15,7 @@ def parser():
     p = argparse.ArgumentParser(description="Analyze historical replay candidates")
     p.add_argument("symbol", nargs="?", default="GME")
     p.add_argument("date", nargs="?", default="2024-05-13")
+    p.add_argument("--feed", choices=(*RESEARCH_FEEDS, LEGACY_FEED), default=HISTORICAL_DATA_FEED)
     p.add_argument("--candidate-score-threshold", type=int)
     p.add_argument("--minimum-score", type=int, help=argparse.SUPPRESS)
     return p
@@ -44,18 +48,17 @@ def main():
     args = p.parse_args()
     args.candidate_score_threshold = resolve_candidate_score_threshold(p, args)
     symbol = args.symbol.upper()
-    path = Path(f"artifacts/{symbol}/{args.date}/replay_log.csv")
+    root = artifact_directory(symbol, args.date, args.feed)
+    validate_replay_feed(root, args.feed)
+    path = root / "replay_log.csv"
     replay = pd.read_csv(path)
     replay["timestamp"] = pd.to_datetime(replay["timestamp"])
 
-    bars_path = Path(f"data/processed/{symbol}/{args.date}_1min.csv")
-    if bars_path.exists():
-        bars = pd.read_csv(
-            bars_path,
-            usecols=["timestamp", "open", "high", "low", "close"],
-        )
-        bars["timestamp"] = pd.to_datetime(bars["timestamp"])
-        replay = replay.merge(bars, on="timestamp", how="left", validate="one_to_one")
+    bars = load_bars(symbol, args.date, args.feed)
+    replay = replay.merge(
+        bars[["timestamp", "open", "high", "low", "close"]],
+        on="timestamp", how="left", validate="one_to_one",
+    )
 
     outcomes = analyze_candidate_outcomes(replay, candidate_score_threshold=args.candidate_score_threshold)
     features = calculate_candidate_features(replay, candidate_score_threshold=args.candidate_score_threshold)
@@ -85,7 +88,7 @@ def main():
             validate="one_to_one",
         )
 
-    save_path = Path(f"artifacts/{symbol}/{args.date}/candidate_outcomes.csv")
+    save_path = root / "candidate_outcomes.csv"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     output.to_csv(save_path, index=False)
     print(f"Saved {len(output)} candidates to {save_path}")
