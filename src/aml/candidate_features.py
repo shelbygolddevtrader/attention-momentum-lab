@@ -6,6 +6,7 @@ Forward bars deliberately belong in :mod:`aml.candidate_outcomes`, not here.
 
 import numpy as np
 import pandas as pd
+from aml.thresholds import CANDIDATE_SCORE_THRESHOLD
 
 
 _REQUIRED = {"timestamp", "price", "volume", "score", "open", "high", "low", "close"}
@@ -39,7 +40,7 @@ def _empty_or_value(numerator: float, denominator: float) -> float:
 
 
 def calculate_candidate_features(
-    replay: pd.DataFrame, minimum_score: int = 55, episode_gap_minutes: int = 10
+    replay: pd.DataFrame, candidate_score_threshold: int = CANDIDATE_SCORE_THRESHOLD, episode_gap_minutes: int = 10
 ) -> pd.DataFrame:
     """Return features for score-qualified rows without changing ``replay``.
 
@@ -163,7 +164,7 @@ def calculate_candidate_features(
     frame["lower_wick_ratio"] = (frame[["open", "close"]].min(axis=1) - frame["low"]) / ranges
     frame.loc[ranges == 0, ["body_to_range_ratio", "close_location_value", "upper_wick_ratio", "lower_wick_ratio"]] = np.nan
 
-    candidates = frame.loc[frame["score"] >= minimum_score].copy()
+    candidates = frame.loc[frame["score"] >= candidate_score_threshold].copy()
     candidates["signal_ordinal_today"] = candidates.groupby("_day", sort=False).cumcount() + 1
     previous = candidates.groupby("_day", sort=False)["timestamp"].shift()
     candidates["minutes_since_previous_signal"] = (candidates["timestamp"] - previous).dt.total_seconds() / 60

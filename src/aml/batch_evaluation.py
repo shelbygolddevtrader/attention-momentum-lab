@@ -254,7 +254,7 @@ def evaluate_batch(
             enriched = replay.merge(
                 bars[["timestamp", "high", "low"]], on="timestamp", how="left", validate="one_to_one"
             )
-            candidates = analyze_candidate_outcomes(enriched, config.minimum_score)
+            candidates = analyze_candidate_outcomes(enriched, config.candidate_score_threshold)
             trades, summary = simulate_trades(replay, bars, config)
             result.update({
                 "candidate_count": len(candidates), "trade_count": len(trades),

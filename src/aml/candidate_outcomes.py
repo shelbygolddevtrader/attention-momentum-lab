@@ -4,6 +4,7 @@ from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
+from aml.thresholds import CANDIDATE_SCORE_THRESHOLD
 
 HORIZONS = (5, 15, 30)
 
@@ -26,7 +27,7 @@ def _validated_frame(replay: pd.DataFrame) -> pd.DataFrame:
 
 def analyze_candidate_outcomes(
     replay: pd.DataFrame,
-    minimum_score: int = 55,
+    candidate_score_threshold: int = CANDIDATE_SCORE_THRESHOLD,
     horizons: Iterable[int] = HORIZONS,
 ) -> pd.DataFrame:
     """Calculate outcomes without silently bridging missing minute bars."""
@@ -36,7 +37,7 @@ def analyze_candidate_outcomes(
         raise ValueError("Forward horizons must be positive")
     indexed = frame.set_index("timestamp", drop=False)
     records = []
-    for row in frame.loc[frame["score"] >= minimum_score].itertuples(index=False):
+    for row in frame.loc[frame["score"] >= candidate_score_threshold].itertuples(index=False):
         entry_time = pd.Timestamp(row.timestamp).as_unit("ns")
         entry_price = float(row.price)
         record = {

@@ -13,6 +13,7 @@ from aml.batch_evaluation import (
 )
 from aml.market_calendar import SyntheticMarketCalendar
 from aml.trade_simulator import SimulationConfig
+from aml.thresholds import CANDIDATE_SCORE_THRESHOLD, ELIGIBLE_SCORE_THRESHOLD
 
 
 def manifest(rows=None):
@@ -165,6 +166,20 @@ def test_manifest_order_does_not_change_session_results_and_equity_resets():
     pd.testing.assert_frame_equal(first.session_results, second.session_results)
     if not first.trades.empty:
         assert first.trades.groupby("symbol")["equity_before_trade"].first().eq(2000).all()
+
+
+def test_batch_uses_candidate_55_and_execution_70_thresholds(monkeypatch):
+    replay = pd.DataFrame({
+        "timestamp": bars().timestamp, "symbol": "AAA", "price": 100.0,
+        "volume": 1000.0, "score": [55, 69, 70] + [0] * 387,
+        "eligible": [False, False, True] + [False] * 387,
+    })
+    monkeypatch.setattr("aml.batch_evaluation.replay_to_frame", lambda frame: replay)
+    result = evaluate(manifest(), lambda row: bars())
+    assert len(result.candidates) == 3
+    assert result.trades["signal_score"].tolist() == [70]
+    assert SimulationConfig().candidate_score_threshold == CANDIDATE_SCORE_THRESHOLD
+    assert SimulationConfig().eligible_score_threshold == ELIGIBLE_SCORE_THRESHOLD
 
 
 def test_zero_candidate_zero_trade_no_data_and_processing_error_are_retained():

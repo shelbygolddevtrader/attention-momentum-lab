@@ -14,7 +14,7 @@ def bars(periods=40, drop=()):
 
 
 def signals(minutes=(0,), scores=None):
-    scores = scores or [55] * len(minutes)
+    scores = scores or [70] * len(minutes)
     return pd.DataFrame({
         "timestamp": [pd.Timestamp("2024-01-02 09:30", tz="America/New_York") + pd.Timedelta(m, unit="min") for m in minutes],
         "symbol": "TEST", "score": scores,
@@ -26,10 +26,22 @@ def config(**changes):
     return SimulationConfig(**values)
 
 
-def test_first_qualifying_signal_enters_next_bar():
-    trades, _ = simulate_trades(signals((0, 2), (54, 55)), bars())
-    assert trades.iloc[0]["signal_score"] == 55
+def test_first_eligible_signal_enters_next_bar():
+    trades, _ = simulate_trades(signals((0, 2), (69, 70)), bars())
+    assert trades.iloc[0]["signal_score"] == 70
     assert trades.iloc[0]["actual_entry_timestamp"].minute == 33
+
+
+@pytest.mark.parametrize("score,expected_trades", [(54, 0), (55, 0), (69, 0), (70, 1)])
+def test_execution_threshold_boundaries(score, expected_trades):
+    trades, _ = simulate_trades(signals(scores=[score]), bars())
+    assert len(trades) == expected_trades
+
+
+def test_explicit_ineligible_row_cannot_trade_even_at_70():
+    frame = signals(scores=[70]).assign(eligible=False)
+    trades, _ = simulate_trades(frame, bars())
+    assert trades.empty
 
 
 def test_never_enters_on_signal_bar():

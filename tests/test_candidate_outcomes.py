@@ -81,6 +81,12 @@ def test_all_candidates_at_or_above_threshold_are_included():
     assert analyze_candidate_outcomes(frame)["score"].tolist() == [55, 55, 100]
 
 
+def test_candidate_threshold_boundaries_include_research_only_scores():
+    frame = replay()
+    frame.loc[:3, "score"] = [54, 55, 69, 70]
+    assert analyze_candidate_outcomes(frame)["score"].tolist() == [55, 69, 70]
+
+
 def test_non_chronological_input_is_rejected():
     frame = replay()
     frame.iloc[[1, 2]] = frame.iloc[[2, 1]].to_numpy()

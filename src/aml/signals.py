@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
+from aml.thresholds import (
+    ELIGIBLE_SCORE_THRESHOLD, UNSET_THRESHOLD, resolve_deprecated_threshold_alias,
+)
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class SignalConfig:
     return_window: int = 5
     volume_window: int = 20
@@ -11,7 +14,27 @@ class SignalConfig:
     relative_volume_threshold: float = 3.0
     vwap_threshold: float = 0.01
     acceleration_threshold: float = 1.5
-    eligible_score: int = 70
+    eligible_score_threshold: int = ELIGIBLE_SCORE_THRESHOLD
+
+    def __init__(
+        self, return_window=5, volume_window=20, acceleration_window=5,
+        return_threshold=0.03, relative_volume_threshold=3.0,
+        vwap_threshold=0.01, acceleration_threshold=1.5,
+        eligible_score_threshold=UNSET_THRESHOLD, *, eligible_score=UNSET_THRESHOLD,
+    ):
+        """Build signal config; ``eligible_score`` is a deprecated alias."""
+        eligible = resolve_deprecated_threshold_alias(
+            eligible_score_threshold, eligible_score, ELIGIBLE_SCORE_THRESHOLD,
+            "eligible_score_threshold", "eligible_score",
+        )
+        values = locals()
+        for name in (
+            "return_window", "volume_window", "acceleration_window",
+            "return_threshold", "relative_volume_threshold", "vwap_threshold",
+            "acceleration_threshold",
+        ):
+            object.__setattr__(self, name, values[name])
+        object.__setattr__(self, "eligible_score_threshold", eligible)
 
 def add_features(bars: pd.DataFrame, cfg=None):
     cfg = cfg or SignalConfig()
@@ -29,5 +52,5 @@ def add_features(bars: pd.DataFrame, cfg=None):
     f.loc[f["relative_volume"] >= cfg.relative_volume_threshold, "score"] += 35
     f.loc[f["vwap_distance"] >= cfg.vwap_threshold, "score"] += 20
     f.loc[f["volume_acceleration"] >= cfg.acceleration_threshold, "score"] += 10
-    f["eligible"] = f["score"] >= cfg.eligible_score
+    f["eligible"] = f["score"] >= cfg.eligible_score_threshold
     return f

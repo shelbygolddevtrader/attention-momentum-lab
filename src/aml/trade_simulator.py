@@ -5,12 +5,17 @@ import math
 
 import numpy as np
 import pandas as pd
+from aml.thresholds import (
+    CANDIDATE_SCORE_THRESHOLD, ELIGIBLE_SCORE_THRESHOLD, UNSET_THRESHOLD,
+    resolve_deprecated_threshold_alias,
+)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class SimulationConfig:
     strategy_version: str = "0.1.0"
-    minimum_score: int = 55
+    candidate_score_threshold: int = CANDIDATE_SCORE_THRESHOLD
+    eligible_score_threshold: int = ELIGIBLE_SCORE_THRESHOLD
     starting_equity: float = 2_000.0
     risk_fraction: float = 0.005
     stop_fraction: float = 0.03
@@ -20,6 +25,31 @@ class SimulationConfig:
     maximum_holding_minutes: int = 30
     slippage_fraction: float = 0.001
     cooldown_minutes: int = 30
+
+    def __init__(
+        self, strategy_version="0.1.0",
+        candidate_score_threshold=CANDIDATE_SCORE_THRESHOLD,
+        eligible_score_threshold=UNSET_THRESHOLD,
+        starting_equity=2_000.0, risk_fraction=0.005, stop_fraction=0.03,
+        target_fraction=0.06, entry_delay_minutes=1,
+        maximum_entry_delay_minutes=5, maximum_holding_minutes=30,
+        slippage_fraction=0.001, cooldown_minutes=30, *,
+        minimum_score=UNSET_THRESHOLD,
+    ):
+        """Build simulation config; ``minimum_score`` is a deprecated alias."""
+        eligible = resolve_deprecated_threshold_alias(
+            eligible_score_threshold, minimum_score, ELIGIBLE_SCORE_THRESHOLD,
+            "eligible_score_threshold", "minimum_score",
+        )
+        values = locals()
+        for name in (
+            "strategy_version", "candidate_score_threshold", "starting_equity",
+            "risk_fraction", "stop_fraction", "target_fraction",
+            "entry_delay_minutes", "maximum_entry_delay_minutes",
+            "maximum_holding_minutes", "slippage_fraction", "cooldown_minutes",
+        ):
+            object.__setattr__(self, name, values[name])
+        object.__setattr__(self, "eligible_score_threshold", eligible)
 
 
 TRADE_COLUMNS = [
@@ -94,7 +124,12 @@ def simulate_trades(signals, bars, config=None):
     """Simulate one long position at a time from point-in-time signal rows."""
     config = config or SimulationConfig()
     signals, bars = _prepare(signals, bars)
-    candidates = signals.loc[signals["score"] >= config.minimum_score]
+    # Execution is intentionally stricter than research-candidate selection.
+    candidates = signals.loc[signals["score"] >= config.eligible_score_threshold]
+    # Replays normally include this point-in-time strategy decision. When it is
+    # supplied, preserve it as an additional execution guard.
+    if "eligible" in signals.columns:
+        candidates = candidates.loc[candidates["eligible"].fillna(False).astype(bool)]
     equity = config.starting_equity
     cooldown_until = None
     records = []

@@ -5,14 +5,27 @@ import pandas as pd
 
 from aml.candidate_outcomes import analyze_candidate_outcomes
 from aml.candidate_features import calculate_candidate_features
+from aml.thresholds import CANDIDATE_SCORE_THRESHOLD
 
 
 def parser():
     p = argparse.ArgumentParser(description="Analyze historical replay candidates")
     p.add_argument("symbol", nargs="?", default="GME")
     p.add_argument("date", nargs="?", default="2024-05-13")
-    p.add_argument("--minimum-score", type=int, default=55)
+    p.add_argument("--candidate-score-threshold", type=int)
+    p.add_argument("--minimum-score", type=int, help=argparse.SUPPRESS)
     return p
+
+
+def resolve_candidate_score_threshold(p, args):
+    """Resolve deprecated --minimum-score as a research-only CLI alias."""
+    canonical, legacy = args.candidate_score_threshold, args.minimum_score
+    if canonical is not None and legacy is not None and canonical != legacy:
+        p.error(
+            "conflicting thresholds: --candidate-score-threshold and deprecated "
+            "--minimum-score must match"
+        )
+    return canonical if canonical is not None else legacy if legacy is not None else CANDIDATE_SCORE_THRESHOLD
 
 
 def _summary(output: pd.DataFrame, group: str) -> pd.DataFrame:
@@ -27,7 +40,9 @@ def _summary(output: pd.DataFrame, group: str) -> pd.DataFrame:
 
 
 def main():
-    args = parser().parse_args()
+    p = parser()
+    args = p.parse_args()
+    args.candidate_score_threshold = resolve_candidate_score_threshold(p, args)
     symbol = args.symbol.upper()
     path = Path(f"artifacts/{symbol}/{args.date}/replay_log.csv")
     replay = pd.read_csv(path)
@@ -42,8 +57,8 @@ def main():
         bars["timestamp"] = pd.to_datetime(bars["timestamp"])
         replay = replay.merge(bars, on="timestamp", how="left", validate="one_to_one")
 
-    outcomes = analyze_candidate_outcomes(replay, minimum_score=args.minimum_score)
-    features = calculate_candidate_features(replay, minimum_score=args.minimum_score)
+    outcomes = analyze_candidate_outcomes(replay, candidate_score_threshold=args.candidate_score_threshold)
+    features = calculate_candidate_features(replay, candidate_score_threshold=args.candidate_score_threshold)
 
     if len(outcomes) != len(features):
         raise RuntimeError(
@@ -77,7 +92,7 @@ def main():
 
     if output.empty:
         print(
-            f"No candidates met the minimum score of {args.minimum_score}; "
+            f"No candidates met the candidate score threshold of {args.candidate_score_threshold}; "
             "summary groupings were not calculated."
         )
         return
