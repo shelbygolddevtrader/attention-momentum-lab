@@ -68,3 +68,42 @@ Halt-aware completeness changes data-quality classification only. It does not
 change strategy scores, entries, exits, stop/target ordering, or P&L.
 
 Start with `FIRST_SESSION.md`.
+
+## Multi-strategy portfolio artifacts and dashboard
+
+The shared-capital simulator can publish deterministic, write-once research
+runs. A completed run lives under `artifacts/portfolio/{run_id}/`; its metadata
+is written last and contains file hashes, source/input provenance, fixed
+allocations, risk configuration, and explicit reconciliation checks. Existing
+completed run directories are never overwritten.
+
+Run metadata records both the Git commit and whether the source worktree was
+dirty. Provenance and input-hash names must use logical identifiers and must not
+contain credentials, secrets, or machine-local paths.
+
+Generate the synthetic three-strategy demonstration (not performance evidence):
+
+```bash
+.venv/bin/python scripts/demonstrate_portfolio_simulation.py \
+  --artifact-root artifacts/portfolio
+```
+
+Install the optional local dashboard dependency and launch the read-only UI:
+
+```bash
+.venv/bin/python -m pip install -e '.[dashboard]'
+.venv/bin/streamlit run scripts/run_portfolio_dashboard.py -- \
+  --artifact-root artifacts/portfolio
+```
+
+The dashboard loads only completed, schema-compatible, hash-verified runs. It
+shows persisted summaries, ledgers, proposal decisions, trades, equity and
+drawdown curves, cumulative strategy P&L, allocations, and provenance. It does
+not rerun the engine or reinterpret trading outcomes.
+
+Publication uses a hidden `.{run_id}.lock` file. If a process is interrupted,
+the lock is deliberately left stale so publication fails closed. Before manual
+recovery, confirm that no writer for that run is active and that no completed
+`{run_id}/` directory exists; only then remove the corresponding lock file and
+rerun publication. Hidden lock files and temporary directories are never loaded
+as completed runs.

@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
+from pathlib import Path
+import subprocess
 
 import pandas as pd
 
@@ -14,6 +17,12 @@ from aml.portfolio_simulator import (
     StrategyAllocation,
     StrategyProposal,
     simulate_portfolio,
+)
+from aml.portfolio_artifacts import (
+    PortfolioRunContext,
+    RunLabel,
+    dataframe_sha256,
+    write_portfolio_run,
 )
 
 
@@ -59,18 +68,28 @@ def proposal(employee: str, symbol: str, confidence: float) -> StrategyProposal:
 def parser() -> argparse.ArgumentParser:
     """Build the demonstration CLI without adding acquisition or live options."""
 
-    return argparse.ArgumentParser(
+    result = argparse.ArgumentParser(
         description=(
             "Run a deterministic synthetic three-strategy portfolio demonstration; "
             "results are not performance evidence."
         )
     )
+    result.add_argument(
+        "--artifact-root",
+        type=Path,
+        help="Persist an immutable synthetic run beneath this directory",
+    )
+    result.add_argument(
+        "--execution-timestamp",
+        help="Timezone-aware timestamp to record; defaults to the current UTC time",
+    )
+    return result
 
 
 def main(argv: list[str] | None = None) -> None:
     """Print deterministic proposal, trade, ledger, and portfolio results."""
 
-    parser().parse_args(argv)
+    args = parser().parse_args(argv)
     employees = (
         StrategyAllocation("attention_employee", "1.0.0", 1_000.0),
         StrategyAllocation("momentum_employee", "1.0.0", 1_000.0),
@@ -89,11 +108,8 @@ def main(argv: list[str] | None = None) -> None:
         proposal("momentum_employee", "BBB", 0.75),
         proposal("volume_employee", "CCC", 0.70),
     ]
-    result = simulate_portfolio(
-        proposals,
-        {"AAA": bars("AAA", target=True), "BBB": bars("BBB"), "CCC": bars("CCC")},
-        config,
-    )
+    inputs = {"AAA": bars("AAA", target=True), "BBB": bars("BBB"), "CCC": bars("CCC")}
+    result = simulate_portfolio(proposals, inputs, config)
     print("Synthetic proposal decisions (not performance evidence):")
     print(result.proposal_audit[[
         "strategy_identifier", "symbol", "status", "reason", "capital_used"
@@ -102,6 +118,41 @@ def main(argv: list[str] | None = None) -> None:
     print(result.strategy_ledgers.to_string(index=False))
     print("\nPortfolio reconciliation:")
     print(dict(result.portfolio_summary))
+    if args.artifact_root is not None:
+        source_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+        ).stdout.strip()
+        source_worktree_dirty = bool(subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout)
+        execution_timestamp = pd.Timestamp(
+            args.execution_timestamp or datetime.now(timezone.utc)
+        )
+        context = PortfolioRunContext(
+            source_commit=source_commit,
+            source_worktree_dirty=source_worktree_dirty,
+            execution_timestamp=execution_timestamp,
+            run_label=RunLabel.SYNTHETIC,
+            simulator_configuration={
+                "engine": "simulate_portfolio",
+                "execution_model": "deterministic_historical_bars",
+            },
+            input_hashes={
+                f"synthetic_bars:{symbol}": dataframe_sha256(frame)
+                for symbol, frame in sorted(inputs.items())
+            },
+            provenance={
+                "purpose": "three_strategy_demonstration",
+                "performance_evidence": False,
+            },
+        )
+        destination = write_portfolio_run(
+            args.artifact_root, result, proposals, config, context
+        )
+        print(f"\nPersisted immutable synthetic run: {destination}")
 
 
 if __name__ == "__main__":
