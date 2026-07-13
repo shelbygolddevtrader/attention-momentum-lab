@@ -11,6 +11,7 @@ from aml.batch_evaluation import (
     load_quality_policy, normalize_manifest, normalized_manifest_bytes,
     QualityPolicy, require_reproducible_source,
 )
+from aml.market_halts import HaltRecord, HaltSchedule, CompletenessMode
 from aml.market_calendar import SyntheticMarketCalendar
 from aml.trade_simulator import SimulationConfig
 from aml.thresholds import CANDIDATE_SCORE_THRESHOLD, ELIGIBLE_SCORE_THRESHOLD
@@ -51,6 +52,15 @@ def quality_policy(**changes):
     }
     values.update(changes)
     return QualityPolicy(**values)
+
+
+def halt_schedule(symbol="AAA", trading_date="2024-01-02", halt="2024-01-02 09:35:46-05:00", resume="2024-01-02 09:40:46-05:00"):
+    record = HaltRecord(
+        symbol, pd.Timestamp(trading_date).date(),
+        pd.Timestamp(halt), pd.Timestamp(resume), pd.Timestamp(resume),
+        "M", "NYSE", "https://example.test/halts",
+    )
+    return HaltSchedule(symbol, pd.Timestamp(trading_date).date(), (record,), "data/market_halts/AAA/2024-01-02_verified_halts.csv")
 
 
 def evaluate(frame, loader, calendar=None, input_hashes=None, policy=None, source_commit="source-commit"):
@@ -127,6 +137,98 @@ def test_quality_policy_changes_classification_and_run_id():
     assert strict_result.session_results.iloc[0]["data_quality_band"] == "missing_heavy"
     assert permissive_result.session_results.iloc[0]["data_quality_band"] == "complete_or_minor"
     assert strict_result.run_id != permissive_result.run_id
+
+
+def test_halt_aware_quality_uses_effective_missing_metrics_and_preserves_raw_metrics():
+    frame = bars(drop=(6, 7, 8, 9))
+    strict = evaluate_batch(
+        manifest(), lambda row: frame, SyntheticMarketCalendar(), "strategy-hash",
+        "source-commit", {"input": "hash"}, quality_policy(
+            complete_session_maximum_missing_percentage=0.005,
+            usable_session_maximum_missing_percentage=0.01,
+        ),
+        SimulationConfig(), CompletenessMode.STRICT,
+        lambda row: halt_schedule(),
+    )
+    row = strict.session_results.iloc[0]
+    assert row["missing_minute_count"] == 4
+    assert row["effective_missing_minute_count"] == 4
+    assert row["halt_covered_missing_minute_count"] == 4
+    assert row["data_quality_band"] == row["effective_data_quality_band"]
+    assert not row["included_in_aggregate"]
+    halt_aware = evaluate_batch(
+        manifest(), lambda row: frame, SyntheticMarketCalendar(), "strategy-hash",
+        "source-commit", {"input": "hash"}, quality_policy(
+            complete_session_maximum_missing_percentage=0.005,
+            usable_session_maximum_missing_percentage=0.01,
+        ),
+        SimulationConfig(), CompletenessMode.HALT_AWARE,
+        lambda row: halt_schedule(),
+    )
+    row = halt_aware.session_results.iloc[0]
+    assert row["missing_minute_count"] == 4
+    assert row["effective_missing_minute_count"] == 0
+    assert row["halt_covered_missing_minute_count"] == 4
+    assert row["halt_covered_observed_minute_count"] == 0
+    assert row["data_quality_band"] == "missing_heavy"
+    assert row["effective_data_quality_band"] == "complete_or_minor"
+    assert row["included_in_aggregate"]
+    assert row["status"] == "zero_candidates"
+
+
+def test_mixed_halt_covered_and_unexplained_gaps_keep_effective_quality_bands():
+    frame = bars(drop=(6, 7, 8, 9, 50))
+    result = evaluate_batch(
+        manifest(), lambda row: frame, SyntheticMarketCalendar(), "strategy-hash",
+        "source-commit", {"input": "hash"}, quality_policy(
+            complete_session_maximum_missing_percentage=0.005,
+            usable_session_maximum_missing_percentage=0.01,
+        ),
+        SimulationConfig(), CompletenessMode.HALT_AWARE,
+        lambda row: halt_schedule(),
+    )
+    row = result.session_results.iloc[0]
+    assert row["missing_minute_count"] == 5
+    assert row["halt_covered_missing_minute_count"] == 4
+    assert row["effective_missing_minute_count"] == 1
+    assert row["data_quality_band"] == "missing_heavy"
+    assert row["effective_data_quality_band"] == "complete_or_minor"
+    assert row["included_in_aggregate"]
+
+
+def test_no_verified_halts_leave_raw_and_effective_quality_identical():
+    frame = bars(drop=(6, 7, 8, 9))
+    result = evaluate_batch(
+        manifest(), lambda row: frame, SyntheticMarketCalendar(), "strategy-hash",
+        "source-commit", {"input": "hash"}, quality_policy(
+            complete_session_maximum_missing_percentage=0.005,
+            usable_session_maximum_missing_percentage=0.01,
+        ),
+        SimulationConfig(), CompletenessMode.HALT_AWARE,
+        lambda row: HaltSchedule(row["symbol"], pd.Timestamp(row["trading_date"]).date()),
+    )
+    row = result.session_results.iloc[0]
+    assert row["verified_halt_count"] == 0
+    assert row["halt_covered_missing_minute_count"] == 0
+    assert row["missing_minute_count"] == row["effective_missing_minute_count"] == 4
+    assert row["data_quality_band"] == row["effective_data_quality_band"]
+    assert not row["included_in_aggregate"]
+
+
+def test_completeness_mode_changes_run_id_deterministically():
+    strict = evaluate_batch(
+        manifest(), lambda row: bars(), SyntheticMarketCalendar(), "strategy-hash",
+        "source-commit", {"input": "hash"}, quality_policy(),
+        SimulationConfig(), CompletenessMode.STRICT,
+        lambda row: halt_schedule(),
+    )
+    aware = evaluate_batch(
+        manifest(), lambda row: bars(), SyntheticMarketCalendar(), "strategy-hash",
+        "source-commit", {"input": "hash"}, quality_policy(),
+        SimulationConfig(), CompletenessMode.HALT_AWARE,
+        lambda row: halt_schedule(),
+    )
+    assert strict.run_id != aware.run_id
 
 
 def test_source_commit_changes_run_id():

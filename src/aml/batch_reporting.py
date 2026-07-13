@@ -24,6 +24,11 @@ def _scope_trades(trades, eligible_sessions):
     return trades.loc[[key in keys for key in zip(trades["symbol"], trades["trading_date"])]]
 
 
+def _quality_band_column(sessions: pd.DataFrame, effective: bool):
+    column = "effective_data_quality_band" if effective and "effective_data_quality_band" in sessions.columns else "data_quality_band"
+    return sessions[column]
+
+
 def _performance(sessions: pd.DataFrame, trades: pd.DataFrame, scope: str) -> dict:
     eligible = _scope_sessions(sessions, scope)
     trades = _scope_trades(trades, eligible)
@@ -76,11 +81,14 @@ def _top_level(sessions, trades):
 
 
 def _grouped(sessions, trades, session_column=None, trade_column=None):
-    source = sessions[session_column].drop_duplicates().tolist() if session_column else trades[trade_column].drop_duplicates().tolist()
+    source_frame = _quality_band_column(sessions, effective=session_column == "effective_data_quality_band")
+    source = source_frame.drop_duplicates().tolist() if session_column in {"data_quality_band", "effective_data_quality_band"} else (
+        sessions[session_column].drop_duplicates().tolist() if session_column else trades[trade_column].drop_duplicates().tolist()
+    )
     records = []
     for value in sorted(source, key=str):
         if session_column:
-            selected_sessions = sessions.loc[sessions[session_column] == value]
+            selected_sessions = sessions.loc[_quality_band_column(sessions, effective=session_column == "effective_data_quality_band") == value] if session_column in {"data_quality_band", "effective_data_quality_band"} else sessions.loc[sessions[session_column] == value]
             keys = set(zip(selected_sessions["symbol"], selected_sessions["trading_date"]))
             selected_trades = trades.loc[[key in keys for key in zip(trades.get("symbol", []), trades.get("trading_date", []))]] if not trades.empty else trades
         else:
@@ -108,6 +116,8 @@ def build_reports(session_results: pd.DataFrame, trades: pd.DataFrame):
         "by_date": _grouped(session_results, trade_frame, session_column="trading_date"),
         "by_data_quality": _grouped(session_results, trade_frame, session_column="data_quality_band"),
     }
+    if "effective_data_quality_band" in session_results.columns:
+        reports["by_effective_data_quality"] = _grouped(session_results, trade_frame, session_column="effective_data_quality_band")
     for name, column in (("by_time_bucket", "time_bucket"), ("by_score_band", "score_band"), ("by_exit_reason", "exit_reason")):
         reports[name] = _grouped(session_results, trade_frame, trade_column=column) if not trade_frame.empty else pd.DataFrame()
     return reports

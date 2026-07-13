@@ -193,6 +193,17 @@ def _quality(observed: pd.DatetimeIndex, expected: pd.DatetimeIndex, policy: Qua
     return len(observed_regular), len(missing), missing_pct, largest_gap, band
 
 
+def _coverage_metrics(observed: pd.DatetimeIndex, expected: pd.DatetimeIndex, policy: QualityPolicy):
+    observed_count, missing_count, missing_pct, largest_gap, band = _quality(observed, expected, policy)
+    return {
+        "observed_minute_count": observed_count,
+        "missing_minute_count": missing_count,
+        "missing_percentage": missing_pct,
+        "largest_consecutive_gap": largest_gap,
+        "data_quality_band": band,
+    }
+
+
 def _base_result(row, schedule=None, completeness_mode=CompletenessMode.STRICT, halts=None):
     expected_count = len(schedule.expected_minutes) if schedule is not None else None
     return {
@@ -200,6 +211,10 @@ def _base_result(row, schedule=None, completeness_mode=CompletenessMode.STRICT, 
         "included_in_aggregate": False, "expected_minute_count": expected_count,
         "observed_minute_count": None, "missing_minute_count": None,
         "missing_percentage": None, "largest_consecutive_gap": None,
+        "effective_expected_minute_count": None, "effective_observed_minute_count": None,
+        "halt_covered_observed_minute_count": None, "halt_covered_missing_minute_count": None,
+        "effective_missing_minute_count": None, "effective_missing_percentage": None,
+        "effective_largest_consecutive_gap": None, "effective_data_quality_band": None,
         "first_observed_timestamp": None, "last_observed_timestamp": None,
         "candidate_count": None, "trade_count": None, "wins": None, "losses": None,
         "session_pnl": None, "session_return": None, "session_maximum_drawdown": None,
@@ -253,17 +268,38 @@ def evaluate_batch(
             if set(bars["timestamp"].dt.date) != {trading_day}:
                 raise ValueError("Cross-date bars in session input")
             observed = pd.DatetimeIndex(bars["timestamp"])
-            observed_count, missing_count, missing_pct, largest_gap, band = _quality(
-                observed, schedule.expected_minutes, policy
+            raw_metrics = _coverage_metrics(observed, schedule.expected_minutes, policy)
+            full_halt_minutes = schedule.expected_minutes.intersection(halts.full_halt_minutes)
+            effective_expected = (
+                schedule.expected_minutes.difference(full_halt_minutes)
+                if completeness_mode is CompletenessMode.HALT_AWARE
+                else schedule.expected_minutes
             )
+            effective_metrics = _coverage_metrics(observed, effective_expected, policy)
+            observed_regular = observed.intersection(schedule.expected_minutes)
+            raw_missing = schedule.expected_minutes.difference(observed_regular)
+            halt_covered_missing_count = len(raw_missing.intersection(full_halt_minutes))
+            halt_covered_observed_count = len(observed_regular.intersection(full_halt_minutes))
+            if completeness_mode is CompletenessMode.HALT_AWARE:
+                quality_metrics = effective_metrics
+            else:
+                quality_metrics = raw_metrics
             result.update({
-                "observed_minute_count": observed_count,
-                "missing_minute_count": missing_count,
-                "missing_percentage": missing_pct,
-                "largest_consecutive_gap": largest_gap,
+                "observed_minute_count": raw_metrics["observed_minute_count"],
+                "missing_minute_count": raw_metrics["missing_minute_count"],
+                "missing_percentage": raw_metrics["missing_percentage"],
+                "largest_consecutive_gap": raw_metrics["largest_consecutive_gap"],
+                "effective_expected_minute_count": len(effective_expected),
+                "effective_observed_minute_count": effective_metrics["observed_minute_count"],
+                "halt_covered_observed_minute_count": halt_covered_observed_count,
+                "halt_covered_missing_minute_count": halt_covered_missing_count,
+                "effective_missing_minute_count": effective_metrics["missing_minute_count"],
+                "effective_missing_percentage": effective_metrics["missing_percentage"],
+                "effective_largest_consecutive_gap": effective_metrics["largest_consecutive_gap"],
+                "effective_data_quality_band": effective_metrics["data_quality_band"],
                 "first_observed_timestamp": observed.min(),
                 "last_observed_timestamp": observed.max(),
-                "data_quality_band": band,
+                "data_quality_band": raw_metrics["data_quality_band"],
             })
             replay = replay_to_frame(bars)
             enriched = replay.merge(
@@ -287,11 +323,11 @@ def evaluate_batch(
                 "exit_reason_counts": json.dumps(trades["exit_reason"].value_counts().to_dict(), sort_keys=True),
             })
             quality_flagged = (
-                missing_pct is None
-                or missing_pct > policy.usable_session_maximum_missing_percentage
-                or band in policy.excluded_quality_bands
+                quality_metrics["missing_percentage"] is None
+                or quality_metrics["missing_percentage"] > policy.usable_session_maximum_missing_percentage
+                or quality_metrics["data_quality_band"] in policy.excluded_quality_bands
             )
-            excluded_by_policy = band in policy.excluded_quality_bands or (
+            excluded_by_policy = quality_metrics["data_quality_band"] in policy.excluded_quality_bands or (
                 quality_flagged and policy.exclude_quality_flagged_sessions
             )
             if quality_flagged:
@@ -311,7 +347,7 @@ def evaluate_batch(
                 candidates = candidates.assign(trading_date=row["trading_date"], session_class=row["session_class"], cohort_id=row["cohort_id"])
                 all_candidates.append(candidates)
             if not trades.empty:
-                trades = trades.assign(trading_date=row["trading_date"], session_class=row["session_class"], cohort_id=row["cohort_id"], data_quality_band=band)
+                trades = trades.assign(trading_date=row["trading_date"], session_class=row["session_class"], cohort_id=row["cohort_id"], data_quality_band=quality_metrics["data_quality_band"])
                 all_trades.append(trades)
         except NonTradingSessionError as exc:
             result.update(

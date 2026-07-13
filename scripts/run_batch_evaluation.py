@@ -92,7 +92,16 @@ def main():
     result.trades.to_csv(output / "trades.csv", index=False)
     result.candidates.to_csv(output / "candidates.csv", index=False)
     result.session_results.loc[result.session_results["trade_count"] == 0].to_csv(output / "zero_trade_sessions.csv", index=False)
-    result.session_results[["symbol", "trading_date", "expected_minute_count", "observed_minute_count", "missing_minute_count", "missing_percentage", "largest_consecutive_gap", "data_quality_band"]].to_csv(output / "data_quality.csv", index=False)
+    result.session_results[[
+        "symbol", "trading_date", "completeness_mode", "expected_minute_count",
+        "observed_minute_count", "missing_minute_count", "missing_percentage",
+        "largest_consecutive_gap", "effective_expected_minute_count",
+        "effective_observed_minute_count", "halt_covered_observed_minute_count",
+        "halt_covered_missing_minute_count", "effective_missing_minute_count",
+        "effective_missing_percentage", "effective_largest_consecutive_gap",
+        "data_quality_band", "effective_data_quality_band",
+        "verified_halt_count", "verified_halt_minutes_excluded", "halt_data_path",
+    ]].to_csv(output / "data_quality.csv", index=False)
     (output / "aggregate_overall.json").write_text(json.dumps(_json_ready(reports["overall"]), indent=2), encoding="utf-8")
     for filename, key in (
         ("aggregate_by_session_class.csv", "by_session_class"),
@@ -101,8 +110,10 @@ def main():
         ("aggregate_by_score_band.csv", "by_score_band"),
         ("aggregate_by_exit_reason.csv", "by_exit_reason"),
         ("aggregate_by_data_quality.csv", "by_data_quality"),
+        ("aggregate_by_effective_data_quality.csv", "by_effective_data_quality"),
     ):
-        reports[key].to_csv(output / filename, index=False)
+        if key in reports:
+            reports[key].to_csv(output / filename, index=False)
     metadata = {
         "run_id": result.run_id, "execution_timestamp": datetime.now(timezone.utc).isoformat(),
         "evaluation_type": "session_level_not_portfolio", "source_commit": source_commit,

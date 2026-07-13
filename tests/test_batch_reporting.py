@@ -8,11 +8,11 @@ from aml.batch_reporting import build_reports
 
 def sessions():
     return pd.DataFrame([
-        {"symbol":"AAA","trading_date":"2024-01-02","session_class":"attention_event","status":"completed","included_in_aggregate":True,"candidate_count":2,"trade_count":2,"session_pnl":15.0,"session_return":0.0075,"session_maximum_drawdown":-0.01,"data_quality_band":"complete_or_minor"},
-        {"symbol":"BBB","trading_date":"2024-01-03","session_class":"ordinary_control","status":"zero_trades","included_in_aggregate":True,"candidate_count":1,"trade_count":0,"session_pnl":0.0,"session_return":0.0,"session_maximum_drawdown":0.0,"data_quality_band":"moderate_gaps"},
-        {"symbol":"CCC","trading_date":"2024-01-04","session_class":"ordinary_control","status":"completed","included_in_aggregate":True,"candidate_count":1,"trade_count":1,"session_pnl":-5.0,"session_return":-0.0025,"session_maximum_drawdown":-0.005,"data_quality_band":"complete_or_minor"},
-        {"symbol":"DDD","trading_date":"2024-01-05","session_class":"attention_event","status":"quality_flagged","included_in_aggregate":False,"candidate_count":1,"trade_count":1,"session_pnl":50.0,"session_return":0.025,"session_maximum_drawdown":-0.02,"data_quality_band":"missing_heavy"},
-        {"symbol":"EEE","trading_date":"2024-01-06","session_class":"ordinary_control","status":"no_data","included_in_aggregate":False,"candidate_count":None,"trade_count":None,"session_pnl":None,"session_return":None,"session_maximum_drawdown":None,"data_quality_band":"missing_heavy"},
+        {"symbol":"AAA","trading_date":"2024-01-02","session_class":"attention_event","status":"completed","included_in_aggregate":True,"candidate_count":2,"trade_count":2,"session_pnl":15.0,"session_return":0.0075,"session_maximum_drawdown":-0.01,"data_quality_band":"complete_or_minor","effective_data_quality_band":"complete_or_minor"},
+        {"symbol":"BBB","trading_date":"2024-01-03","session_class":"ordinary_control","status":"zero_trades","included_in_aggregate":True,"candidate_count":1,"trade_count":0,"session_pnl":0.0,"session_return":0.0,"session_maximum_drawdown":0.0,"data_quality_band":"moderate_gaps","effective_data_quality_band":"moderate_gaps"},
+        {"symbol":"CCC","trading_date":"2024-01-04","session_class":"ordinary_control","status":"completed","included_in_aggregate":True,"candidate_count":1,"trade_count":1,"session_pnl":-5.0,"session_return":-0.0025,"session_maximum_drawdown":-0.005,"data_quality_band":"complete_or_minor","effective_data_quality_band":"complete_or_minor"},
+        {"symbol":"DDD","trading_date":"2024-01-05","session_class":"attention_event","status":"quality_flagged","included_in_aggregate":False,"candidate_count":1,"trade_count":1,"session_pnl":50.0,"session_return":0.025,"session_maximum_drawdown":-0.02,"data_quality_band":"missing_heavy","effective_data_quality_band":"complete_or_minor"},
+        {"symbol":"EEE","trading_date":"2024-01-06","session_class":"ordinary_control","status":"no_data","included_in_aggregate":False,"candidate_count":None,"trade_count":None,"session_pnl":None,"session_return":None,"session_maximum_drawdown":None,"data_quality_band":"missing_heavy","effective_data_quality_band":"missing_heavy"},
     ])
 
 
@@ -46,6 +46,13 @@ def test_all_grouped_reports_contain_both_scopes():
     for name in ("by_session_class","by_symbol","by_date","by_data_quality","by_time_bucket","by_score_band","by_exit_reason"):
         assert set(reports[name]["aggregation_scope"]) == {"all_processed_sessions", "quality_qualified_sessions"}
     assert set(reports["by_session_class"]["session_class"]) == {"attention_event", "ordinary_control"}
+
+
+def test_effective_data_quality_grouping_is_reported_when_present():
+    reports = build_reports(sessions(), trades())
+    assert "by_effective_data_quality" in reports
+    assert set(reports["by_effective_data_quality"]["aggregation_scope"]) == {"all_processed_sessions", "quality_qualified_sessions"}
+    assert set(reports["by_effective_data_quality"]["effective_data_quality_band"]) == {"complete_or_minor", "moderate_gaps", "missing_heavy"}
 
 
 def test_concentration_and_largest_winner_exclusions_are_scope_specific():
