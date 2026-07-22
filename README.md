@@ -119,3 +119,20 @@ input hash and preserves the established attention strategy parameters:
 This local feasibility run is explicitly retrospective development output. It
 is not part of the preregistered production cohort and is not validation or
 profitability evidence.
+
+### Zero-cost historical SIP engineering rehearsal
+
+The fixed Alpaca rehearsal proves the end-to-end software path with AAPL on
+2026-07-15 while remaining separate from Research Cohort V001. It is dry-run by
+default, never prints credentials, cannot change its symbol/date/feed scope, and
+is labeled development-only rather than validation evidence:
+
+```bash
+.venv/bin/python scripts/run_engineering_rehearsal.py
+.venv/bin/python scripts/run_engineering_rehearsal.py --execute
+```
+
+Successful acquisition data and portfolio artifacts are hash-validated,
+write-once generated files beneath ignored `data/research/` and `artifacts/`
+paths. See `docs/ENGINEERING_REHEARSAL_V001.md` for scope, resumption, and the
+machine-visible reference-data and licensing limitations.
