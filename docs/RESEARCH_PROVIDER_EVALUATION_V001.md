@@ -1,480 +1,472 @@
-# Research Cohort V001: Data-Provider and Licensing Evaluation
+# Research Cohort V001: Provider and Licensing Readiness
 
-**Status:** procurement recommendation; implementation not authorized
-**Evaluated:** 2026-07-13
-**Controlling specifications:** `RESEARCH_COHORT_V001_DESIGN.md` and
-`RESEARCH_DATA_SCHEMAS_V001.md`
-**Evidence convention:** **Verified** means an official provider page or contract
-supports the statement. **Assumption** means a planning estimate. **Unresolved**
-requires a written answer, sample data, or executed order form. This document is
-not legal advice.
+**Status:** procurement package; collection and purchasing not authorized
+**Originally evaluated:** 2026-07-13
+**Revalidated:** 2026-07-22
+**Controlling specifications:** `RESEARCH_COHORT_V001_DESIGN.md`,
+`RESEARCH_DATA_SCHEMAS_V001.md`, and `COHORT_SELECTION_PROTOCOL_V001.md`
+**Decision:** **NO-GO** until the technical samples and written rights below pass
 
-## Executive recommendation
+This document is a technical and commercial readiness assessment, not legal
+advice. **Verified** means a current official provider page supports the stated
+fact. **Conditional** means the public material is promising but a representative
+sample or executed order form must prove the requirement. **Unresolved** means no
+official public source reviewed on 2026-07-22 establishes the requirement.
 
-Research Cohort V001 requires a multi-provider stack. No evaluated provider is
-verified to supply both (a) consolidated SIP minute bars with extended-hours
-coverage and (b) the complete point-in-time reference evidence required by the
-repository, including dated common-stock classification, symbol continuity, and
-proof of corporate-action coverage when no action occurred.
+## Executive decision
 
-Recommended stack:
+Research Cohort V001 still requires a multi-provider architecture unless one
+vendor proves the complete reference-data contract with samples.
 
-1. **Primary historical market data: Massive Stocks flat files**, subject to a
-   written license covering internal research, retained raw data, and derived
-   metrics. Its official stock flat-file documentation identifies a consolidated
-   SIP minute-aggregate dataset, daily bulk files, 04:00–20:00 ET coverage, and
-   at least five years of history on the Starter tier. Daily bulk files are a
-   materially better fit for a 4,000-symbol universe than per-symbol REST calls.
-   [Official stock flat-file overview](https://massive.com/docs/flat-files/stocks/overview)
-2. **Reference data: Exchange Data International (EDI) PIT_SRF + PIT_EVT plus
-   North American corporate actions**, subject to schema validation and a
-   written license. EDI documents listing-level point-in-time records with start
-   and end dates since January 2005, plus event context from its corporate-action
-   service. It also advertises internal and redistribution licensing, but the
-   exact permitted use must be in the order form.
-   [EDI point-in-time reference data](https://www.exchange-data.com/product/securities-reference-data/)
-   and [EDI developer description](https://developer.exchange-data.com/product/securities-reference-data)
-3. **Compatibility fallback for market data: Alpaca SIP historical bars.** The
-   repository already supports this path. Alpaca documents historical equities
-   data since 2016, CTA/UTP consolidated coverage, a 200-request/minute free tier,
-   and a $99/month 10,000-request/minute plan. Its public product pages do not
-   settle retention or subscriber-facing derived-display rights, so collection
-   should not begin until those rights are confirmed in writing.
-   [Alpaca Market Data API plans](https://docs.alpaca.markets/us/docs/about-market-data-api)
+1. **Primary market-data candidate: Massive Stocks Business.** Its official
+   materials document consolidated U.S. SIP minute flat files, 04:00–20:00 ET
+   coverage, full-market daily bulk delivery, more than 20 years of history, and
+   a current public business price of **$1,999/month**. The business page
+   expressly describes internal tools, backtesting, and signal analysis.
+   [Stocks flat files](https://massive.com/docs/flat-files/stocks/overview) ·
+   [Stocks Business](https://massive.com/business-stocks)
+2. **Primary reference-data candidate: Exchange Data International (EDI).** Its
+   PIT_SRF product has start/end-dated listing-level history since January 2005;
+   PIT_EVT adds the reason for static-data changes from corporate actions. EDI
+   also offers North American corporate actions and advertises customized
+   redistribution licensing. Price and exact rights require a quote and order
+   form. [PIT reference data](https://www.exchange-data.com/product/securities-reference-data/) ·
+   [North American corporate actions](https://www.exchange-data.com/product/north-american-corporate-actions/) ·
+   [Flexible licensing](https://www.exchange-data.com/flexible-licensing/)
+3. **Conditional single-provider candidate: Massive Stocks Business.** Massive
+   exposes date-filtered ticker records with active/delisted status, security
+   type, FIGIs, exchange, and `last_updated_utc`. It also offers corporate-action
+   and ticker-event endpoints. It becomes a one-provider option only if sample
+   files prove historical knowledge time, symbol continuity, corrections,
+   immutable vintage, and bounded negative corporate-action coverage.
+   [All Tickers](https://massive.com/docs/rest/stocks/tickers/all-tickers) ·
+   [Ticker Types](https://massive.com/docs/rest/stocks/tickers/ticker-types)
+4. **Market-data fallback: Alpaca SIP, only under written commercial permission.**
+   Alpaca technically supplies explicit SIP historical bars since 2016 and
+   extended-hours data, but its $99 Trading API plan is framed for individual
+   traders. Alpaca's official support page states that Alpaca API data cannot be
+   redistributed, and its customer terms prohibit commercial exploitation
+   without written consent. [Market Data API](https://docs.alpaca.markets/us/docs/about-market-data-api) ·
+   [Redistribution answer](https://alpaca.markets/support/redistribute-alpaca-api) ·
+   [Disclosures](https://alpaca.markets/disclosures)
 
-The smallest lawful technical pilot is one full point-in-time universe on one
-registered cohort date plus its 20 registered warm-up sessions—not a hand-picked
-symbol sample. It must be conducted under provider trial or order-form language
-that expressly permits internal research and retention. It can validate the
-pipeline, but it cannot be used to evaluate strategy performance.
+Do not buy an individual plan for a pilot intended to seed a future commercial
+product. Massive's individual market-data terms limit use to personal,
+non-business, non-commercial purposes and restrict derivative works unless
+licensed. [Massive market-data terms](https://massive.com/legal/market-data-terms-of-service)
 
-## 1. Repository-derived data contract
+The smallest lawful pilot remains one complete point-in-time U.S. common-stock
+universe on 2024-06-03 plus its exact 20 registered warm-up sessions. It tests
+data contracts only and must stop after freezing the 09:25 selection audit.
 
-The provider stack must support the following without weakening the registered
-cohort rules.
+## 1. Non-negotiable repository contract
 
 ### Market observations
 
-- Consolidated SIP one-minute OHLCV bars, not IEX-only observations.
-- Premarket bars in **[04:00:00, 09:25:00) America/New_York**. The 09:25 minute
-  and every later observation are forbidden selection inputs.
-- Regular bars on the authoritative XNYS left-labeled index, normally
-  **[09:30:00, 16:00:00)**. A 16:00 bar is not a regular-session minute.
-- Twenty distinct, verified warm-up sessions per screened security.
-- No filled or interpolated missing bars; zero observed premarket trades must be
-  distinguishable from failed or unavailable acquisition.
-- Raw provider pages, processed segment files, acquisition timestamps, requested
-  and evidenced feed, adjustment, pagination, retry state, hashes, and an
+- Consolidated CTA/UTP SIP one-minute OHLCV, not IEX-only data.
+- Premarket bars in **[04:00:00, 09:25:00) America/New_York**.
+- Regular bars on the authoritative XNYS left-labeled minute index, normally
+  **[09:30:00, 16:00:00)**; 16:00 is not a regular-session bar.
+- The complete screened universe for each date, not symbols selected after a
+  move is observed.
+- Twenty distinct verified warm-up sessions for every screened security.
+- Missing and zero-trade minutes remain distinguishable; no interpolation.
+- Raw provider pages/files, processed segments, request identity, feed,
+  adjustment, timestamps, pagination, corrections, retry state, hashes, and
   immutable dataset vintage.
 
-### Point-in-time reference observations
+### Point-in-time reference evidence
 
-- A daily U.S. common-stock universe known before 09:25 ET, including security
-  type, exchange, calendar, active status, source, and vintage.
+- A complete U.S. common-stock universe known strictly before 09:25 ET.
+- Historical security type, active status, exchange, and calendar identity.
 - Listing and delisting intervals with `known_at_timestamp`.
-- Corporate actions with effective time, action type, positive adjustment
-  factor, knowledge time, and coverage provenance.
-- An explicit coverage assertion when no corporate action occurred. An empty
-  response is not evidence of `verified_none`.
-- Symbol/ticker continuity with non-overlapping effective intervals and stable
-  identifiers so renamed securities do not disappear or merge incorrectly.
-- Historical security-type classification, not today's type projected backward.
-- Provider release/snapshot/vintage identifiers sufficient to reproduce the
-  universe as it was delivered.
+- Symbol continuity with stable identifiers and non-overlapping effective dates.
+- Corporate actions with effective and knowledge timestamps and adjustment
+  provenance.
+- A sourced, bounded coverage assertion when no corporate action occurred.
+  Empty results do not establish `verified_none`.
+- Release, snapshot, or delivery identifiers sufficient to reproduce the data
+  vintage and distinguish later corrections.
 
-## 2. Must-have acceptance checklist
+### Required contractual rights
 
-Do not approve a provider or start production collection until every applicable
-item is checked and evidenced in a sample file, contract, or both.
+- Internal quantitative research and backtesting by the intended legal entity.
+- Raw and normalized data storage, governed backups, and cloud processing.
+- Retention and reproducibility after subscription termination, or an explicit
+  alternative archival right.
+- Creation and internal use of features, scores, simulations, and models.
+- Display of non-reconstructable derived intelligence to paying subscribers.
+- Explicit treatment of dashboards, alerts, reports, CSV exports, and APIs.
+- Clear limits on raw data, reconstructable values, redistribution, and
+  competing-data products.
+- Named rights for employees, contractors, subprocessors, and disaster recovery.
+- All CTA, UTP, exchange, professional-user, display, and non-display fees.
 
-### Technical and historical coverage
+## 2. Procurement requirements matrix
 
-- [ ] SIP/CTA/UTP provenance is explicit; IEX-only data cannot masquerade as SIP.
-- [ ] One-minute OHLCV includes [04:00, 09:25) ET and the full XNYS regular session.
-- [ ] The provider explains trade eligibility and why a minute bar may be absent.
-- [ ] June 2024 through June 2025 is within licensed historical depth.
-- [ ] Timestamps, timezone, interval labeling, corrections, and adjustment rules
-      are documented.
-- [ ] Pagination or bulk-download completion can be proven and audited.
-- [ ] Rate limits support the planned volume without an undocumented waiver.
-- [ ] Raw files may be retained, backed up, hashed, and versioned.
-- [ ] Corrections/revisions expose a release timestamp or immutable vintage.
-- [ ] A point-in-time common-stock universe exists for every selection date.
-- [ ] Listing, delisting, historical security type, corporate action, and symbol
-      continuity fields satisfy the repository schemas.
-- [ ] The provider can prove negative corporate-action coverage, or a contractual
-      process exists to construct an auditable `verified_none` record.
-- [ ] Stable identifiers (preferably FIGI plus provider security ID) join market
-      and reference records through ticker changes.
+Legend: **V** verified publicly; **C** conditional on sample/order form;
+**N** documented mismatch; **U** unresolved; **—** not the provider's role.
 
-### Rights and governance
+| Requirement | Massive Business | EDI | Alpaca Trading API | Intrinio | Nasdaq Data Link / Sharadar | Norgate |
+|---|---:|---:|---:|---:|---:|---:|
+| Consolidated SIP minute bars | V | — | V | U | U | N |
+| 04:00–09:25 ET coverage | V | — | C | U | U | N |
+| Regular-session minute bars | V | — | V | U | U | N |
+| June 2024–June 2025 history | V | V for reference | V | C | C | V, daily only |
+| Market-wide bulk delivery | V | — | N | C | C | N |
+| PIT common-stock universe | C | C | U | U | C | C |
+| Historical security type | C | C | U | U | C | C |
+| Listings and delistings | C | C | U | C | C | V, daily product |
+| Ticker/symbol continuity | C | C | U | C | C | C |
+| Stable identifiers | V, FIGI | V, FIGI and others | U | C | C | C |
+| Corporate-action history | V endpoint; sample required | V | C | C; current page says most recent only for one feed | C | C |
+| Bounded negative-action evidence | U | U | U | U | U | U |
+| Knowledge/publication timestamp | C | C | U | C | C | U |
+| Immutable release/vintage | U | C | U | C | C | U |
+| Public business price | V, $1,999/month | Quote | V, $99/month individual | V, $333 startup / $1,250+ enterprise | Product/order-form specific | V, personal packages |
+| Internal business research | V at high level; order form controls data | C | N without written consent | C | V by default terms | N |
+| Raw retention after termination | N by default business terms; must amend | C | U | U | N by default terms; must amend | N |
+| Paying-subscriber derived display | U; must be in order form | C; advertised as customizable | N by default | C under executed Startup/Enterprise order form | N by default; written approval required | N |
+| Standard V001 fit | Best market candidate | Best reference candidate | Technical fallback only | Reference fallback only | Reference fallback only | Disqualified |
 
-- [ ] Internal quantitative research and backtesting are permitted.
-- [ ] Raw and normalized data may be stored for the required retention period,
-      including after subscription termination if needed.
-- [ ] Disaster-recovery copies and governed cloud/subprocessor storage are allowed.
-- [ ] Features, scores, ranks, models, and non-reconstructable aggregate results
-      are contractually defined as permitted derived data.
-- [ ] The contract addresses derived intelligence displayed to paying subscribers.
-- [ ] Raw quote/bar display, delayed display, non-display use, and derived display
-      are distinguished explicitly.
-- [ ] API, CSV export, report, alert, dashboard, and model-output rights are listed.
-- [ ] Redistribution, reconstruction, reverse engineering, and competing-product
-      restrictions are understood.
-- [ ] Any CTA, UTP, exchange, professional-user, or per-subscriber fees are listed.
-- [ ] Audit, attribution, deletion-on-termination, correction, and breach duties
-      are documented.
-- [ ] The license permits the intended legal entity, personnel, contractors, and
-      production environment—not merely one non-professional individual.
+### Matrix evidence
 
-## 3. Capability comparison
+- Massive documents the `us_stocks_sip/minute_aggs_v1` daily files, direct SIP
+  processing, every major U.S. exchange plus FINRA and dark pools, unadjusted
+  values, UTC timestamps, and 04:00–20:00 ET coverage.
+  [Flat-file overview](https://massive.com/docs/flat-files/stocks/overview)
+- Massive's current public business plan is $1,999/month and includes minute
+  aggregates, flat files, historical trades and quotes, reference data, and
+  corporate actions. [Business pricing](https://massive.com/business-stocks)
+- Massive's default business terms prohibit derivative strategies and external
+  use of information unless licensed, and require deletion of information at
+  termination. The order form and third-party agreements therefore must amend
+  these points explicitly. [Business terms](https://massive.com/legal/businesses-terms-of-service)
+- EDI's PIT_SRF contains start/end-dated listing-level changes since January
+  2005, and PIT_EVT explains reference changes using corporate-action events.
+  Delivery includes S3, SFTP, API, and Snowflake. Public pricing is client
+  specific. [Reference data](https://www.exchange-data.com/product/securities-reference-data/) ·
+  [Pricing](https://www.exchange-data.com/competitive-pricing-edi/)
+- EDI advertises flexible redistribution agreements, but marketing language is
+  not the executed right to show this project's derived subscriber outputs.
+  [EDI licensing](https://www.exchange-data.com/flexible-licensing/)
+- Alpaca documents historical equity coverage since 2016, CTA/UTP SIP, Basic at
+  200 historical calls/minute, and Algo Trader Plus at $99/month and 10,000
+  calls/minute. Its support and customer materials do not grant commercial
+  redistribution. [Alpaca plans](https://docs.alpaca.markets/us/docs/about-market-data-api) ·
+  [Historical feed semantics](https://docs.alpaca.markets/us/v1.1/docs/historical-stock-data-1)
+- Intrinio currently publishes Individual at $150/month, Startup from
+  $333/month, and Enterprise from $1,250/month. Individual has no external
+  display; Startup advertises display/commercial use, but the executed order
+  form controls the exact datasets and rights. Its public Corporate Events
+  listing describes the available corporate-action history as “most recent
+  only,” which does not meet V001 without a custom historical feed.
+  [Intrinio pricing](https://intrinio.com/pricing) ·
+  [Intrinio terms](https://about.intrinio.com/terms)
+- Nasdaq Data Link's default terms allow internal use and constrained derived
+  data, but prohibit external distribution, SaaS use, and post-termination use
+  unless an order form or written approval says otherwise. Premium Tables allow
+  5,000 calls per 10 minutes and 720,000/day; bulk exports have separate limits.
+  [Nasdaq terms](https://data.nasdaq.com/terms) ·
+  [Rate limits](https://docs.data.nasdaq.com/docs/rate-limits-1)
+- Norgate explicitly provides end-of-day rather than intraday data, limits its
+  standard license to one natural person and personal use, prohibits commercial
+  use, and requires data destruction after expiration. It cannot be a V001
+  production provider. [Norgate overview](https://norgatedata.com/index.php/pricing/) ·
+  [Norgate EULA](https://norgatedata.com/subscribe/eula.php)
 
-Legend: **Yes** = verified official capability; **Partial** = some needed data is
-documented but the repository contract is not fully proven; **No** = documented
-mismatch; **Quote** = commercial rights/cost require a provider order form.
+## 3. Facts versus written confirmations
 
-| Requirement | Alpaca | Massive | EDI | Intrinio | Nasdaq Data Link / Sharadar | Norgate |
-|---|---|---|---|---|---|---|
-| Historical consolidated SIP minute bars | Yes | Yes | No evidence | No evidence for required SIP aggregate | No evidence in evaluated reference products | No; end-of-day |
-| 04:00–09:25 premarket | Yes, extended hours | Yes, files cover 04:00–20:00 | N/A | Unverified | Unverified | No intraday |
-| Regular-session minute bars | Yes | Yes | N/A | Unverified | Unverified | No intraday |
-| June 2024–June 2025 depth | Yes; since 2016 | Yes; Starter has 5 years | Reference only; PIT since 2005 | Partial; feed-dependent | Product-dependent | Yes for daily reference/price history |
-| Point-in-time common-stock universe | No verified product | Partial; date-filtered ticker endpoint | Yes in principle; sample/schema check needed | Partial; historical as-of semantics unverified | Partial; Sharadar tables require sample validation | Partial; survivorship-bias-free daily database |
-| Listing/delisting history | Partial corporate actions/assets only | Partial; active/delisted fields | Yes | Yes/Partial | Partial | Yes on higher tiers |
-| Corporate actions + adjustment history | Partial; adjustment API | Yes splits/dividends/events, but negative coverage unverified | Yes | Partial; product/order-form dependent | Partial; Sharadar ACTIONS requires validation | Yes for daily adjustments |
-| Ticker/symbol continuity | No verified PIT master | Partial; ticker events are not enough until validated | Yes; PIT_SRF/PIT_EVT and identifiers | Partial; previous-ticker/security history | Partial | Partial; local proprietary database |
-| Historical security-type classification | No | Partial; date-filtered ticker type needs sample proof | Yes in PIT reference product, subject to sample | Partial | Partial | Partial |
-| Release/vintage identifier | API fetch time only; immutable source snapshot unverified | Daily file path/date; correction versioning unresolved | Delivery-specific; confirm | Delivery-specific; confirm | Bulk metadata includes snapshot/refresh times | Database update version; export rights constrained |
-| Pagination | Page token | `next_url`; flat files avoid symbol pagination | Delivery/API dependent | API paging; limits order-form dependent | Table paging and bulk exporter | Local database |
-| Bulk download | No market-wide daily bulk documented | Yes, daily compressed S3 CSV | S3/SFTP/API/Snowflake | CSV/S3/Snowflake on applicable plans | Yes | Local updater; restricted export |
-| Public small-user price | $0 or $99/month | $29/$79/$199 monthly individual tiers | Quote | $150 individual; Startup ramps $333/$666/$999 | Product-specific subscription/quote | $270–$787.50/year by package |
-| Internal research right | Unresolved for this entity/use | Individual plans say non-pro/personal; business terms needed otherwise | Advertised, exact order form required | Individual internal only; Startup/Enterprise order form controls commercial use | Default internal use, subject to product terms | Individual use under EULA |
-| Retention after termination | Unresolved | Unresolved | Provider advertises ownership/flexible licensing; contract must confirm | Unresolved/order form | Unresolved/order form | No continued database access after lapse; exports restricted |
-| Paying-subscriber derived display | Unresolved; written approval required | Quote/business license | Available in principle; explicit redistribution order form required | Startup/Enterprise only as expressly granted | Prior written approval/order form | Not suitable under standard individual EULA |
-| Overall V001 fit | Good REST market-data fallback | Best technical market-data fit | Best reference-data candidate | Reference fallback only after proof | Reference fallback only after proof | Internal cross-check only |
+### Facts established by current official material
 
-### Official evidence behind the matrix
+- Massive publicly proves the exact required SIP extended-hours window. Alpaca
+  proves SIP and extended-hours support, but the exact 04:00 boundary remains a
+  sample confirmation.
+- Massive daily flat files are operationally superior to per-symbol REST calls
+  for a roughly 4,000-symbol universe.
+- EDI offers genuine point-in-time listing-level reference history and linked
+  static-data events rather than only a current symbol master.
+- Massive individual plans, Alpaca's ordinary customer terms, Intrinio
+  Individual, Nasdaq default terms, and Norgate's standard license do not grant
+  the complete future commercial use required here.
+- No public material reviewed proves the exact `verified_none` corporate-action
+  record or the complete post-termination archival right required by V001.
 
-- Alpaca says its historical equity data reaches back to 2016, its consolidated
-  feed comes from CTA and UTP, Basic allows 200 historical calls/minute, and Algo
-  Trader Plus allows 10,000/minute for $99/month.
-  [Alpaca plans and sources](https://docs.alpaca.markets/us/docs/about-market-data-api)
-  Alpaca also advertises extended hours and aggregate bars; its FAQ identifies
-  `feed=sip` for consolidated historical data and explains the latest-15-minute
-  restriction on the free plan.
-  [Alpaca data product](https://alpaca.markets/data) and
-  [Alpaca Market Data FAQ](https://docs.alpaca.markets/us/docs/market-data-faq)
-- Massive documents daily `us_stocks_sip/minute_aggs_v1` files, all major U.S.
-  exchanges/FINRA/dark pools, 04:00–20:00 ET coverage, UTC timestamps, and
-  unadjusted flat files. Its official minute-file page lists 5-year Starter,
-  10-year Developer, and all-history Advanced access at $29, $79, and $199 per
-  month for individual plans. Those prices are not business redistribution
-  quotes. [Massive flat-file overview](https://massive.com/docs/flat-files/stocks/overview)
-  and [minute aggregates](https://massive.com/docs/flat-files/stocks/minute-aggregates).
-  Commercial use remains subject to a business agreement.
-  [Massive business terms](https://massive.com/legal/businesses-terms-of-service)
-- Massive's ticker API supports a date parameter and returns active/delisted and
-  classification-related fields, but this does not by itself prove the
-  repository's `known_at_timestamp`, negative corporate-action coverage, or
-  immutable vintage requirements.
-  [Massive all tickers](https://massive.com/docs/rest/stocks/tickers/all-tickers)
-- EDI documents PIT_SRF listing-level start/end-dated history since January 2005
-  and PIT_EVT corporate-action context, with API/S3/SFTP/Snowflake delivery.
-  [EDI security reference data](https://www.exchange-data.com/product/securities-reference-data/)
-  Its public site describes pricing as client-specific.
-  [EDI pricing](https://www.exchange-data.com/competitive-pricing-edi/)
-- Intrinio's current public pricing lists Individual at $150/month, Startup at
-  six months each of $333 and $666 then $999/month, and Enterprise at
-  $1,250/month and up. Individual explicitly excludes redistribution/external
-  display; Startup advertises business-wide display/commercial use, but the
-  executed order form controls the actual feeds and rights.
-  [Intrinio pricing](https://intrinio.com/pricing)
-  Intrinio's terms say commercialization, redistribution, and display rights are
-  generally available only under Startup or Enterprise order forms and warn that
-  transformed or AI-generated output does not automatically avoid display
-  licensing. [Intrinio terms](https://about.intrinio.com/terms)
-- Nasdaq Data Link's default terms permit internal use and constrained derived
-  data, but prohibit external distribution and SaaS use absent an order form or
-  prior written approval. [Nasdaq Data Link terms](https://data.nasdaq.com/terms)
-  Premium Tables support 5,000 calls per 10 minutes, 720,000/day, and bulk
-  exports subject to separate limits.
-  [Nasdaq Data Link limits](https://docs.data.nasdaq.com/docs/rate-limits-1)
-- Norgate advertises survivorship-bias-free U.S. stock history and higher-tier
-  delisted/historical-listing coverage, but its offering is end-of-day, Windows
-  oriented, and governed by an individual-use EULA; it is not a SIP minute-feed
-  solution. [Norgate packages](https://norgatedata.com/stockmarketpackages.php),
-  [data coverage](https://norgatedata.com/data-content-tables.php), and
-  [EULA](https://norgatedata.com/subscribe/eula.php)
+### Required written confirmation from every shortlisted vendor
 
-## 4. Request volume, duration, and storage
+1. The precise legal entity and authorized users covered by the license.
+2. Whether raw deliveries, normalized files, hashes, and backups may be retained
+   and used after termination for reproducibility.
+3. Whether cloud storage, CI, contractors, and disaster-recovery processors are
+   authorized.
+4. Whether features, scores, ranks, simulated trades, charts, alerts, and model
+   outputs are permitted derived data.
+5. Whether those derived outputs may be displayed to paying subscribers without
+   per-user exchange licenses when they cannot reconstruct source data.
+6. Which dashboard, report, download, alert, API, or export forms are licensed.
+7. What counts as prohibited raw, delayed, derived, reconstructable, or
+   competing data.
+8. Whether market-data use is display or non-display and which CTA/UTP,
+   professional, exchange, audit, or subscriber fees apply.
+9. Whether historical releases can be reproduced after corrections and how
+   delivery versions are identified.
+10. Whether a bounded symbol/date with no action can be certified as complete
+    coverage rather than an empty search result.
 
-### Current repository's per-symbol Alpaca acquisition path
+## 4. Ranked shortlist
 
-The current implementation makes separate premarket and regular requests for
-each symbol/session. Before pagination and retries:
+### Rank 1 — Massive Business plus EDI PIT/reference/actions
 
-| Scope | Symbol-sessions | Base API requests | Maximum minute slots |
-|---|---:|---:|---:|
-| 4,000 symbols × 80 sessions | 320,000 | 640,000 | 228,800,000 |
-| 4,000 symbols × 272 sessions | 1,088,000 | 2,176,000 | 777,920,000 |
+**Why:** best verified bulk SIP mechanics plus the strongest documented PIT
+reference model.
+**Open gates:** two order forms, cross-provider stable-ID mapping, archival
+rights, derived subscriber display, negative-action coverage, and total quote.
+**Public cash floor:** $1,999/month for Massive plus an unquoted EDI license.
 
-The slot counts use 325 selection-safe premarket minutes (04:00–09:25 exclusive)
-plus 390 normal regular-session minutes. They are upper bounds, not expected bar
-counts: providers commonly omit minutes with no qualifying trades. Early closes
-also reduce regular-session minutes.
+### Rank 2 — Massive Business alone, conditional simplification
 
-Theoretical rate-limit floors, assuming one page per segment, no retries, perfect
-request saturation, and no provider/network latency:
+**Why:** one ingestion and licensing relationship; date-filtered tickers,
+security types, FIGIs, delisting fields, corporate actions, and ticker events
+are technically promising.
+**Open gates:** PIT “known-at” semantics, corrections/vintage, recycled tickers,
+complete listing intervals, and negative-action certification.
+**Decision rule:** accept only if the sample passes every reference test below;
+otherwise revert to Rank 1 without weakening schemas.
 
-| Plan | Published limit | 640,000 requests | 2,176,000 requests |
-|---|---:|---:|---:|
-| Alpaca Basic | 200/min | 53 h 20 m | 181 h 20 m (7 d 13 h 20 m) |
-| Alpaca Algo Trader Plus | 10,000/min | 64 m | 217.6 m (3 h 37 m 36 s) |
+### Rank 3 — Massive Business plus an alternate reference source
 
-These are lower bounds, not delivery promises. The current program also performs
-normalization, hashing, write-once publication, and two segment-level raw captures
-per symbol/session. Actual elapsed time will be materially longer, especially if
-executed serially. Pagination may increase request counts.
+- **Intrinio Enterprise:** consider only if a custom feed supplies historical
+  PIT universe, security types, listings, actions, and symbol continuity and the
+  order form grants retention and derived display.
+- **Nasdaq Data Link / Sharadar:** consider only after a sample proves PIT
+  fields, delisted coverage, action knowledge time, stable IDs, vintage, and
+  negative coverage, with external-use and archival amendments.
 
-### Bulk-file alternative
+### Rank 4 — Alpaca SIP plus EDI, technical contingency
 
-Massive's market-wide daily minute files reduce provider objects to 80 or 272
-daily files rather than hundreds of thousands of symbol requests. Its official
-browser reports approximately 4.7 GB compressed for all 2024 stock minute files
-and 5.4 GB for 2025. A simple session-proportional estimate is roughly 1.5–1.8 GB
-for 80 sessions and 5–6 GB for 272 sessions of provider gzip files. This is an
-**assumption**, because daily activity and file sizes vary.
+The repository already integrates Alpaca pagination and explicit SIP. It is
+operationally expensive for the full universe and is legally unsuitable under
+ordinary individual terms. Use only if Alpaca supplies a commercial order form
+covering internal research, retention, and derived display.
 
-The repository must still retain normalized segments and provenance. Using the
-maximum slot counts and an assumed combined 100–250 bytes per populated bar
-across retained raw and canonical representations yields a deliberately broad
-planning range:
+### Disqualified under standard public terms
 
-- **80 sessions:** about 11–57 GB at 50–100% slot occupancy.
-- **272 sessions:** about 39–195 GB at 50–100% slot occupancy.
+- Massive Individual, Alpaca Trading API customer access, and Intrinio
+  Individual for a pilot intended to seed a commercial product.
+- Norgate for V001 production: no intraday data, personal-only standard license,
+  and no continued use after lapse.
+- Any current-universe-only source, scraped website, hindsight ticker list, or
+  source that cannot establish knowledge time and symbol continuity.
+- Any vendor that treats an empty corporate-action response as proof of no
+  action without certifying coverage.
 
-Add metadata, checksums, indexes, backups, and at least one immutable copy. A
-practical initial storage reservation is **150 GB** for 80 sessions and **500 GB**
-for the maximum window until a measured pilot replaces these assumptions.
+## 5. Sample-file acceptance protocol
 
-## 5. Cost scenarios
+Request samples before starting a trial or download. Samples must be legally
+permitted for evaluation and retained only as the evaluation agreement allows.
 
-Public prices below are snapshots as of the evaluation date and exclude tax,
-exchange fees, cloud storage, engineering, and negotiated reference-data rights.
+### 5.1 Market-data sample
 
-### Small internal research implementation
+Request the complete daily U.S. stocks minute file for 2024-06-03 and at least
+one warm-up date containing a split, ticker change, thinly traded stock, ETF,
+ADR, and delisted security.
 
-| Component | Verified public amount | Planning treatment |
-|---|---:|---|
-| Massive Stocks Starter | $29/month individual | Technically sufficient five-year history and bulk minute access for V001; only use if the researcher qualifies and the license confirms the intended internal use. |
-| Massive Stocks Developer | $79/month individual | Ten-year history is unnecessary for V001 but may support later research. The same individual-use qualification applies. |
-| Massive Stocks Advanced | $199/month individual | More history than V001 requires; no benefit for the registered 2024–2025 window unless other features require it. |
-| Alpaca Basic fallback | $0/month | The old SIP dates are technically accessible at 200 requests/minute; retention and business-use rights remain unresolved. |
-| Alpaca Algo Trader Plus fallback | $99/month | Faster REST acquisition; retention and research-entity rights still require confirmation. |
-| EDI PIT/reference/actions | Quote | Required reference candidate; there is no defensible public price. Request a bounded U.S.-equities pilot quote. |
-| Intrinio Startup fallback | $5,994 first 12 months; $999/month thereafter | Published ramp is 6×$333 + 6×$666. Additional reference feeds or rights may cost more. |
-| Intrinio Enterprise fallback | $1,250/month minimum | Custom datasets and terms; $15,000/year is only the published floor. |
+Pass only if:
 
-The recommended pilot market-data component is therefore **$29 for one month of
-Massive Starter**, while Alpaca's technical cash floor is $0 at a much slower
-published request limit. In either case, the total is **market-data cost plus an
-unknown reference-data quote**. A free tier or provider trial does not waive
-licensing requirements. It is not valid to report a complete pilot budget until
-EDI (or an accepted alternative) quotes PIT reference and action coverage.
+1. Provider documentation identifies CTA/UTP SIP provenance and included trade
+   conditions.
+2. Bars include eligible trades from 04:00 ET and preserve the 09:25 exclusion.
+3. UTC-to-America/New_York conversion reproduces left-labeled minutes.
+4. Regular normalization excludes 16:00 and respects authoritative early closes.
+5. Missing minutes remain absent and zero-trade sessions are distinguishable
+   from unavailable files.
+6. Duplicate, out-of-order, and cross-date rows can be detected without
+   silently dropping data.
+7. Adjustment status is explicit; unadjusted price and volume can be aligned to
+   separately versioned action factors.
+8. A manifest or stable object identity proves completeness, byte hash, release
+   time, and correction/version behavior.
+9. The full date can be acquired as a market-wide object without hindsight
+   symbol filtering.
 
-### Future paying-subscriber product
+### 5.2 Reference-data sample
 
-Massive Business and EDI redistribution pricing are both custom. Public retail
-prices must not be used as commercial-product estimates. For budgeting only,
-not as provider quotes, reserve:
+Request complete U.S. listings and actions for the same dates plus curated
+examples of a normal common stock, ETF, ADR, preferred, warrant, SPAC unit,
+delisted company, ticker change, recycled ticker, split, reverse split, merger,
+spinoff, listing transfer, and a verified no-action period.
 
-- **Assumption: $3,000–$20,000+ per month** for consolidated market data,
-  point-in-time reference data, corporate actions, retention, and external
-  derived-display rights. Exchange or per-user fees may be additional.
-- **Assumption: $25,000–$75,000 one-time engineering/legal integration**, based
-  on roughly 170–500 hours for a bulk market adapter, reference normalization,
-  continuity reconciliation, vintage/correction handling, entitlement controls,
-  contract review, and acceptance testing.
+Pass only if:
 
-These ranges are procurement placeholders only. The product cannot be priced or
-launched lawfully until order forms explicitly describe the subscriber-facing
-outputs.
+1. A complete as-of universe can be reconstructed before 09:25 ET.
+2. Common stock is distinguishable from every excluded security type using
+   documented historical codes.
+3. Listing start/end, primary exchange, MIC, active status, and knowledge time
+   are present and historically accurate.
+4. Stable IDs connect old and new tickers while preventing recycled-ticker
+   collisions.
+5. Symbol mappings and listings have non-overlapping effective intervals.
+6. Corporate actions include type, effective date/time, original publication or
+   knowledge time, revisions, and adjustment factors.
+7. The provider can certify complete coverage for a bounded no-action interval
+   and explain how to construct `verified_none`.
+8. Every delivery exposes source and immutable release/vintage identity.
+9. Repeating the extraction from the same vintage is byte- or record-equivalent.
+10. All fields map to `RESEARCH_DATA_SCHEMAS_V001.md` without fabricated values
+    or relaxing validation.
 
-## 6. Provider-specific integration work
+### 5.3 Contract acceptance test
 
-### Massive as primary market provider
+The executed order form must explicitly answer “yes” to internal research,
+raw/normalized retention, governed backups, cloud processing, feature/model
+creation, and the agreed subscriber-facing derived outputs. It must enumerate
+prohibited outputs and post-termination duties. Marketing phrases such as
+“business use,” “commercial use,” or “you own your data” do not substitute for
+the order-form language.
 
-- Add a daily gzip/S3 adapter while retaining every original daily object and
-  its object identity/checksum.
-- Split the market-wide file deterministically into symbol/date premarket and
-  regular segments; preserve missing minutes and condition semantics.
-- Record that flat files are unadjusted; apply only an audited corporate-action
-  adjustment source consistent with the registered design.
-- Validate minute labels, UTC-to-America/New_York conversion, early closes,
-  corrections, duplicate rows, and no-trade omissions against a small sample.
-- Add release/vintage handling if files can be corrected in place.
+## 6. Exact outreach questions
 
-### Alpaca as market fallback
+Send the repository schema document and the following use-case statement:
 
-- The repository adapter already implements explicit SIP requests, pagination,
-  duplicate rejection, segmented raw retention, and feed-evidence limitations.
-- Add only procurement controls and measured concurrency/rate-limit scheduling
-  after approval; do not bypass the write-once or feed-validation behavior.
-- Obtain a written response on raw retention, business research, derived metrics,
-  and subscriber-facing output before using it beyond an individual internal pilot.
+> We are building an internal historical U.S.-equity research system. It stores
+> raw and normalized data, creates non-reconstructable features and simulated
+> results, and may later display derived intelligence—not source market data—to
+> paying subscribers. No live redistribution is requested in the pilot.
 
-### EDI as reference provider
+### Market-data vendor
 
-- Map PIT_SRF/PIT_EVT records to the four repository schemas.
-- Obtain a daily U.S. common-stock eligibility rule and identify the exact
-  security-type codes included/excluded.
-- Map provider IDs/FIGIs and exchange-level tickers into non-overlapping symbol
-  continuity intervals.
-- Convert action events and adjustment factors with effective and knowledge
-  timestamps.
-- Establish an auditable way to emit `verified_none` for a bounded symbol/date
-  only when the licensed source proves complete coverage.
-- Preserve delivery file identity, publication time, revisions, and source lineage.
+1. Is the minute dataset consolidated CTA/UTP SIP data for all exchange-listed
+   U.S. equities, including off-exchange eligible reports?
+2. Does it cover 04:00–09:25 ET and [09:30, 16:00) ET for every date from
+   2024-05-03 through 2025-06-04?
+3. Which sale conditions update OHLCV, and when is a no-trade minute omitted?
+4. Are bars left-labeled? How are DST, early closes, halts, corrections, busted
+   trades, and late reports handled?
+5. Are files adjusted? If not, which versioned split/action factors are supplied?
+6. What object ID, checksum, release time, and correction history make a daily
+   file reproducible? Are superseded versions retrievable?
+7. Does a full-universe daily file have a completeness manifest?
+8. May our legal entity retain raw files, normalized files, hashes, and backups
+   after termination for reproducibility and audit?
+9. May employees, contractors, CI systems, cloud storage, and disaster-recovery
+   vendors process or store the data?
+10. May we create features, scores, simulations, alerts, and model outputs?
+11. May non-reconstructable derived intelligence be displayed to paying
+    subscribers? Please address dashboards, reports, alerts, CSV, and APIs.
+12. Which outputs trigger display, non-display, professional-user, CTA/UTP,
+    exchange, or per-subscriber fees?
+13. What raw or reconstructable values are prohibited from customer display or
+    export?
+14. Please quote the smallest business license for the 21-session pilot and the
+    80-session production cohort, including retention and derived-display rights.
 
-### Intrinio reference fallback
+### Reference-data vendor
 
-- Request sample security-history, delisted-security, action, and previous-ticker
-  responses for securities with ticker changes and split/merger histories.
-- Prove historical as-of classification and `known_at_timestamp`; current public
-  endpoint descriptions are not sufficient.
-- Confirm whether the chosen plan includes complete historical corporate actions,
-  not merely current/latest action metadata.
-- Put every external display and derived-data permission in the order form.
-
-### Nasdaq Data Link / Sharadar fallback
-
-- Validate the exact TICKERS/ACTIONS table fields, PIT semantics, security-type
-  history, delisted coverage, and provider snapshot timestamps with sample files.
-- Use bulk exports rather than row pagination and persist `data_snapshot_time`
-  and `last_refreshed_time` as vintage evidence.
-- Obtain product-specific third-party terms and written SaaS/derived-display rights.
-
-### Norgate cross-check only
-
-- Useful for internal survivorship-bias comparisons if its license permits the
-  exact use, but not as the canonical source: it lacks intraday SIP bars and its
-  proprietary local database/export restrictions do not match the production
-  portability requirement.
-
-## 7. Smallest lawful pilot
-
-The minimum pilot that tests the acquisition contract without changing the
-cohort methodology is:
-
-1. Select the first registered cohort date, **2024-06-03**, and its exact 20 XNYS
-   warm-up sessions from **2024-05-03 through 2024-05-31**.
-2. License and freeze the complete point-in-time U.S. common-stock universe for
-   2024-06-03, including every security needed to prove inclusion and exclusion.
-3. Acquire market data for the entire screened universe—not symbols chosen after
-   observing that day's move—for all 20 warm-ups and the pilot date.
-4. Acquire listing, delisting, security-type, action, and symbol-continuity
-   evidence sufficient for every considered security.
-5. Build and freeze the 09:25 selection audit, then stop. Do not inspect regular-
-   session outcomes as part of procurement acceptance.
-
-This is approximately 84,000 symbol-sessions if the universe contains 4,000
-symbols. With the current two-request REST architecture it implies about 168,000
-base requests; with daily market-wide flat files it requires 21 source files.
-It validates cutoffs, joins, vintages, missing-data behavior, and provider rights.
-It is **not** a strategy-validation sample. The first performance-capable V001
-dataset remains the registered 80-session acquisition (20 warm-up + 60 cohort),
-extended only by the preregistered stopping rule.
-
-## 8. Written questions for provider sales/support
-
-Send the technical schema document with these questions and request that answers
-be incorporated into the order form or data specification.
-
-### Market-data provider
-
-1. Is the historical minute dataset consolidated CTA/UTP SIP data for every
-   covered U.S. equity, including off-exchange reports, or are any venues omitted?
-2. Does it include 04:00–09:25 ET and all XNYS regular-session minutes for
-   2024-05-03 through 2025-06-04? Are bars omitted when no eligible trade occurs?
-3. What trade conditions are included or excluded from OHLCV and VWAP aggregation?
-4. Are timestamps left-labeled? How are DST, early closes, corrections, busted
-   trades, late reports, and market halts represented?
-5. Are files adjusted or unadjusted? Which corporate actions affect price and
-   volume, and when are adjustments revised?
-6. Can daily bulk files be retrieved by immutable version or checksum? If a file
-   is corrected, is the old version available and is a correction notice issued?
-7. What are API/bulk rate limits, concurrency limits, retry rules, and expected
-   availability time? Is there a manifest proving a download is complete?
-8. May we retain raw and normalized historical data, checksums, and backups
-   indefinitely for reproducibility, including after termination?
-9. Does the license permit internal strategy research, backtesting, feature
-   engineering, model training, and storage in our cloud environment?
-10. Which derived outputs—scores, ranks, alerts, aggregate statistics, model
-    predictions, and non-reconstructable charts—may be shown to paying subscribers?
-11. Which outputs trigger display, redistribution, non-display, professional-user,
-    CTA/UTP, exchange, or per-subscriber fees?
-12. May customers export reports or API results? What delay or aggregation is
-    required to avoid raw-data redistribution?
-13. Are contractors, affiliates, disaster-recovery vendors, and hosted analytics
-    subprocessors authorized users?
-14. What deletion, audit, attribution, usage-reporting, and post-termination
-    obligations apply?
-
-### Reference-data provider
-
-1. Can you deliver the complete U.S. exchange-listed **common-stock** universe as
-   it was known before 09:25 ET on each historical date, rather than reconstructing
-   it using today's classifications?
-2. Which codes distinguish common stock from ETF, ETN, ADR, preferred, warrant,
-   unit, right, closed-end fund, SPAC unit, and OTC security?
-3. Do records include effective-from, effective-to, known/published-at, source,
-   correction time, and immutable dataset-release identifiers?
-4. Are primary exchange, MIC, calendar, listing, suspension, delisting, and
-   relisting histories included?
+1. Can you deliver the complete U.S. exchange-listed common-stock universe as it
+   was known before 09:25 ET on every historical date?
+2. Which historical codes distinguish common stocks from ETFs, ETNs, ADRs,
+   preferreds, warrants, units, rights, funds, and OTC securities?
+3. Do records include effective-from, effective-to, known/published-at,
+   correction time, source, and immutable release ID?
+4. Are listing, delisting, suspension, relisting, exchange, MIC, and historical
+   security-type changes included?
 5. How are ticker changes, recycled tickers, mergers, share-class changes, and
-   predecessor/successor securities linked? Which stable IDs are licensed?
-6. Does the action history include splits, reverse splits, stock dividends,
-   cash dividends, mergers, spin-offs, distributions, and symbol/security changes?
-7. Are price and volume adjustment factors supplied with effective and publication
-   timestamps? Can later corrections be distinguished from original releases?
-8. Can the provider certify complete action coverage for a bounded symbol/date
-   when no event exists, so the system can create a sourced `verified_none` row?
-9. Are historical shares outstanding or market capitalization available point in
-   time, and what reporting lag/knowledge timestamp applies? (This is audit-only
-   in V001, not a new matching rule.)
-10. Can sample files be provided for delisted companies, ticker changes, mergers,
-    splits, no-action periods, and ambiguous/recycled symbols from 2024–2025?
-11. May raw reference deliveries and normalized histories be retained and backed
-    up after termination for reproducibility?
-12. May derived classifications, cohort membership, model features, and aggregate
-    intelligence be displayed to paying subscribers? Which raw fields may not be
-    exposed or reconstructed?
-13. Are redistribution rights inclusive of APIs, dashboards, reports, alerts,
-    exports, and customer-facing AI systems, or must each be licensed separately?
-14. What are the U.S.-only pilot, production internal-use, and production
-    redistribution prices, implementation fees, minimum term, and annual uplift?
+   predecessors/successors linked? Which stable IDs are licensed?
+6. Do corporate actions include splits, reverse splits, stock and cash
+   dividends, mergers, spinoffs, special distributions, listing transfers, and
+   symbol/security changes?
+7. Are adjustment factors supplied with effective and original publication
+   timestamps, and can later corrections be distinguished?
+8. Can you certify complete action coverage for a bounded symbol/date with no
+   event so we can create a sourced `verified_none` record?
+9. Can deliveries be reproduced by immutable vintage, checksum, or snapshot ID?
+10. Please supply samples covering each case in section 5.2 and a field-level
+    data dictionary.
+11. May we retain raw reference deliveries and normalized histories after
+    termination for reproducibility?
+12. May cohort membership, derived classifications, features, and aggregate
+    intelligence be displayed to paying subscribers?
+13. Which fields or derived outputs require redistribution, display, or
+    per-subscriber licensing?
+14. Please quote the complete U.S.-equity 21-session pilot and the 80-session
+    production scope, including actions, PIT history, archival rights, and
+    derived display.
 
-## 9. Decision gates and unresolved facts
+## 7. Decision sequence
 
-Collection must remain disabled until these points are resolved:
+1. **User decision:** identify the contracting legal entity, intended users,
+   cloud/subprocessors, and expected subscriber output forms.
+2. Send the same written use-case and sample specification to Massive and EDI.
+3. In parallel, ask Massive whether its reference endpoints alone can pass the
+   section 5.2 tests; do not assume they can.
+4. Obtain sample data dictionaries, samples, draft order forms, all incorporated
+   third-party terms, and itemized quotes. Do not start a trial merely to bypass
+   this review.
+5. Run the technical acceptance tests without inspecting strategy outcomes.
+6. Have qualified counsel review retention, derived-data ownership, display,
+   redistribution, exchange fees, termination, and audit clauses.
+7. Select either Massive-only or Massive+EDI solely from the predefined tests,
+   not cost after observing market outcomes.
+8. Acquire the 21-session pilot, freeze the 09:25 audit for 2024-06-03, and stop.
+9. Approve the 80-session production acquisition only after the pilot's data and
+   provenance checks pass.
 
-- **License gate:** Neither Alpaca's public product page nor Massive's individual
-  pricing proves the right to retain data for a business or display derived
-  intelligence to paying subscribers.
-- **Reference gate:** EDI is the strongest documented reference candidate, but a
-  sample must prove every repository field, especially historical common-stock
-  classification, knowledge timestamps, immutable vintages, and negative action
-  coverage.
-- **Join gate:** The market and reference providers must share or map through a
-  stable licensed identifier; ticker text alone is not sufficient.
-- **Correction gate:** The system needs a contractual and technical policy for
-  corrected market and reference releases without mutating a frozen vintage.
-- **Cost gate:** Public individual prices are not commercial quotes. Total
-  subscriber-product cost remains unresolved until both providers return order
-  forms covering the exact output surface.
-- **Redistribution gate:** “Derived” is not a universal safe harbor. Intrinio and
-  Nasdaq Data Link explicitly condition external use on order-form rights; the
-  chosen providers must confirm the same issues in writing.
+Estimated decision time cannot be responsibly stated from public materials.
+Vendor sample turnaround, legal review, and negotiated rights are unresolved.
 
-Until all gates pass, the lawful next action is a provider questionnaire and
-sample-data review—not a historical download.
+## 8. Cost posture
+
+Only current official public prices are stated:
+
+| Component | Current public price | Procurement treatment |
+|---|---:|---|
+| Massive Stocks Business | $1,999/month | Leading market-data budget floor; order form still needs archival and derived-display rights |
+| EDI PIT/reference/actions | Quote | Required reference quote unless Massive passes every PIT test |
+| Alpaca Algo Trader Plus | $99/month | Individual technical fallback; not an approved commercial research license |
+| Intrinio Individual | $150/month | No external display; disqualified for commercial seed data |
+| Intrinio Startup | $333/month initially, then $666 and $999 | Display/commercial marketing claim; exact historical reference feeds and rights require order form |
+| Intrinio Enterprise | $1,250/month minimum | Custom fallback; actual feeds and rights may add cost |
+| Nasdaq Data Link / Sharadar | Product/order-form specific | No complete current public V001 quote verified |
+| Norgate | Package-specific personal pricing | Disqualified regardless of price |
+
+There is no defensible all-in estimate until EDI or another reference provider
+quotes the exact coverage and both vendors price archival and subscriber-derived
+display rights. Exchange, professional-user, cloud storage, legal, and
+engineering costs are additional.
+
+## 9. Explicit no-go conditions
+
+Do not acquire production data or inspect cohort outcomes if any of these remain:
+
+- The plan is personal/individual while the data will seed a commercial product.
+- Consolidated SIP provenance or 04:00–09:25 coverage is ambiguous.
+- The universe is current-only, survivorship-biased, or reconstructed after the
+  selection timestamp.
+- Security type, listing status, or symbol continuity cannot be proven PIT.
+- Corporate-action absence is inferred from an empty response.
+- The source cannot distinguish original publications from later corrections.
+- Raw retention, backups, or post-termination reproducibility is prohibited.
+- Feature/model creation or internal non-display research is not licensed.
+- Paying-subscriber derived display is absent or ambiguous in the order form.
+- Required third-party, exchange, professional-user, or audit terms are missing.
+- A sample cannot map into the repository schemas without invented fields.
+- The vendor refuses representative samples or a field-level specification.
+- The proposed pilot uses hand-picked symbols instead of the full PIT universe.
+
+## 10. Decisions still owned by the user
+
+Before outreach, the user must decide:
+
+1. The legal entity that will sign and whether any contractors need access.
+2. Whether all research will run in local infrastructure or named cloud services.
+3. The intended subscriber surfaces: dashboard, email alert, downloadable
+   report, CSV, API, conversational assistant, or combinations.
+4. Whether customers will ever see price, volume, timestamps, or other
+   reconstructable market-derived values.
+5. The acceptable monthly pilot budget above the verified $1,999 market-data
+   floor, recognizing that reference and display rights are still unquoted.
+6. Whether post-termination reproducibility is mandatory indefinitely or for a
+   stated retention period.
+
+Until those choices and the written vendor confirmations exist, the correct
+project status is **procurement-ready, collection not authorized**.
