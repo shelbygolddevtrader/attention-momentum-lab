@@ -107,3 +107,15 @@ recovery, confirm that no writer for that run is active and that no completed
 `{run_id}/` directory exists; only then remove the corresponding lock file and
 rerun publication. Hidden lock files and temporary directories are never loaded
 as completed runs.
+
+To populate the dashboard from the existing four-session local feasibility
+dataset, run the development-only adapter. It verifies every registered SIP
+input hash and preserves the established attention strategy parameters:
+
+```bash
+.venv/bin/python scripts/run_historical_development_portfolio.py
+```
+
+This local feasibility run is explicitly retrospective development output. It
+is not part of the preregistered production cohort and is not validation or
+profitability evidence.
