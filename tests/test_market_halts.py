@@ -99,11 +99,14 @@ def test_target_stop_diagnostics_resume_after_verified_halt():
     halts = schedule(record())
     _, strict = analyze_candidate_paths(candidates, bars, "strict", halts)
     _, aware = analyze_candidate_paths(candidates, bars, "halt_aware", halts)
-    selector = lambda frame: frame.loc[
-        (frame.horizon_minutes == 5)
-        & (frame.target_fraction == .01)
-        & (frame.stop_fraction == .01)
-    ].iloc[0]
+
+    def selector(frame):
+        return frame.loc[
+            (frame.horizon_minutes == 5)
+            & (frame.target_fraction == .01)
+            & (frame.stop_fraction == .01)
+        ].iloc[0]
+
     assert selector(strict).outcome == "insufficient_data"
     result = selector(aware)
     assert result.outcome == "target_first"
@@ -166,4 +169,3 @@ def test_halt_records_are_feed_independent_and_artifacts_remain_separate():
 def test_verified_gme_records_reproduce_known_full_halt_minute_counts():
     assert len(load_verified_halts("GME", "2024-05-13").full_halt_minutes) == 36
     assert len(load_verified_halts("GME", "2024-05-14").full_halt_minutes) == 66
-

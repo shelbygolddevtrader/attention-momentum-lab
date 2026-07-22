@@ -96,7 +96,6 @@ def calculate_candidate_features(
 
     # Each local calendar date is a session boundary; this prevents any overnight carry.
     for _, group in frame.groupby("_day", sort=False):
-        idx = group.index
         regular = group[group["_regular"]]
         if regular.empty:
             continue

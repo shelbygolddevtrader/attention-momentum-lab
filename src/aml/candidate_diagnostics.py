@@ -80,11 +80,14 @@ def analyze_candidate_paths(
                     for bar_time, row in window.iterrows():
                         hit_target, hit_stop = row.high >= target_price, row.low <= stop_price
                         if hit_target and hit_stop:
-                            result = "ambiguous_same_bar"; break
+                            result = "ambiguous_same_bar"
+                            break
                         if hit_target:
-                            result, target_time = "target_first", bar_time; break
+                            result, target_time = "target_first", bar_time
+                            break
                         if hit_stop:
-                            result, stop_time = "stop_first", bar_time; break
+                            result, stop_time = "stop_first", bar_time
+                            break
                 label_rows.append({"timestamp": timestamp, "horizon_minutes": horizon, "target_fraction": target, "stop_fraction": stop, "outcome": result,
                                    "minutes_to_target": np.nan if pd.isna(target_time) else (target_time - timestamp).total_seconds() / 60,
                                    "minutes_to_stop": np.nan if pd.isna(stop_time) else (stop_time - timestamp).total_seconds() / 60,
@@ -121,7 +124,8 @@ def feature_correlations(frame: pd.DataFrame, features: list[str], outcomes: lis
         if feature not in frame or not pd.api.types.is_numeric_dtype(frame[feature]):
             continue
         for outcome in outcomes:
-            if outcome not in frame: continue
+            if outcome not in frame:
+                continue
             pair = frame[[feature, outcome]].dropna()
             # Spearman is Pearson correlation of average ranks; implementing it
             # directly avoids adding scipy as a production dependency.

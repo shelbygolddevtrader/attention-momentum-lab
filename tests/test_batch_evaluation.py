@@ -1,5 +1,4 @@
 from datetime import date, time
-import hashlib
 from pathlib import Path
 
 import pandas as pd
@@ -123,7 +122,8 @@ def test_quality_policy_load_validation_and_fingerprint(tmp_path):
         quality_policy(complete_session_maximum_missing_percentage=0.2, usable_session_maximum_missing_percentage=0.1)
     with pytest.raises(ValueError, match="clean Git worktree"):
         quality_policy(require_clean_git_worktree=False)
-    malformed = tmp_path / "bad.yaml"; malformed.write_text('{"configuration_version":"x"}')
+    malformed = tmp_path / "bad.yaml"
+    malformed.write_text('{"configuration_version":"x"}')
     with pytest.raises(ValueError, match="Unknown or missing"):
         load_quality_policy(malformed)
 
@@ -262,7 +262,10 @@ def test_authoritative_holiday_row_is_retained_without_loading_data():
 def test_manifest_order_does_not_change_session_results_and_equity_resets():
     frame = manifest([("BBB", "2024-01-02", "ordinary_control"), ("AAA", "2024-01-02", "attention_event")])
     data = {"AAA": bars("AAA", jump_index=20), "BBB": bars("BBB", jump_index=20)}
-    loader = lambda row: data[row["symbol"]]
+
+    def loader(row):
+        return data[row["symbol"]]
+
     first = evaluate(frame, loader)
     second = evaluate(frame.iloc[::-1], loader)
     pd.testing.assert_frame_equal(first.session_results, second.session_results)
@@ -352,9 +355,11 @@ def test_quality_inclusion_is_independent_of_performance():
 
 
 def test_mixed_symbol_and_cross_date_inputs_are_invalid_but_retained():
-    mixed = bars(); mixed.loc[0, "symbol"] = "BBB"
+    mixed = bars()
+    mixed.loc[0, "symbol"] = "BBB"
     assert evaluate(manifest(), lambda row: mixed).session_results.iloc[0]["status"] == "invalid_data"
-    crossed = bars(); crossed.loc[0, "timestamp"] += pd.Timedelta(1, unit="day")
+    crossed = bars()
+    crossed.loc[0, "timestamp"] += pd.Timedelta(1, unit="day")
     assert evaluate(manifest(), lambda row: crossed).session_results.iloc[0]["status"] == "invalid_data"
 
 

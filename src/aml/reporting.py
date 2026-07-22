@@ -9,7 +9,11 @@ def price_chart(replay, path: Path):
     if not hit.empty:
         ax.scatter(hit["timestamp"], hit["price"], marker="^", s=70, label="Eligible")
     ax.set(title="Point-in-time price replay", xlabel="Time", ylabel="Price (USD)")
-    ax.legend(); fig.autofmt_xdate(); fig.tight_layout(); fig.savefig(path, dpi=160); plt.close(fig)
+    ax.legend()
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
 
 def volume_chart(replay, path: Path):
     fig, ax = plt.subplots(figsize=(13, 5))
@@ -18,4 +22,8 @@ def volume_chart(replay, path: Path):
     if not hit.empty:
         ax.scatter(hit["timestamp"], hit["volume"], marker="^", s=70, label="Eligible")
     ax.set(title="Minute volume and eligible signals", xlabel="Time", ylabel="Shares")
-    ax.legend(); fig.autofmt_xdate(); fig.tight_layout(); fig.savefig(path, dpi=160); plt.close(fig)
+    ax.legend()
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(path, dpi=160)
+    plt.close(fig)

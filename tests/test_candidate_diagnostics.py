@@ -36,10 +36,13 @@ def test_incomplete_exact_boundary_and_earliest_times():
 
 def test_mae_timing_timezone_no_mutation_and_statistics():
     bars, candidates = data([101, 101, 101, 101, 101], [99, 98, 98, 99, 99])
-    original = bars.copy(deep=True); paths, _ = analyze_candidate_paths(candidates, bars)
+    original = bars.copy(deep=True)
+    paths, _ = analyze_candidate_paths(candidates, bars)
     assert paths.iloc[0]["minutes_to_mae_5m"] == 2
     assert paths.timestamp.dt.tz is not None
     pd.testing.assert_frame_equal(bars, original)
     stats, missing = distribution_statistics(pd.DataFrame({"kind":["a","a","b"], "return_5m":[.1, -.1, .2]}), ["kind"], ["return_5m", "mfe_5m"])
     a = stats[stats.kind.eq("a")].iloc[0]
-    assert a["median"] == pytest.approx(0); assert a["positive_return_rate"] == pytest.approx(.5); assert missing == ["mfe_5m"]
+    assert a["median"] == pytest.approx(0)
+    assert a["positive_return_rate"] == pytest.approx(.5)
+    assert missing == ["mfe_5m"]

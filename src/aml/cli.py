@@ -33,7 +33,8 @@ def paths(symbol, day, feed=HISTORICAL_DATA_FEED):
 
 def fetch(client, symbol, day, feed=HISTORICAL_DATA_FEED):
     raw, csv, metadata_path, _ = feed_paths(symbol, day, feed)
-    raw.parent.mkdir(parents=True, exist_ok=True); csv.parent.mkdir(parents=True, exist_ok=True)
+    raw.parent.mkdir(parents=True, exist_ok=True)
+    csv.parent.mkdir(parents=True, exist_ok=True)
     payload, bars = client.get_minute_bars(symbol, day, feed=feed)
     metadata = dict(payload["acquisition_metadata"])
     metadata.update(source_raw_file=str(raw), processed_file=str(csv))

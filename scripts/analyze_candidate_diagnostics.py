@@ -14,7 +14,8 @@ FEATURES = ["episode_signal_ordinal", "signals_last_5m", "signals_last_15m", "mi
 
 def parser():
     p = argparse.ArgumentParser(description="Research-only candidate diagnostics")
-    p.add_argument("symbol", nargs="?", default="GME"); p.add_argument("date", nargs="?", default="2024-05-13")
+    p.add_argument("symbol", nargs="?", default="GME")
+    p.add_argument("date", nargs="?", default="2024-05-13")
     p.add_argument("--feed", choices=(*RESEARCH_FEEDS, LEGACY_FEED), default=HISTORICAL_DATA_FEED)
     p.add_argument("--completeness-mode", choices=[mode.value for mode in CompletenessMode], default=CompletenessMode.HALT_AWARE.value)
     return p
@@ -25,7 +26,8 @@ def view(frame, name):
     return result, missing
 
 def markdown_table(frame):
-    if frame.empty: return "No rows."
+    if frame.empty:
+        return "No rows."
     columns = list(frame.columns)
     lines = ["| " + " | ".join(columns) + " |", "| " + " | ".join(["---"] * len(columns)) + " |"]
     for row in frame.itertuples(index=False, name=None):
@@ -33,7 +35,8 @@ def markdown_table(frame):
     return "\n".join(lines)
 
 def main():
-    args = parser().parse_args(); root = artifact_directory(args.symbol, args.date, args.feed)
+    args = parser().parse_args()
+    root = artifact_directory(args.symbol, args.date, args.feed)
     validate_replay_feed(root, args.feed, args.completeness_mode)
     halts = load_verified_halts(args.symbol, args.date)
     print(
@@ -112,10 +115,16 @@ def main():
     pieces, missing = [], []
     for group in groups:
         cols = [group] if isinstance(group, str) else group
-        stats, absent = distribution_statistics(enriched, cols, METRICS); stats.insert(0, "grouping", "+".join(cols)); pieces.append(stats); missing.extend(absent)
+        stats, absent = distribution_statistics(enriched, cols, METRICS)
+        stats.insert(0, "grouping", "+".join(cols))
+        pieces.append(stats)
+        missing.extend(absent)
     for name, subset in [("all", enriched), ("excluding_first_episode", enriched[enriched.episode_id != enriched.episode_id.min()]), ("excluding_opening_expansion", enriched[enriched.session_phase != "opening_expansion"])]:
-        stats, absent = view(subset, name); pieces.append(stats); missing.extend(absent)
-    diagnostics = pd.concat(pieces, ignore_index=True); diagnostics.to_csv(root / "candidate_diagnostics.csv", index=False)
+        stats, absent = view(subset, name)
+        pieces.append(stats)
+        missing.extend(absent)
+    diagnostics = pd.concat(pieces, ignore_index=True)
+    diagnostics.to_csv(root / "candidate_diagnostics.csv", index=False)
     correlations = feature_correlations(enriched, FEATURES, ["forward_5m_return", "forward_15m_return", "forward_30m_return", "mfe_30m", "mae_30m"])
     first_later = enriched.assign(signal_group=enriched.episode_signal_ordinal.map(lambda n: "first" if n == 1 else "second" if n == 2 else "third_or_later"))
     comparison, _ = distribution_statistics(first_later, ["signal_group"], ["forward_5m_return", "forward_15m_return", "forward_30m_return", "mfe_30m", "mae_30m"])
@@ -126,4 +135,5 @@ def main():
     print(f"Saved diagnostics for {len(enriched)} candidates to {root}")
     print(target.to_string(index=False))
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()

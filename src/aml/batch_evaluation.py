@@ -11,7 +11,7 @@ import pandas as pd
 
 from aml.candidate_outcomes import analyze_candidate_outcomes
 from aml.market_calendar import (
-    CalendarIdentity, MarketCalendar, NonTradingSessionError, SessionSchedule,
+    CalendarIdentity, MarketCalendar, NonTradingSessionError,
 )
 from aml.market_halts import (
     CompletenessMode, HaltSchedule, completeness_metadata, load_verified_halts,
