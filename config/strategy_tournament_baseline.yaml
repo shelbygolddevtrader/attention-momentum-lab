@@ -1,0 +1,32 @@
+{
+  "configuration_version": "1.0.0",
+  "dataset_manifest": "manifests/alpaca-sip-liquid-markets-2023-07-24_to_2026-07-23-v001.json",
+  "artifact_root": "artifacts/tournaments",
+  "execution": {
+    "starting_capital": 2000.0,
+    "risk_fraction": 0.005,
+    "stop_fraction": 0.015,
+    "target_fraction": 0.03,
+    "entry_delay_bars": 1,
+    "maximum_entry_delay_minutes": 5,
+    "maximum_holding_minutes": 30,
+    "slippage_fraction": 0.001,
+    "cooldown_minutes": 0,
+    "commission_per_trade": 0.0,
+    "maximum_missing_regular_fraction": 0.05
+  },
+  "scoring": {
+    "minimum_trades": 100,
+    "concentration_warning_fraction": 0.4,
+    "near_zero_exposure_fraction": 0.001
+  },
+  "strategies": [
+    {"strategy_id": "opening_range_breakout", "strategy_version": "1.0.0", "parameters": {"opening_range_minutes": 15, "breakout_buffer": 0.001, "minimum_relative_volume": 1.5, "signal_cutoff_time": "11:30"}},
+    {"strategy_id": "vwap_reclaim", "strategy_version": "1.0.0", "parameters": {"confirmation_bars": 2, "minimum_distance_below_vwap": 0.005, "minimum_relative_volume": 1.2, "maximum_distance_above_vwap_at_entry": 0.003}},
+    {"strategy_id": "vwap_mean_reversion", "strategy_version": "1.0.0", "parameters": {"minimum_vwap_deviation": 0.015, "use_rsi_filter": true, "maximum_rsi": 35.0, "confirmation_bars": 2, "start_time": "10:00", "end_time": "14:30"}},
+    {"strategy_id": "ema_momentum_cross", "strategy_version": "1.0.0", "parameters": {"fast_ema_period": 9, "slow_ema_period": 21, "minimum_relative_volume": 1.2, "minimum_momentum_per_bar": 0.0005, "session_cutoff_time": "14:30"}},
+    {"strategy_id": "volume_spike_breakout", "strategy_version": "1.0.0", "parameters": {"volume_lookback": 20, "volume_multiple": 2.5, "price_breakout_lookback": 20, "confirmation_bars": 1, "session_cutoff_time": "14:30"}},
+    {"strategy_id": "attention_momentum", "strategy_version": "0.1.1", "parameters": {"return_window": 5, "volume_window": 20, "acceleration_window": 5, "return_threshold": 0.03, "relative_volume_threshold": 3.0, "vwap_threshold": 0.01, "acceleration_threshold": 1.5, "eligible_score_threshold": 70}},
+    {"strategy_id": "no_trade", "strategy_version": "1.0.0", "parameters": {}}
+  ]
+}

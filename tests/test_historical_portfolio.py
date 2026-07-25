@@ -109,7 +109,7 @@ def test_conversion_preserves_threshold_timestamps_version_and_halt_provenance()
     assert proposals[0].signal_timestamp == START + pd.Timedelta(1, unit="min")
     assert proposals[0].intended_entry_timestamp == START + pd.Timedelta(2, unit="min")
     assert proposals[0].strategy_identifier == ATTENTION_STRATEGY_IDENTIFIER
-    assert proposals[0].strategy_version == "0.1.0"
+    assert proposals[0].strategy_version == "0.1.1"
     assert proposals[0].provenance["completeness_mode"] == "halt_aware"
     assert proposals[0].provenance["verified_halt_count"] == 1
     assert proposals[0].provenance["verified_full_halt_minute_count"] == 4

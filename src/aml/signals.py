@@ -36,10 +36,21 @@ class SignalConfig:
             object.__setattr__(self, name, values[name])
         object.__setattr__(self, "eligible_score_threshold", eligible)
 
-def add_features(bars: pd.DataFrame, cfg=None):
+def add_features(bars: pd.DataFrame, cfg=None, *, exact_elapsed_return=True):
     cfg = cfg or SignalConfig()
     f = bars.copy().sort_values("timestamp").reset_index(drop=True)
-    f["return_5m"] = f["close"].pct_change(cfg.return_window)
+    if exact_elapsed_return:
+        timestamps = pd.to_datetime(f["timestamp"], utc=True, errors="coerce")
+        if timestamps.isna().any() or timestamps.duplicated().any():
+            raise ValueError("Feature timestamps must be valid and unique")
+        close_at = dict(zip(timestamps, f["close"], strict=True))
+        elapsed = pd.Timedelta(cfg.return_window, unit="min")
+        prior = timestamps.map(lambda timestamp: close_at.get(timestamp - elapsed))
+        f["return_5m"] = f["close"] / prior - 1
+    else:
+        # Required only to audit tournament artifacts created before exact
+        # elapsed-minute enforcement was introduced.
+        f["return_5m"] = f["close"].pct_change(cfg.return_window)
     baseline = f["volume"].shift(1).rolling(cfg.volume_window, min_periods=5).median()
     f["relative_volume"] = f["volume"] / baseline.replace(0, np.nan)
     price = f["bar_vwap"].fillna(f["close"]) if "bar_vwap" in f else f["close"]
@@ -47,10 +58,27 @@ def add_features(bars: pd.DataFrame, cfg=None):
     f["vwap_distance"] = f["close"] / f["session_vwap"] - 1
     prior = f["volume"].shift(1).rolling(cfg.acceleration_window, min_periods=2).mean()
     f["volume_acceleration"] = f["volume"] / prior.replace(0, np.nan)
-    f["score"] = 0
-    f.loc[f["return_5m"] >= cfg.return_threshold, "score"] += 35
-    f.loc[f["relative_volume"] >= cfg.relative_volume_threshold, "score"] += 35
-    f.loc[f["vwap_distance"] >= cfg.vwap_threshold, "score"] += 20
-    f.loc[f["volume_acceleration"] >= cfg.acceleration_threshold, "score"] += 10
+    # Keep the established score exactly additive while exposing each component
+    # for point-in-time auditability. Comparisons with NaN remain False.
+    f["return_score_component"] = np.where(
+        f["return_5m"] >= cfg.return_threshold, 35, 0
+    )
+    f["relative_volume_score_component"] = np.where(
+        f["relative_volume"] >= cfg.relative_volume_threshold, 35, 0
+    )
+    f["vwap_score_component"] = np.where(
+        f["vwap_distance"] >= cfg.vwap_threshold, 20, 0
+    )
+    f["acceleration_score_component"] = np.where(
+        f["volume_acceleration"] >= cfg.acceleration_threshold, 10, 0
+    )
+    f["score"] = f[
+        [
+            "return_score_component",
+            "relative_volume_score_component",
+            "vwap_score_component",
+            "acceleration_score_component",
+        ]
+    ].sum(axis=1)
     f["eligible"] = f["score"] >= cfg.eligible_score_threshold
     return f

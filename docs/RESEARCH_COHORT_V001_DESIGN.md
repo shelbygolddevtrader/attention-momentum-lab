@@ -1,7 +1,7 @@
 # Research Cohort v0.1 Design
 
 **Status:** preregistration design; collection not activated
-**Strategy:** `baseline_price_volume_momentum` v0.1.0
+**Strategy:** `baseline_price_volume_momentum` v0.1.1
 **Selection protocol:** `COHORT_SELECTION_PROTOCOL_V001.md`
 **Historical feed:** consolidated SIP
 **Calendar:** XNYS, left-labeled minutes
