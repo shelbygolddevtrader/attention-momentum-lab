@@ -93,6 +93,19 @@ outcome.
    universe, XNYS sessions, writable paths, and all existing partition hashes.
    It makes zero provider requests and writes no data or artifacts.
 
+   For unattended operation, the locally configured storage root must be an
+   existing absolute directory outside the repository, owned by the current
+   user, permissioned `0700` or more narrowly, non-symlinked, and writable. Add
+   the same explicit option to preflight and acquisition:
+
+   ```bash
+   --storage-root /absolute/operator-configured/path
+   ```
+
+   The absolute path is never serialized into the deterministic request
+   identity; only the `project_external` storage scope and fixed layout version
+   are recorded.
+
 2. Review the structural plan. Then repeat the exact command with the sole live
    authorization flag:
 

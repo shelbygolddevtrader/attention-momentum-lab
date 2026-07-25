@@ -25,6 +25,10 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--root", type=Path, default=Path.cwd())
     value.add_argument("--universe", type=Path, default=DEFAULT_UNIVERSE)
     value.add_argument("--control-root", type=Path, default=DEFAULT_CONTROL_ROOT)
+    value.add_argument(
+        "--storage-root", type=Path,
+        help="Existing private project-external root for data and sealed controls",
+    )
     value.add_argument("--retry-failures", action="store_true")
     value.add_argument(
         "--execute-acquisition", action="store_true",
@@ -45,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     plan = build_preflight_plan(
         root, start=args.start, end=args.end, environment=os.environ,
         calendar=calendar, universe=args.universe, control_root=args.control_root,
+        storage_root=args.storage_root,
     )
     print(json.dumps(preflight_report(plan), indent=2, sort_keys=True))
     if not args.execute_acquisition:
