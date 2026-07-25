@@ -171,11 +171,23 @@ def _signals(
     strategy: ConfiguredStrategy,
     score: pd.Series | float,
     reason: str,
+    metadata_columns: Mapping[str, str] | None = None,
 ) -> tuple[NormalizedSignal, ...]:
     records = []
     values = pd.Series(score, index=frame.index) if np.isscalar(score) else score
     for index in frame.index[mask.fillna(False)]:
         source_timestamp = pd.Timestamp(frame.at[index, "timestamp"])
+        metadata = {
+            "reason_code": reason,
+            "source_bar_timestamp": source_timestamp.isoformat(),
+            "information_cutoff": (source_timestamp + pd.Timedelta(1, unit="min")).isoformat(),
+            "bar_timestamp_semantics": "left_labeled",
+        }
+        for output_name, column_name in (metadata_columns or {}).items():
+            value = frame.at[index, column_name]
+            metadata[output_name] = None if pd.isna(value) else (
+                bool(value) if isinstance(value, (bool, np.bool_)) else float(value)
+            )
         records.append(NormalizedSignal(
             symbol=str(frame.at[index, "symbol"]),
             signal_timestamp=source_timestamp + pd.Timedelta(1, unit="min"),
@@ -184,12 +196,7 @@ def _signals(
             strategy_id=strategy.strategy_id,
             strategy_version=strategy.strategy_version,
             parameter_hash=strategy.parameter_hash,
-            metadata={
-                "reason_code": reason,
-                "source_bar_timestamp": source_timestamp.isoformat(),
-                "information_cutoff": (source_timestamp + pd.Timedelta(1, unit="min")).isoformat(),
-                "bar_timestamp_semantics": "left_labeled",
-            },
+            metadata=metadata,
         ))
     return tuple(records)
 
@@ -302,17 +309,42 @@ def _volume_breakout(frame: pd.DataFrame, strategy: ConfiguredStrategy):
 
 def _attention_momentum(frame: pd.DataFrame, strategy: ConfiguredStrategy):
     p = strategy.parameters
-    enriched = add_features(frame, SignalConfig(
+    enriched = attention_momentum_feature_frame(frame, strategy)
+    enriched["eligibility_threshold"] = float(p["eligible_score_threshold"])
+    return _signals(
+        enriched, enriched["eligible"].astype(bool), strategy,
+        enriched["score"].astype(float), "existing_attention_momentum_eligible",
+        {
+            "raw_return_feature": "return_5m",
+            "relative_volume_feature": "relative_volume",
+            "vwap_distance_feature": "vwap_distance",
+            "acceleration_feature": "volume_acceleration",
+            "return_score_component": "return_score_component",
+            "relative_volume_score_component": "relative_volume_score_component",
+            "vwap_score_component": "vwap_score_component",
+            "acceleration_score_component": "acceleration_score_component",
+            "total_score": "score",
+            "eligibility_threshold": "eligibility_threshold",
+            "eligible": "eligible",
+        },
+    )
+
+
+def attention_momentum_feature_frame(
+    bars: pd.DataFrame, strategy: ConfiguredStrategy, *, exact_elapsed_return: bool = True
+) -> pd.DataFrame:
+    """Return the exact causal feature frame used by attention momentum."""
+    if strategy.strategy_id != "attention_momentum":
+        raise ValueError("attention_momentum strategy is required")
+    frame = _prepare_bars(bars)
+    p = strategy.parameters
+    return add_features(frame, SignalConfig(
         return_window=p["return_window"], volume_window=p["volume_window"],
         acceleration_window=p["acceleration_window"], return_threshold=p["return_threshold"],
         relative_volume_threshold=p["relative_volume_threshold"],
         vwap_threshold=p["vwap_threshold"], acceleration_threshold=p["acceleration_threshold"],
         eligible_score_threshold=p["eligible_score_threshold"],
-    ))
-    return _signals(
-        enriched, enriched["eligible"].astype(bool), strategy,
-        enriched["score"].astype(float), "existing_attention_momentum_eligible",
-    )
+    ), exact_elapsed_return=exact_elapsed_return)
 
 
 def _no_trade(frame: pd.DataFrame, strategy: ConfiguredStrategy):

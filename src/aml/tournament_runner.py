@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
@@ -23,15 +23,22 @@ from aml.portfolio_artifacts import (
 )
 from aml.portfolio_simulator import PriceLevel, StrategyProposal, simulate_portfolio
 from aml.tournament_config import DatasetSplit, TournamentConfig, execution_payload
+from aml.tournament_attention import (
+    SESSION_DIAGNOSTIC_COLUMNS,
+    build_attention_audit,
+    build_signal_diagnostics,
+    session_feature_diagnostics,
+    validate_attention_integrity,
+)
 from aml.tournament_metrics import build_metric_tables
 from aml.tournament_strategies import ConfiguredStrategy, NormalizedSignal
-
 
 TOURNAMENT_SCHEMA_VERSION = "aml.strategy-tournament.v1"
 SIMULATOR_VERSION = "aml.portfolio_simulator.simulate_portfolio"
 CORE_ARTIFACTS = (
     "leaderboard.csv", "strategy_symbol_metrics.csv", "strategy_month_metrics.csv",
     "trades.csv", "signals.csv", "session_results.csv",
+    "attention_momentum_audit.csv", "attention_momentum_diagnostics.csv",
 )
 FINAL_ARTIFACTS = CORE_ARTIFACTS + ("summary.md",)
 TOURNAMENT_TRADE_COLUMNS = [
@@ -266,7 +273,7 @@ def _run_unit(
     root: Path, run_root: Path, unit: TournamentUnit, plan: TournamentPlan,
     config: TournamentConfig, source: SourceState, execution_timestamp: pd.Timestamp,
     *, resume: bool,
-) -> tuple[Any, dict, bool]:
+) -> tuple[Any, dict, dict[str, Any] | None, bool]:
     unit_root = _unit_root(run_root, unit)
     completed = discover_completed_runs(unit_root) if unit_root.exists() else []
     if completed:
@@ -275,7 +282,10 @@ def _run_unit(
         if not resume:
             raise FileExistsError(f"Unit already exists; rerun with --resume: {unit.unit_id}")
         loaded = _compatible_unit(completed[0], unit, plan)
-        return loaded, _session_record(unit, loaded, None), True
+        attention = loaded.metadata.get("provenance", {}).get("attention_momentum_audit")
+        if unit.strategy.strategy_id == "attention_momentum" and not isinstance(attention, Mapping):
+            raise ValueError(f"Resume artifact lacks attention audit provenance: {unit.unit_id}")
+        return loaded, _session_record(unit, loaded, None), attention, True
     if unit_root.exists() and any(unit_root.iterdir()):
         raise RuntimeError(f"Incomplete or corrupt unit output blocks resume: {unit_root}")
 
@@ -287,6 +297,12 @@ def _run_unit(
     verified_halt_minutes = len(halt_schedule.full_halt_minutes)
     effective_missing = max(0, missing_minutes - verified_halt_minutes)
     quality_excluded = effective_missing / expected_minutes > config.execution.maximum_missing_regular_fraction
+    attention = None
+    if unit.strategy.strategy_id == "attention_momentum":
+        attention = session_feature_diagnostics(
+            bars, unit.strategy, split=unit.split, symbol=unit.symbol,
+            trading_date=unit.trading_date, processed=not quality_excluded,
+        )
     signals = () if quality_excluded else unit.strategy.evaluate(bars)
     proposals = _proposals(signals, unit, config, plan)
     portfolio_config = config.execution.portfolio_config(unit.strategy)
@@ -311,6 +327,7 @@ def _run_unit(
             "quality_excluded": quality_excluded, "missing_regular_minutes": missing_minutes,
             "expected_regular_minutes": expected_minutes,
             "verified_halt_minutes": verified_halt_minutes, "research_only": True,
+            **({"attention_momentum_audit": attention} if attention is not None else {}),
         },
     )
     destination = write_portfolio_run(unit_root, result, proposals, portfolio_config, context)
@@ -320,7 +337,7 @@ def _run_unit(
         "effective_missing": effective_missing, "halts": verified_halt_minutes,
         "excluded": quality_excluded,
     }
-    return loaded, _session_record(unit, loaded, quality), False
+    return loaded, _session_record(unit, loaded, quality), attention, False
 
 
 def _session_record(unit: TournamentUnit, loaded: Any, quality: dict | None) -> dict:
@@ -476,7 +493,9 @@ def _publish_final(
     run_root: Path, plan: TournamentPlan, config: TournamentConfig, source: SourceState,
     dataset_manifest: dict, sessions: pd.DataFrame, trades: pd.DataFrame,
     signals: pd.DataFrame, leaderboard: pd.DataFrame, symbol_metrics: pd.DataFrame,
-    month_metrics: pd.DataFrame, started: datetime, completed: datetime,
+    month_metrics: pd.DataFrame, attention_audit: pd.DataFrame,
+    attention_diagnostics: pd.DataFrame, integrity_warnings: tuple[str, ...],
+    started: datetime, completed: datetime,
 ) -> tuple[Path, dict[str, str]]:
     final = run_root / "final"
     if final.exists():
@@ -490,6 +509,8 @@ def _publish_final(
         "trades.csv": trades,
         "signals.csv": signals,
         "session_results.csv": sessions,
+        "attention_momentum_audit.csv": attention_audit,
+        "attention_momentum_diagnostics.csv": attention_diagnostics,
     }
     try:
         for name, frame in frames.items():
@@ -528,7 +549,9 @@ def _publish_final(
             "deterministic_artifact_hashes": deterministic,
             "started_at": started.isoformat(), "completed_at": completed.isoformat(),
             "runtime_seconds": runtime,
-            "warnings": sorted(set(filter(None, ";".join(leaderboard["warning_codes"].fillna("")).split(";")))),
+            "warnings": sorted(set(
+                filter(None, ";".join(leaderboard["warning_codes"].fillna("")).split(";"))
+            ).union(integrity_warnings)),
             "exclusions": sessions["status"].value_counts().sort_index().to_dict(),
         }
         (temporary / "run_manifest.json").write_bytes(canonical_json_bytes(manifest))
@@ -569,16 +592,18 @@ def run_tournament(
                 plan.run_id, final, len(plan.units), 0, 0.0,
                 manifest["deterministic_artifact_hashes"],
             )
-        session_rows, trade_rows, signal_rows = [], [], []
+        session_rows, trade_rows, signal_rows, attention_rows = [], [], [], []
         resumed = completed_units = 0
         timestamp = pd.Timestamp(started)
         for unit in plan.units:
-            loaded, session, reused = _run_unit(
+            loaded, session, attention, reused = _run_unit(
                 root, run_root, unit, plan, config, source, timestamp, resume=resume
             )
             resumed += int(reused)
             completed_units += int(not reused)
             session_rows.append(session)
+            if attention is not None:
+                attention_rows.append(attention)
             trade_rows.extend(_trade_rows(unit, loaded))
             signal_rows.extend(_signal_rows(unit, loaded))
         sessions = pd.DataFrame(session_rows).sort_values(
@@ -606,10 +631,19 @@ def run_tournament(
             sessions, trades, identities, [split.name for split in plan.splits],
             starting_capital=config.execution.starting_capital, scoring=config.scoring,
         )
+        attention_sessions = pd.DataFrame(
+            attention_rows, columns=SESSION_DIAGNOSTIC_COLUMNS
+        )
+        attention_diagnostics = build_signal_diagnostics(signals)
+        attention_audit = build_attention_audit(attention_sessions, signals, trades)
+        integrity_warnings = validate_attention_integrity(
+            attention_audit, attention_diagnostics, plan.splits
+        )
         completed = datetime.now(timezone.utc)
         final, deterministic = _publish_final(
             run_root, plan, config, source, dataset_manifest, sessions, trades, signals,
-            leaderboard, symbol_metrics, month_metrics, started, completed,
+            leaderboard, symbol_metrics, month_metrics, attention_audit,
+            attention_diagnostics, integrity_warnings, started, completed,
         )
         return TournamentResult(
             plan.run_id, final, resumed, completed_units,

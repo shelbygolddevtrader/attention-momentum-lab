@@ -189,6 +189,16 @@ PYTHONPATH=src .venv/bin/python scripts/run_strategy_tournament.py \
   --splits development validation
 ```
 
+Audit attention-momentum feature coverage, score provenance, execution reasons,
+and DST-safe calendar-month results for a completed run:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/analyze_tournament_attention.py \
+  --run-id 52cbe99a07595ee40dba
+```
+
+See `docs/ATTENTION_MOMENTUM_AUDIT.md` for score and integrity-check semantics.
+
 Long runs can be restarted with `--resume`. Completed strategy-symbol-day units
 are hash-verified before reuse, and final leaderboards are published atomically.
 See `docs/STRATEGY_TOURNAMENT_V001.md` for signal timing, strategy extension,

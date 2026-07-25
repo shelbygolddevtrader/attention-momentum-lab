@@ -214,6 +214,6 @@ def test_end_to_end_run_preserves_provenance_and_resumes(tmp_path: Path) -> None
     assert provenance["evidence_class"] == ENGINEERING_EVIDENCE_CLASS
     assert provenance["not_validation_evidence"] is True
     assert provenance["requested_feed"] == "sip"
-    assert provenance["strategy_employee"]["strategy_version"] == "0.1.0"
+    assert provenance["strategy_employee"]["strategy_version"] == "0.1.1"
     assert len(metadata["input_hashes"]) == 8
     assert discover_completed_runs(artifact_root) == [first.artifact_directory]
