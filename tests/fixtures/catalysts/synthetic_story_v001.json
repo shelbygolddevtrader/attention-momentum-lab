@@ -1,0 +1,23 @@
+{
+  "catalyst_category": "product_announcement",
+  "company_specificity": 4,
+  "direction": "unknown",
+  "duplicate_story_cluster_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "effective_event_timestamp": null,
+  "first_seen_timestamp": "2024-01-03T14:00:05+00:00",
+  "headline": "SYNTHETIC: Example Corp announces a fictional product",
+  "is_primary_source": true,
+  "language": "en",
+  "materiality": 3,
+  "normalized_summary": "Synthetic fixture describing a fictional product announcement.",
+  "novelty": 4,
+  "publication_timestamp": "2024-01-03T14:00:00+00:00",
+  "security_identifier": "SYNTHETIC-EXMPL",
+  "source_credibility": 5,
+  "source_locator": "synthetic://story/example-001",
+  "source_name": "Synthetic Investor Relations",
+  "source_record_id": "synthetic-example-001",
+  "source_type": "investor_relations",
+  "symbol": "EXMPL",
+  "synthetic": true
+}

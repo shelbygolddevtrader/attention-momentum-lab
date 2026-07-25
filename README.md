@@ -1,5 +1,10 @@
 # Attention Momentum Lab
 
+Research-only V0.1.2 experiment registration and passive catalyst-data contracts
+are documented in
+[`docs/V012_EXPERIMENT_AND_CATALYST_FRAMEWORK_V001.md`](docs/V012_EXPERIMENT_AND_CATALYST_FRAMEWORK_V001.md).
+They are isolated from the frozen Strategy V0.1.1 execution path.
+
 A private, modular research system for testing whether unusual price/volume momentum can be detected without look-ahead bias.
 
 This project connects to Alpaca paper APIs, downloads one-minute bars, replays a stock-day chronologically, calculates a transparent baseline score, logs every candidate, and produces separate price and volume charts.
