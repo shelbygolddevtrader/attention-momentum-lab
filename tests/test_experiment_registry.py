@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
@@ -218,7 +219,7 @@ def test_registry_rejects_hardlinked_specs_and_cli_external_roots(tmp_path):
         load_registry(tmp_path.resolve())
     result = subprocess.run(
         [
-            str(ROOT / ".venv/bin/python"), str(ROOT / "scripts/manage_experiments.py"),
+            sys.executable, str(ROOT / "scripts/manage_experiments.py"),
             "--registry-root", str(tmp_path), "list",
         ],
         cwd=ROOT, capture_output=True, text=True,
