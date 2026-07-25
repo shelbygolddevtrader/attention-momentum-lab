@@ -30,6 +30,13 @@ the raw response. Files are write-once within a vintage, published atomically,
 and hashed only after their final bytes have been published. Acquisition
 metadata is the final success marker.
 
+Deterministic IEX-versus-SIP comparisons are stored beneath
+`artifacts/feed_comparisons/{vintage}/{symbol}/{date}/{comparison_id}/`.
+`ohlcv_differences.csv` has fixed column order and `comparison.json` is written
+last as the completion marker. The comparison identity includes the requested
+feed pair, quality-policy fingerprint, input hashes, symbol, date, and
+completeness mode. Loading rejects incomplete directories and hash changes.
+
 Large provider data beneath `data/research/` is intentionally ignored by Git
 and must be preserved in the governed research-data store. Frozen daily
 selection audits use the versionable canonical path:

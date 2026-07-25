@@ -3,6 +3,7 @@
 from copy import deepcopy
 from datetime import date, datetime, time, timezone
 import hashlib
+import time as time_module
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -14,19 +15,64 @@ from aml.settings import Settings
 NY = ZoneInfo("America/New_York")
 
 
+class AlpacaDataPermissionError(RuntimeError):
+    """The requested Alpaca market-data feed is not enabled for the account."""
+
+
 class AlpacaREST:
     """Alpaca REST adapter; credentials are used only in request headers."""
 
-    def __init__(self, settings: Settings, timeout: int = 30) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        timeout: int = 30,
+        max_retries: int = 4,
+        retry_backoff_seconds: float = 0.5,
+    ) -> None:
         self.settings = settings
         self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_backoff_seconds = retry_backoff_seconds
 
     def _get(self, url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        try:
-            response = requests.get(url, headers=self.settings.headers, params=params, timeout=self.timeout)
-        except requests.RequestException as exc:
-            raise RuntimeError(f"Network request failed: {exc}") from exc
+        response = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = requests.get(
+                    url, headers=self.settings.headers, params=params, timeout=self.timeout
+                )
+            except requests.RequestException as exc:
+                if attempt >= self.max_retries:
+                    error = RuntimeError(
+                        f"Network request failed after {attempt + 1} attempts: {exc}"
+                    )
+                    error.retry_count = attempt
+                    raise error from exc
+                time_module.sleep(self.retry_backoff_seconds * (2 ** attempt))
+                continue
+            if response.status_code == 429 or response.status_code >= 500:
+                if attempt < self.max_retries:
+                    retry_after = response.headers.get("Retry-After")
+                    try:
+                        delay = float(retry_after) if retry_after is not None else None
+                    except ValueError:
+                        delay = None
+                    time_module.sleep(
+                        delay if delay is not None else self.retry_backoff_seconds * (2 ** attempt)
+                    )
+                    continue
+            break
+        if response is None:  # pragma: no cover - loop invariants guarantee a response or exception
+            raise RuntimeError("Network request did not return a response")
         if response.status_code >= 400:
+            requested_feed = str((params or {}).get("feed", "")).lower()
+            if response.status_code == 403 and requested_feed in {"sip", "iex"}:
+                raise AlpacaDataPermissionError(
+                    f"Alpaca denied access to the requested {requested_feed.upper()} "
+                    "market-data feed (HTTP 403). Confirm that these credentials "
+                    "belong to an account with the required historical data plan; "
+                    "the request was not retried with another feed."
+                )
             raise RuntimeError(f"Alpaca HTTP {response.status_code}: {response.text[:800]}")
         return response.json()
 

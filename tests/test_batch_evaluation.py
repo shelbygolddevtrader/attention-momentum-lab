@@ -110,6 +110,17 @@ def test_run_identity_changes_only_for_content_not_execution_time():
     assert first == second and first != changed
 
 
+def test_run_identity_changes_when_only_manifest_feed_changes():
+    iex = manifest().assign(data_feed="iex")
+    sip = manifest().assign(data_feed="sip")
+    arguments = (
+        "strategy", SimulationConfig(), "commit", {"x": "1"},
+        quality_policy().fingerprint(),
+        SyntheticMarketCalendar().identity({"SYNTHETIC_TEST"}).fingerprint(),
+    )
+    assert deterministic_run_id(iex, *arguments) != deterministic_run_id(sip, *arguments)
+
+
 def test_quality_policy_load_validation_and_fingerprint(tmp_path):
     path = Path(__file__).parents[1] / "config" / "batch_evaluation_v001.yaml"
     policy = load_quality_policy(path)

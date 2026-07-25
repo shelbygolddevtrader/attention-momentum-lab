@@ -35,13 +35,22 @@ def client_with_pages(pages):
     return client, calls
 
 
-def test_historical_cli_defaults_to_sip_and_accepts_explicit_iex():
+def test_historical_cli_defaults_to_sip_and_accepts_explicit_iex(monkeypatch):
+    monkeypatch.delenv("ALPACA_HISTORICAL_DATA_FEED", raising=False)
     default = parser().parse_args(["fetch", "--symbol", "AAPL", "--date", "2024-01-02"])
     explicit = parser().parse_args(["fetch", "--symbol", "AAPL", "--date", "2024-01-02", "--feed", "iex"])
     assert default.feed == HISTORICAL_DATA_FEED == "sip"
     assert explicit.feed == "iex"
     with pytest.raises(SystemExit):
         parser().parse_args(["fetch", "--symbol", "AAPL", "--date", "2024-01-02", "--feed", "bad"])
+
+
+def test_historical_cli_uses_configured_feed_default(monkeypatch):
+    monkeypatch.setenv("ALPACA_HISTORICAL_DATA_FEED", "iex")
+    configured = parser().parse_args(
+        ["fetch", "--symbol", "AAPL", "--date", "2024-01-02"]
+    )
+    assert configured.feed == "iex"
 
 
 def test_null_token_uses_one_request_and_sends_feed():

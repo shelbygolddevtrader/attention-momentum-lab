@@ -9,19 +9,27 @@ from aml.data_paths import (
 )
 from aml.replay import replay_to_frame
 from aml.reporting import price_chart, volume_chart
-from aml.settings import Settings
+from aml.settings import Settings, historical_feed_from_env
 from aml.market_halts import CompletenessMode, completeness_metadata, load_verified_halts
 
 def parser():
     p = argparse.ArgumentParser(description="Attention Momentum Lab")
     subs = p.add_subparsers(dest="command", required=True)
     subs.add_parser("check-account")
+    access = subs.add_parser(
+        "check-data-feed", description="Verify access to one explicit Alpaca feed"
+    )
+    access.add_argument("--symbol", required=True)
+    access.add_argument("--date", required=True, type=date.fromisoformat)
+    access.add_argument(
+        "--feed", choices=RESEARCH_FEEDS, default=historical_feed_from_env()
+    )
     for name in ("fetch", "replay", "demo"):
         q = subs.add_parser(name)
         q.add_argument("--symbol", required=True)
         q.add_argument("--date", required=True, type=date.fromisoformat)
         choices = (*RESEARCH_FEEDS, LEGACY_FEED) if name == "replay" else RESEARCH_FEEDS
-        q.add_argument("--feed", choices=choices, default=HISTORICAL_DATA_FEED)
+        q.add_argument("--feed", choices=choices, default=historical_feed_from_env())
         if name in {"replay", "demo"}:
             q.add_argument("--completeness-mode", choices=[mode.value for mode in CompletenessMode], default=CompletenessMode.HALT_AWARE.value)
     return p
@@ -92,6 +100,14 @@ def main():
             print("Paper account connection verified.")
             print(f"Status: {account.get('status')} | Currency: {account.get('currency')} | Equity: {account.get('equity')}")
             print("No order was submitted.")
+        elif args.command == "check-data-feed":
+            client = AlpacaREST(Settings.from_env())
+            _, bars = client.get_minute_bars(args.symbol, args.date, feed=args.feed)
+            print(
+                f"Alpaca {args.feed.upper()} access verified for "
+                f"{args.symbol.upper()} {args.date}: {len(bars)} minute bars."
+            )
+            print("No fallback feed was requested and no order was submitted.")
         elif args.command == "fetch":
             client = AlpacaREST(Settings.from_env())
             fetch(client, args.symbol, args.date, args.feed)
