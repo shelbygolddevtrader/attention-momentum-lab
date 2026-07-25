@@ -194,10 +194,12 @@ and DST-safe calendar-month results for a completed run:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/analyze_tournament_attention.py \
-  --run-id 52cbe99a07595ee40dba
+  --run-id 564345a77176524eb250
 ```
 
 See `docs/ATTENTION_MOMENTUM_AUDIT.md` for score and integrity-check semantics.
+The corrected Strategy V0.1.1 development/validation baseline and its read-only
+robustness review are recorded in `docs/STRATEGY_V011_BASELINE.md`.
 
 Long runs can be restarted with `--resume`. Completed strategy-symbol-day units
 are hash-verified before reuse, and final leaderboards are published atomically.
