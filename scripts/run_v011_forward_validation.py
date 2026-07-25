@@ -10,6 +10,7 @@ import sys
 from aml.forward_validation import (
     DEFAULT_CONTROL_ROOT,
     DEFAULT_UNIVERSE,
+    RedactedProviderClient,
     build_preflight_plan,
     execute_acquisition,
     preflight_report,
@@ -53,8 +54,12 @@ def main(argv: list[str] | None = None) -> int:
     from aml.alpaca_rest import AlpacaREST
     from aml.settings import Settings
 
+    settings = Settings.from_env()
+    client = RedactedProviderClient(
+        AlpacaREST(settings), (settings.api_key, settings.secret_key)
+    )
     execute_acquisition(
-        plan, client=AlpacaREST(Settings.from_env()), calendar=calendar,
+        plan, client=client, calendar=calendar,
         retry_failures=args.retry_failures,
     )
     print("Acquisition finished. Sealed operational audit retained; no strategy results generated.")

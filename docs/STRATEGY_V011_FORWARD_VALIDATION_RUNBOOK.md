@@ -68,9 +68,11 @@ artifacts/forward_validation/sealed/<request_id>/
 The request ID is the first 24 hexadecimal characters of the SHA-256 of the
 canonical request identity. That identity includes the baseline, source commit,
 frozen strategy version, date range, SIP feed, dataset vintage, universe hash,
-and explicit denial of replay, analysis, and holdout access. These generated
-directories are ignored by Git and must be retained in protected research
-storage with their hashes; they are not GitHub artifacts.
+and explicit denial of replay, analysis, and holdout access. Audit records use
+canonical JSON, monotonic sequence numbers, and a SHA-256 chain rooted in the
+request manifest. Resumption verifies the complete existing chain before
+appending. These generated directories are ignored by Git and must be retained
+in protected research storage with their hashes; they are not GitHub artifacts.
 
 ## Daily operating sequence
 
@@ -102,7 +104,9 @@ outcome.
    ```
 
    This acquires SIP bars only. It never invokes a replay, emits performance
-   metrics, or creates human-readable outcome tables.
+   metrics, or creates human-readable outcome tables. Provider failures are
+   wrapped before persistence so credentials cannot enter failure evidence or
+   terminal exceptions.
 
 3. Retain the raw response, normalized CSV, acquisition metadata, request
    manifest, and audit log. Copy them to access-controlled research storage
@@ -177,10 +181,12 @@ Stop without acquisition if any of these occurs:
 - the feed is not SIP, credentials are absent, or a dependency is missing;
 - the ordered universe differs from the 23 preregistered symbols;
 - any path traverses, uses a symlink, names a holdout compartment, enters a
-  tournament/finalized artifact directory, or is not writable;
+  tournament/finalized artifact directory, escapes the repository through an
+  absolute path, substitutes protected path components, or is not writable;
 - an existing partition is partial, inconsistent, malformed, or fails a hash;
 - a sealed request manifest differs, or its directory contains an unexpected
-  report/result file;
+  report/result file, orphan audit, symlinked control file, or invalid audit
+  hash chain;
 - point-in-time reference data is unavailable, stale, conflicting, or malformed.
 
 ## Operators must never
