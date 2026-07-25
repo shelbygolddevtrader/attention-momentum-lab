@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+import aml.catalyst_storage as storage_module
 from aml.catalyst_collectors import MockCatalystCollector, SyntheticCatalystNormalizer
 from aml.catalyst_observations import validate_observation, validate_raw_record
 from aml.catalyst_storage import (
@@ -21,6 +22,15 @@ def records():
         (payload,), "2024-01-03T14:00:10+00:00",
     ).collect()[0]
     return raw, SyntheticCatalystNormalizer().normalize(raw)
+
+
+def finalization_identity():
+    return {
+        "partition": "synthetic-2024-01-03",
+        "record_count": 1,
+        "content_hash": "b" * 64,
+        "finalized_at": "2024-01-03T14:01:00+00:00",
+    }
 
 
 def roots(tmp_path):
@@ -75,7 +85,7 @@ def test_write_once_and_finalized_partition_are_immutable(tmp_path):
     written = write_once(storage, relative, raw, validate_raw_record)
     with pytest.raises(CatalystStorageError, match="already exists"):
         write_once(storage, relative, raw, validate_raw_record)
-    marker = finalize_partition(written.parent, {"partition": "synthetic-2024-01-03"})
+    marker = finalize_partition(written.parent, finalization_identity())
     assert marker.is_file()
     alternate = dict(raw)
     alternate["source_record_id"] = "synthetic-example-002"
@@ -85,7 +95,7 @@ def test_write_once_and_finalized_partition_are_immutable(tmp_path):
             alternate, validate_raw_record,
         )
     with pytest.raises(CatalystStorageError, match="already finalized"):
-        finalize_partition(written.parent, {"partition": "synthetic-2024-01-03"})
+        finalize_partition(written.parent, finalization_identity())
 
 
 def test_relative_path_traversal_and_destination_symlink_fail(tmp_path):
@@ -99,3 +109,47 @@ def test_relative_path_traversal_and_destination_symlink_fail(tmp_path):
     destination.symlink_to(target)
     with pytest.raises(CatalystStorageError, match="symlink"):
         write_once(storage, Path("linked.json"), raw, validate_raw_record)
+
+
+def test_atomic_publication_failure_leaves_no_canonical_file(monkeypatch, tmp_path):
+    _, storage = roots(tmp_path)
+    raw, _ = records()
+    relative = raw_path(raw)
+
+    def interrupted(*args, **kwargs):
+        raise OSError("synthetic interrupted publication")
+
+    monkeypatch.setattr(storage_module.os, "link", interrupted)
+    with pytest.raises(OSError, match="interrupted"):
+        write_once(storage, relative, raw, validate_raw_record)
+    assert not (storage / relative).exists()
+    assert list((storage / relative).parent.glob("*.tmp")) == []
+
+
+def test_unsafe_existing_partition_component_fails(tmp_path):
+    _, storage = roots(tmp_path)
+    raw, _ = records()
+    unsafe = storage / "raw"
+    unsafe.mkdir(mode=0o755)
+    unsafe.chmod(0o755)
+    with pytest.raises(CatalystStorageError, match="permissions"):
+        write_once(storage, raw_path(raw), raw, validate_raw_record)
+
+
+def test_finalization_rejects_unknown_identity_and_publishes_atomically(
+    monkeypatch, tmp_path
+):
+    _, storage = roots(tmp_path)
+    partition = storage / "synthetic-partition"
+    partition.mkdir(mode=0o700)
+    bad = {**finalization_identity(), "pnl": 1}
+    with pytest.raises(CatalystStorageError, match="fields differ"):
+        finalize_partition(partition, bad)
+
+    def interrupted(*args, **kwargs):
+        raise OSError("synthetic interrupted finalization")
+
+    monkeypatch.setattr(storage_module.os, "link", interrupted)
+    with pytest.raises(OSError, match="interrupted"):
+        finalize_partition(partition, finalization_identity())
+    assert not (partition / ".finalized.json").exists()

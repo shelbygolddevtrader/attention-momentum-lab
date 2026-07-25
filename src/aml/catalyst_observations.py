@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 import hashlib
 import json
 import re
 from typing import Mapping
+import unicodedata
 
 
 RAW_SCHEMA_VERSION = "aml.catalyst.raw.v001"
@@ -33,6 +34,11 @@ FORWARD_OUTCOME_FIELDS = {
 }
 SECRET_TOKENS = {"api_key", "secret", "password", "authorization", "credential", "token"}
 HASH = re.compile(r"^[0-9a-f]{64}$")
+SECRET_VALUE_PATTERN = re.compile(
+    r"(?i)(api[_-]?key|secret|password|authorization|access[_-]?token)\s*[=:]"
+)
+MAX_TEXT_LENGTH = 20_000
+MAX_RAW_PAYLOAD_BYTES = 2_000_000
 
 
 class CatalystSchemaError(ValueError):
@@ -40,11 +46,17 @@ class CatalystSchemaError(ValueError):
 
 
 def canonical_json(value: object) -> bytes:
-    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    return (
+        json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+    ).encode("utf-8")
 
 
 def sha256(value: object) -> str:
-    return hashlib.sha256(canonical_json(value)).hexdigest()
+    try:
+        payload = canonical_json(value)
+    except (UnicodeEncodeError, ValueError, RecursionError) as exc:
+        raise CatalystSchemaError("Value is not valid bounded canonical JSON") from exc
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _exact(record: Mapping[str, object], fields: set[str], label: str) -> None:
@@ -57,6 +69,12 @@ def _text(value: object, field: str, *, nullable: bool = False) -> str | None:
         return None
     if not isinstance(value, str) or not value.strip():
         raise CatalystSchemaError(f"{field} must be a non-empty string")
+    if len(value) > MAX_TEXT_LENGTH:
+        raise CatalystSchemaError(f"{field} exceeds the size limit")
+    if any(unicodedata.category(character) in {"Cc", "Cs"} for character in value):
+        raise CatalystSchemaError(f"{field} contains control or malformed Unicode")
+    if SECRET_VALUE_PATTERN.search(value):
+        raise CatalystSchemaError(f"{field} contains secret-like material")
     return value
 
 
@@ -88,13 +106,29 @@ def _hash(value: object, field: str) -> str:
 def _reject_sensitive_or_outcome_keys(value: object) -> None:
     if isinstance(value, dict):
         for key, nested in value.items():
+            _text(str(key), "raw payload key")
             normalized = str(key).casefold().replace("-", "_")
-            if normalized in SECRET_TOKENS or normalized in FORWARD_OUTCOME_FIELDS:
+            collapsed = re.sub(r"[^a-z0-9]", "", normalized)
+            secret_markers = {
+                "apikey", "secretkey", "clientsecret", "password", "authorization",
+                "credential", "accesstoken",
+            }
+            outcome_markers = {
+                re.sub(r"[^a-z0-9]", "", item) for item in FORWARD_OUTCOME_FIELDS
+            }
+            if (
+                normalized in SECRET_TOKENS
+                or any(marker in collapsed for marker in secret_markers)
+                or normalized in FORWARD_OUTCOME_FIELDS
+                or collapsed in outcome_markers
+            ):
                 raise CatalystSchemaError("Credentials and forward outcomes are prohibited")
             _reject_sensitive_or_outcome_keys(nested)
     elif isinstance(value, list):
         for nested in value:
             _reject_sensitive_or_outcome_keys(nested)
+    elif isinstance(value, str):
+        _text(value, "raw payload text")
 
 
 RAW_FIELDS = {
@@ -115,13 +149,20 @@ def validate_raw_record(record: Mapping[str, object]) -> None:
     payload = record["payload"]
     if not isinstance(payload, dict):
         raise CatalystSchemaError("Raw payload must be an object")
+    try:
+        encoded = canonical_json(payload)
+    except (UnicodeEncodeError, ValueError, RecursionError) as exc:
+        raise CatalystSchemaError("Raw payload is not valid canonical JSON") from exc
+    if len(encoded) > MAX_RAW_PAYLOAD_BYTES:
+        raise CatalystSchemaError("Raw payload exceeds the size limit")
     _reject_sensitive_or_outcome_keys(payload)
     if _hash(record["raw_record_hash"], "raw_record_hash") != sha256(payload):
         raise CatalystSchemaError("Raw record hash does not match canonical payload")
 
 
 OBSERVATION_FIELDS = {
-    "schema_version", "observation_id", "symbol", "security_identifier",
+    "schema_version", "observation_id", "normalized_record_hash", "symbol",
+    "security_identifier",
     "publication_timestamp", "first_seen_timestamp", "effective_event_timestamp",
     "source_name", "source_type", "source_locator", "headline", "normalized_summary",
     "catalyst_category", "direction", "novelty", "materiality", "company_specificity",
@@ -129,11 +170,16 @@ OBSERVATION_FIELDS = {
     "acquisition_timestamp", "vendor_release", "raw_record_hash", "parser_version",
     "synthetic",
 }
-OBSERVATION_IDENTITY_FIELDS = OBSERVATION_FIELDS - {"observation_id"}
+OBSERVATION_IDENTITY_FIELDS = {"raw_record_hash", "parser_version", "symbol"}
 
 
 def observation_id(record: Mapping[str, object]) -> str:
     return sha256({field: record[field] for field in sorted(OBSERVATION_IDENTITY_FIELDS)})
+
+
+def normalized_record_hash(record: Mapping[str, object]) -> str:
+    payload = {field: record[field] for field in sorted(OBSERVATION_FIELDS - {"normalized_record_hash"})}
+    return sha256(payload)
 
 
 def validate_observation(record: Mapping[str, object]) -> None:
@@ -169,12 +215,18 @@ def validate_observation(record: Mapping[str, object]) -> None:
     _hash(record["duplicate_story_cluster_id"], "duplicate_story_cluster_id")
     if _hash(record["observation_id"], "observation_id") != observation_id(record):
         raise CatalystSchemaError("Observation identity does not match canonical content")
+    if (
+        _hash(record["normalized_record_hash"], "normalized_record_hash")
+        != normalized_record_hash(record)
+    ):
+        raise CatalystSchemaError("Normalized record hash does not match canonical content")
     _reject_sensitive_or_outcome_keys(record)
 
 
 CLUSTER_FIELDS = {
-    "schema_version", "cluster_id", "member_observation_ids", "cluster_basis",
-    "created_at", "parser_version", "synthetic",
+    "schema_version", "cluster_id", "symbol", "event_date",
+    "member_observation_ids", "cluster_basis", "created_at", "parser_version",
+    "synthetic",
 }
 
 
@@ -187,6 +239,14 @@ def validate_cluster(record: Mapping[str, object]) -> None:
     _exact(record, CLUSTER_FIELDS, "Duplicate cluster")
     if record["schema_version"] != CLUSTER_SCHEMA_VERSION or record["synthetic"] is not True:
         raise CatalystSchemaError("Cluster schema or provenance is invalid")
+    symbol = _text(record["symbol"], "symbol")
+    if symbol != symbol.upper() or not re.fullmatch(r"[A-Z][A-Z0-9.-]{0,14}", symbol):
+        raise CatalystSchemaError("Cluster symbol is not normalized")
+    event_date = _text(record["event_date"], "event_date")
+    try:
+        date.fromisoformat(event_date)
+    except ValueError as exc:
+        raise CatalystSchemaError("Cluster event_date is malformed") from exc
     members = record["member_observation_ids"]
     if not isinstance(members, list) or not members or members != sorted(set(members)):
         raise CatalystSchemaError("Cluster members must be a sorted unique list")
@@ -277,5 +337,7 @@ def validate_parser_audit(record: Mapping[str, object]) -> None:
     if record["status"] not in {"normalized", "rejected"}:
         raise CatalystSchemaError("Parser audit status is invalid")
     warnings = record["warning_codes"]
-    if not isinstance(warnings, list) or any(not isinstance(item, str) for item in warnings):
+    if not isinstance(warnings, list):
         raise CatalystSchemaError("warning_codes must be a string list")
+    for warning in warnings:
+        _text(warning, "warning_code")

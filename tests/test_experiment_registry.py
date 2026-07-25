@@ -1,11 +1,15 @@
 import json
+import os
 from pathlib import Path
+import subprocess
 
 import pytest
 
+import aml.experiment_registry as registry_module
 from aml.experiment_registry import (
-    ExperimentError, append_operational_note, load_registry, preregister, specification_hash,
-    transition, validate_experiment, validate_registry_root, write_spec,
+    ExperimentError, append_operational_note, canonical_json, load_registry,
+    preregister, specification_hash, transition, validate_experiment,
+    validate_registry_root, write_spec,
 )
 
 
@@ -138,6 +142,47 @@ def test_operational_notes_append_separately_without_changing_specification(tmp_
     assert specification_hash(load_registry(registry.resolve())[0]) == original
 
 
+def test_low_level_write_cannot_replace_preregistration_with_draft(tmp_path):
+    path = tmp_path / "experiment.json"
+    registered = preregister(resolved())
+    write_spec(path, registered)
+    with pytest.raises(ExperimentError, match="lifecycle"):
+        write_spec(path, draft(), replace=True)
+    assert load_registry(tmp_path.resolve())[0] == registered
+
+
+def test_atomic_create_failure_leaves_no_canonical_or_temporary_file(monkeypatch, tmp_path):
+    path = tmp_path / "experiment.json"
+
+    def interrupted(*args, **kwargs):
+        raise OSError("synthetic interrupted publication")
+
+    monkeypatch.setattr(registry_module.os, "link", interrupted)
+    with pytest.raises(OSError, match="interrupted"):
+        write_spec(path, draft())
+    assert not path.exists()
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_control_characters_oversized_text_and_nonfinite_json_fail():
+    spec = draft()
+    spec["hypothesis"] = "bad\x00text"
+    with pytest.raises(ExperimentError, match="control"):
+        validate_experiment(spec)
+    spec = draft()
+    spec["hypothesis"] = "x" * 20_001
+    with pytest.raises(ExperimentError, match="size"):
+        validate_experiment(spec)
+    with pytest.raises(ValueError):
+        canonical_json({"value": float("nan")})
+
+
+def test_draft_can_be_abandoned_without_becoming_preregistered():
+    abandoned = transition(draft(), "abandoned")
+    assert abandoned["status"] == "abandoned"
+    assert abandoned["preregistration_hash"] is None
+
+
 def test_duplicate_ids_fail(tmp_path):
     registry = tmp_path / "registry"
     write_spec(registry / "one.json", draft())
@@ -157,6 +202,29 @@ def test_registry_rejects_traversal_protected_paths_and_symlinks(tmp_path):
     linked.symlink_to(real, target_is_directory=True)
     with pytest.raises(ExperimentError, match="symlink"):
         validate_registry_root(linked)
+    with pytest.raises(ExperimentError, match="symlink"):
+        write_spec(linked / "experiment.json", draft())
+    (real / "experiment.json").write_bytes(canonical_json(draft()))
+    with pytest.raises(ExperimentError, match="symlink"):
+        registry_module.load_spec(linked / "experiment.json")
+
+
+def test_registry_rejects_hardlinked_specs_and_cli_external_roots(tmp_path):
+    source = tmp_path / "source.json"
+    write_spec(source, draft())
+    linked = tmp_path / "linked.json"
+    os.link(source, linked)
+    with pytest.raises(ExperimentError, match="hard-linked"):
+        load_registry(tmp_path.resolve())
+    result = subprocess.run(
+        [
+            str(ROOT / ".venv/bin/python"), str(ROOT / "scripts/manage_experiments.py"),
+            "--registry-root", str(tmp_path), "list",
+        ],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    assert "confined" in result.stderr
 
 
 def test_forward_outcomes_cannot_be_permitted():

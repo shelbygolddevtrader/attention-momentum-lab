@@ -9,7 +9,9 @@ import json
 import os
 from pathlib import Path
 import re
+import tempfile
 from typing import Mapping
+import unicodedata
 
 
 EXPERIMENT_SCHEMA_VERSION = "aml.experiment.v001"
@@ -47,6 +49,8 @@ PROHIBITED_DATA_TOKENS = {
     "holdout", "profit and loss", "p&l", "future return", "realized outcome",
 }
 IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9-]{2,79}$")
+MAX_SPEC_BYTES = 1_000_000
+MAX_TEXT_LENGTH = 20_000
 
 
 class ExperimentError(ValueError):
@@ -54,7 +58,9 @@ class ExperimentError(ValueError):
 
 
 def canonical_json(value: object) -> bytes:
-    return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    return (
+        json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+    ).encode("utf-8")
 
 
 def _timestamp(value: object, field: str) -> datetime:
@@ -72,14 +78,18 @@ def _timestamp(value: object, field: str) -> datetime:
 def _string(value: object, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ExperimentError(f"{field} must be a non-empty string")
+    if len(value) > MAX_TEXT_LENGTH:
+        raise ExperimentError(f"{field} exceeds the size limit")
+    if any(unicodedata.category(character) in {"Cc", "Cs"} for character in value):
+        raise ExperimentError(f"{field} contains control or malformed Unicode")
     return value
 
 
 def _string_list(value: object, field: str, *, allow_empty: bool = False) -> list[str]:
     if not isinstance(value, list) or (not value and not allow_empty):
         raise ExperimentError(f"{field} must be a string list")
-    if any(not isinstance(item, str) or not item.strip() for item in value):
-        raise ExperimentError(f"{field} contains an invalid item")
+    for item in value:
+        _string(item, f"{field} item")
     if len(set(value)) != len(value):
         raise ExperimentError(f"{field} contains duplicates")
     return value
@@ -181,7 +191,9 @@ def validate_experiment(spec: Mapping[str, object]) -> None:
         raise ExperimentError("preregistration_hash is malformed")
     if spec["status"] == "draft" and preregistration_hash is not None:
         raise ExperimentError("Draft experiments cannot carry a preregistration hash")
-    if spec["status"] != "draft":
+    if spec["status"] not in {"draft", "abandoned"} and preregistration_hash is None:
+        raise ExperimentError("Post-preregistration status requires a preregistration hash")
+    if preregistration_hash is not None:
         if preregistration_hash != specification_hash(spec):
             raise ExperimentError("Preregistered research fields were modified")
 
@@ -243,10 +255,25 @@ def validate_registry_root(root: Path) -> Path:
     return raw
 
 
+def _validated_spec_path(path: Path) -> Path:
+    raw = Path(path)
+    if ".." in raw.parts:
+        raise ExperimentError("Experiment specification path contains traversal")
+    absolute = raw if raw.is_absolute() else Path.cwd() / raw
+    validate_registry_root(absolute.parent)
+    return absolute
+
+
 def load_spec(path: Path) -> dict[str, object]:
-    if Path(path).is_symlink():
+    path = _validated_spec_path(path)
+    if path.is_symlink():
         raise ExperimentError("Experiment specification cannot be a symlink")
-    with Path(path).open(encoding="utf-8") as handle:
+    info = path.stat()
+    if info.st_nlink != 1:
+        raise ExperimentError("Experiment specification cannot be hard-linked")
+    if info.st_size > MAX_SPEC_BYTES:
+        raise ExperimentError("Experiment specification exceeds the size limit")
+    with path.open(encoding="utf-8") as handle:
         spec = json.load(handle)
     if not isinstance(spec, dict):
         raise ExperimentError("Experiment file must contain an object")
@@ -265,17 +292,48 @@ def load_registry(root: Path) -> list[dict[str, object]]:
 
 def write_spec(path: Path, spec: Mapping[str, object], *, replace: bool = False) -> None:
     validate_experiment(spec)
-    path = Path(path)
+    path = _validated_spec_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.is_symlink():
         raise ExperimentError("Experiment specification cannot be a symlink")
-    flags = (
-        os.O_WRONLY | os.O_CREAT | (os.O_TRUNC if replace else os.O_EXCL)
-        | getattr(os, "O_NOFOLLOW", 0)
+    if replace:
+        if not path.is_file():
+            raise ExperimentError("Existing experiment specification is required")
+        current = load_spec(path)
+        if current["experiment_id"] != spec["experiment_id"]:
+            raise ExperimentError("Experiment identity cannot change")
+        if spec["status"] not in TRANSITIONS[str(current["status"])]:
+            raise ExperimentError("Replacement bypasses the lifecycle transition table")
+        if current["status"] != "draft" and specification_hash(spec) != current["preregistration_hash"]:
+            raise ExperimentError("Replacement modifies preregistered research fields")
+    payload = canonical_json(dict(spec))
+    if len(payload) > MAX_SPEC_BYTES:
+        raise ExperimentError("Experiment specification exceeds the size limit")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent,
     )
-    descriptor = os.open(path, flags, 0o600)
-    with os.fdopen(descriptor, "wb") as handle:
-        handle.write(canonical_json(dict(spec)))
+    temporary = Path(temporary_name)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if replace:
+            os.replace(temporary, path)
+        else:
+            try:
+                os.link(temporary, path, follow_symlinks=False)
+            except FileExistsError as exc:
+                raise ExperimentError("Experiment specification already exists") from exc
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def draft_template(experiment_id: str, name: str, author: str, code_version: str) -> dict[str, object]:
@@ -320,7 +378,7 @@ def append_operational_note(
     if experiment_id not in specs:
         raise ExperimentError("Experiment ID does not exist")
     spec = specs[experiment_id]
-    if spec["status"] == "draft":
+    if spec["preregistration_hash"] is None:
         raise ExperimentError("Operational notes begin after preregistration")
     _timestamp(recorded_at, "recorded_at")
     _string(author, "author")

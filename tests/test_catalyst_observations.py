@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from aml.catalyst_collectors import MockCatalystCollector, SyntheticCatalystNormalizer
+from aml.catalyst_collectors import (
+    MockCatalystCollector, SyntheticCatalystNormalizer, run_passive_collection,
+)
 from aml.catalyst_observations import (
     CLUSTER_SCHEMA_VERSION, MANIFEST_SCHEMA_VERSION, PARSER_AUDIT_SCHEMA_VERSION,
     SOURCE_SCHEMA_VERSION, CatalystSchemaError, cluster_id, validate_cluster,
@@ -35,6 +37,26 @@ def test_synthetic_collector_preserves_raw_before_normalization():
     assert observation["raw_record_hash"] == raw["raw_record_hash"]
     assert observation["publication_timestamp"] != observation["first_seen_timestamp"]
     assert observation["first_seen_timestamp"] != observation["acquisition_timestamp"]
+
+
+def test_passive_pipeline_persists_raw_before_normalizing(tmp_path):
+    events = []
+    collector = MockCatalystCollector((payload(),), "2024-01-03T14:00:10+00:00")
+
+    class RecordingNormalizer:
+        def normalize(self, raw):
+            events.append("normalize")
+            return SyntheticCatalystNormalizer().normalize(raw)
+
+    def preserve(raw):
+        events.append("preserve")
+        path = tmp_path / f"{raw['raw_record_hash']}.json"
+        path.write_text(json.dumps(raw), encoding="utf-8")
+        return path
+
+    completed = run_passive_collection(collector, RecordingNormalizer(), preserve)
+    assert events == ["preserve", "normalize"]
+    assert completed[0][0].is_file()
 
 
 def test_raw_record_rejects_unknown_fields_and_unsupported_schema():
@@ -78,10 +100,18 @@ def test_boolean_does_not_satisfy_ordinal_score():
         validate_observation(observation)
 
 
-def test_observation_identity_detects_any_normalized_change():
+def test_observation_identity_is_stable_and_full_record_hash_detects_changes():
     _, observation = raw_and_observation()
+    stable_identity = observation["observation_id"]
     observation["normalized_summary"] = "Changed after identity creation"
-    with pytest.raises(CatalystSchemaError, match="identity"):
+    assert observation["observation_id"] == stable_identity
+    with pytest.raises(CatalystSchemaError, match="record hash"):
+        validate_observation(observation)
+    _, observation = raw_and_observation()
+    stable_identity = observation["observation_id"]
+    observation["source_locator"] = "synthetic://story/changed-url"
+    assert observation["observation_id"] == stable_identity
+    with pytest.raises(CatalystSchemaError, match="record hash"):
         validate_observation(observation)
 
 
@@ -99,8 +129,21 @@ def test_secrets_and_forward_outcomes_are_rejected_without_echoing_values():
     with pytest.raises(CatalystSchemaError) as denied:
         MockCatalystCollector((bad,), "2024-01-03T14:00:10+00:00").collect()
     assert secret not in str(denied.value)
+    _, observation = raw_and_observation()
+    observation["source_locator"] = f"synthetic://story?access_token={secret}"
+    with pytest.raises(CatalystSchemaError, match="secret-like") as denied:
+        validate_observation(observation)
+    assert secret not in str(denied.value)
     bad = payload()
     bad["future_return"] = 0.5
+    with pytest.raises(CatalystSchemaError, match="forward outcomes"):
+        MockCatalystCollector((bad,), "2024-01-03T14:00:10+00:00").collect()
+    bad = payload()
+    bad["clientSecret"] = secret
+    with pytest.raises(CatalystSchemaError, match="Credentials"):
+        MockCatalystCollector((bad,), "2024-01-03T14:00:10+00:00").collect()
+    bad = payload()
+    bad["futureReturn"] = 0.5
     with pytest.raises(CatalystSchemaError, match="forward outcomes"):
         MockCatalystCollector((bad,), "2024-01-03T14:00:10+00:00").collect()
 
@@ -117,6 +160,8 @@ def test_duplicate_cluster_has_stable_identity():
     cluster = {
         "schema_version": CLUSTER_SCHEMA_VERSION,
         "cluster_id": "pending",
+        "symbol": "EXMPL",
+        "event_date": "2024-01-03",
         "member_observation_ids": [observation["observation_id"]],
         "cluster_basis": "Synthetic exact-story fixture",
         "created_at": "2024-01-03T14:00:11+00:00",
@@ -126,6 +171,30 @@ def test_duplicate_cluster_has_stable_identity():
     cluster["cluster_id"] = cluster_id(cluster)
     validate_cluster(cluster)
     assert cluster_id(cluster) == cluster["cluster_id"]
+    changed_symbol = dict(cluster)
+    changed_symbol["symbol"] = "OTHER"
+    assert cluster_id(changed_symbol) != cluster["cluster_id"]
+    with pytest.raises(CatalystSchemaError, match="identity"):
+        validate_cluster(changed_symbol)
+
+
+def test_raw_revisions_are_distinct_and_control_or_nonfinite_values_fail():
+    first = payload()
+    second = payload()
+    second["headline"] = "SYNTHETIC: corrected fictional product announcement"
+    collected = MockCatalystCollector(
+        (first, second), "2024-01-03T14:00:10+00:00",
+    ).collect()
+    assert collected[0]["source_record_id"] == collected[1]["source_record_id"]
+    assert collected[0]["raw_record_hash"] != collected[1]["raw_record_hash"]
+    bad = payload()
+    bad["headline"] = "bad\x00headline"
+    with pytest.raises(CatalystSchemaError, match="control"):
+        MockCatalystCollector((bad,), "2024-01-03T14:00:10+00:00").collect()
+    bad = payload()
+    bad["vendor_number"] = float("nan")
+    with pytest.raises(CatalystSchemaError, match="canonical JSON"):
+        MockCatalystCollector((bad,), "2024-01-03T14:00:10+00:00").collect()
 
 
 def test_source_metadata_requires_explicit_licensing():

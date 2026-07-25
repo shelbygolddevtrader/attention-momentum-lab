@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Protocol, Sequence
+from pathlib import Path
+from typing import Callable, Mapping, Protocol, Sequence
 
 from aml.catalyst_observations import (
-    CATALYST_SCHEMA_VERSION, RAW_SCHEMA_VERSION, observation_id, sha256,
-    validate_observation, validate_raw_record,
+    CATALYST_SCHEMA_VERSION, RAW_SCHEMA_VERSION, normalized_record_hash,
+    observation_id, sha256, validate_observation, validate_raw_record,
 )
 
 
@@ -81,5 +82,21 @@ class SyntheticCatalystNormalizer:
             "synthetic": True,
         }
         record["observation_id"] = observation_id(record)
+        record["normalized_record_hash"] = normalized_record_hash(record)
         validate_observation(record)
         return record
+
+
+def run_passive_collection(
+    collector: Collector,
+    normalizer: Normalizer,
+    preserve_raw: Callable[[Mapping[str, object]], Path],
+) -> tuple[tuple[Path, Mapping[str, object]], ...]:
+    """Require durable raw preservation before any normalization is attempted."""
+    completed = []
+    for raw in collector.collect():
+        location = preserve_raw(raw)
+        if not isinstance(location, Path) or not location.is_file():
+            raise RuntimeError("Raw preservation did not produce a durable file")
+        completed.append((location, normalizer.normalize(raw)))
+    return tuple(completed)

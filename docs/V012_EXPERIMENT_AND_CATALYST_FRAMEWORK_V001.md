@@ -24,7 +24,9 @@ where the transition table allows. Invalid transitions fail closed.
 Every specification has an exact field set. Missing and unknown fields,
 timezone-naive timestamps, malformed metrics, invalid baselines, and dataset
 permissions that expose forward outcomes are rejected. Experiment IDs must be
-unique within a registry.
+unique within a registry. The CLI is confined to the repository `experiments/`
+tree; traversal, symlinked paths, hard-linked specifications, oversized files,
+and protected outcome-directory names fail before a specification is accepted.
 
 Preregistration computes a canonical SHA-256 hash over all research-defining
 fields. Lifecycle status and the hash field itself are excluded. After
@@ -65,10 +67,15 @@ The initial schema versions are:
 - acquisition manifests: `aml.catalyst.manifest.v001`
 - parser audits: `aml.catalyst.parser-audit.v001`
 
-Raw vendor payloads are preserved before normalization. Raw hashes cover the
-canonical payload. Normalized observation IDs cover the complete normalized
-record except the ID itself. Cluster IDs similarly cover their sorted members,
-creation time, basis, and parser identity.
+The passive collection orchestrator requires a durable raw-record path before
+it invokes a normalizer. Raw vendor payloads are therefore preserved before
+normalization. Raw hashes cover the
+canonical payload. Stable observation IDs bind the raw-record hash, parser
+version, and normalized symbol without depending on a mutable URL or a later
+duplicate-cluster assignment. A separate normalized-record hash covers every
+normalized field, including the observation and cluster IDs. Cluster IDs cover
+their symbol, event date, sorted members, creation time, basis, and parser
+identity without creating a circular hash dependency.
 
 Publication time is the source's asserted publication time. First-seen time is
 when the collector first observed the record. Effective-event time is optional
@@ -83,9 +90,12 @@ Strategy V0.1.1.
 
 ## Duplicate stories
 
-Normalized observations carry a stable duplicate-story cluster ID. Clustering
-must be based only on information available to the parser at that time. Cluster
-members are sorted and unique, and the cluster identity is deterministic.
+Normalized observations carry a stable duplicate-story cluster ID. Each cluster
+is explicitly bound to one normalized symbol and one event date; unrelated
+securities or dates cannot be silently combined in the same cluster contract.
+Clustering must be based only on information available to the parser at that
+time. Cluster members are sorted and unique, and the cluster identity includes
+the symbol, event date, membership, basis, creation time, and parser version.
 Future research must avoid treating syndicated copies as independent evidence.
 
 ## External storage
@@ -106,7 +116,10 @@ manifests/<vendor>/<acquisition-date>/<manifest-id>.json
 parser-audit/<parser-version>/<parse-date>/<audit-id>.json
 ```
 
-Records use canonical JSON. Credentials and forward-outcome fields are rejected.
+Records use bounded canonical JSON. Final record and finalization-marker names
+are published atomically only after a private temporary file is fully flushed;
+an interruption can leave an ignorable temporary file but not a partial record
+at the canonical path. Credentials and forward-outcome fields are rejected.
 Repository fixtures are synthetic and explicitly marked `synthetic: true`.
 
 ## Sources and licensing
@@ -131,3 +144,17 @@ company-specificity, timing, and ambiguity into a score whose point-in-time
 behavior is not yet validated. Adding such a score now would create leakage and
 interpretability risks. V0.1.2 therefore records transparent observational
 fields only, makes no performance claim, and leaves Strategy V0.1.1 unchanged.
+
+## Unavoidable limitations
+
+The contracts cannot prove that a vendor's asserted publication or effective
+event timestamp was historically correct; adapters must retain the raw assertion
+and the independently observed first-seen time. Source URLs are included in the
+full observation hash but are never the sole identity: the immutable raw-record
+hash and parser version are also bound. A revised story or correction therefore
+creates a new raw hash rather than replacing the original. Cluster labels and
+event dates remain parser assertions subject to future source-specific review.
+An interrupted operational-note append may leave an incomplete final line; the
+hash-chain reader and every later append then fail closed until an operator
+restores the journal to its last complete, verified entry. The implementation
+never silently truncates or skips a damaged tail.

@@ -14,6 +14,8 @@ from aml.experiment_registry import (
 
 
 DEFAULT_ROOT = Path("experiments/v012")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+ALLOWED_REGISTRY_ROOT = REPOSITORY_ROOT / "experiments"
 
 
 def parser() -> argparse.ArgumentParser:
@@ -40,7 +42,12 @@ def parser() -> argparse.ArgumentParser:
 
 def _root(raw: Path) -> Path:
     candidate = raw if raw.is_absolute() else Path.cwd() / raw
-    return validate_registry_root(candidate).resolve()
+    resolved = validate_registry_root(candidate).resolve()
+    try:
+        resolved.relative_to(ALLOWED_REGISTRY_ROOT.resolve())
+    except ValueError as exc:
+        raise ValueError("Registry CLI is confined to the repository experiments tree") from exc
+    return resolved
 
 
 def _path(root: Path, experiment_id: str) -> Path:
