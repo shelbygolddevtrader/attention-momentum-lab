@@ -118,6 +118,22 @@ An advisory dataset lock prevents two downloader processes from writing the
 same vintage concurrently; stale lock files are harmless because the operating
 system releases the lock when its owning process exits.
 
+After a completed backfill, create the tracked dataset manifest against the
+published downloader commit. This rehashes every raw, processed, and metadata
+file, verifies processed row counts, and records one stable partition hash per
+symbol without placing the dataset itself in Git:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/build_dataset_manifest.py \
+  --source-commit <full-published-commit-sha>
+```
+
+The versioned JSON beneath `manifests/` contains coverage, source and
+subscription provenance, session definitions, rows per symbol, acquisition
+timestamps, validation totals, and path-independent partition hashes. Manifest
+generation fails closed on missing files, identity conflicts, unexpected feed
+evidence, duplicate or out-of-order timestamps, row-count drift, or hash drift.
+
 The report includes row count, timestamp bounds, duplicates, raw and
 halt-adjusted missing minutes, total volume, timestamp-aligned OHLCV difference
 count, and the existing quality-policy completeness result for each feed. SIP

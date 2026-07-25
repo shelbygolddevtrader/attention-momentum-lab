@@ -30,6 +30,14 @@ the raw response. Files are write-once within a vintage, published atomically,
 and hashed only after their final bytes have been published. Acquisition
 metadata is the final success marker.
 
+Frozen dataset builds have a tracked JSON manifest beneath `manifests/`. The
+manifest records the published downloader commit, exact universe and coverage,
+source/feed evidence, acquisition timestamps, row totals, validation results,
+and one path-independent SHA-256 partition fingerprint per symbol. A partition
+fingerprint commits to the relative path, actual SHA-256, byte count, and CSV
+row count of every raw, processed, and acquisition-metadata file. Regeneration
+rehashes the local files and fails closed before replacing the manifest.
+
 Deterministic IEX-versus-SIP comparisons are stored beneath
 `artifacts/feed_comparisons/{vintage}/{symbol}/{date}/{comparison_id}/`.
 `ohlcv_differences.csv` has fixed column order and `comparison.json` is written

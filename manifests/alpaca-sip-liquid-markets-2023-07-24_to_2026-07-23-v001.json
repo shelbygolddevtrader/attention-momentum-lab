@@ -1,0 +1,1015 @@
+{
+  "coverage": {
+    "calendar": "XNYS",
+    "end_date": "2026-07-23",
+    "feed": "sip",
+    "processed_row_count": 9878220,
+    "sessions": [
+      {
+        "boundary_basis": "America/New_York",
+        "name": "premarket",
+        "window": "[04:00,09:25)"
+      },
+      {
+        "boundary_basis": "authoritative exchange calendar",
+        "name": "regular",
+        "window": "[XNYS open,XNYS close)"
+      }
+    ],
+    "start_date": "2023-07-24",
+    "symbol_count": 23,
+    "symbol_day_count": 17319,
+    "symbols": [
+      "SPY",
+      "QQQ",
+      "IWM",
+      "DIA",
+      "TQQQ",
+      "SQQQ",
+      "SPXL",
+      "SPXS",
+      "GLD",
+      "SLV",
+      "USO",
+      "TLT",
+      "XLF",
+      "XLK",
+      "XLE",
+      "UVXY",
+      "GME",
+      "AMC",
+      "AAPL",
+      "TSLA",
+      "NVDA",
+      "AMD",
+      "PLTR"
+    ],
+    "timeframe": "1Min",
+    "timezone": "America/New_York",
+    "trading_session_count": 753
+  },
+  "dataset_fingerprint_sha256": "fe830c09317d3264fc8f73b2ab19ca1513d67d36dd367fbf4710c624940a959d",
+  "dataset_vintage": "alpaca-sip-liquid-markets-2023-07-24_to_2026-07-23-v001",
+  "download": {
+    "completed_at": "2026-07-25T02:47:49.176029+00:00",
+    "started_at": "2026-07-25T02:18:42.665531+00:00"
+  },
+  "manifest_generated_at": "2026-07-25T03:01:21.134069+00:00",
+  "partition_hash": {
+    "algorithm": "sha256",
+    "definition": "SHA-256 of sorted canonical JSON records containing each partition-relative file path, actual file SHA-256, byte count, and processed CSV row count"
+  },
+  "partitions": [
+    {
+      "download_completed_at": "2026-07-25T02:47:47.103702+00:00",
+      "download_started_at": "2026-07-25T02:18:42.687616+00:00",
+      "file_count": 4518,
+      "partition_sha256": "014c7dbd81eb111be58905183ffe6bd87d051db60de5f6bab1e35f71a760f010",
+      "rows": {
+        "premarket": 189105,
+        "regular": 292410,
+        "total": 481515
+      },
+      "symbol": "SPY",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 55620,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1505,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 747,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 55620,
+          "processed_row_count": 189105,
+          "segments_with_missing_minutes": 747,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:47.463670+00:00",
+      "download_started_at": "2026-07-25T02:18:42.665531+00:00",
+      "file_count": 4518,
+      "partition_sha256": "e8859d66426b7c4de196ad6b8bb12b9a10d59e5c3df6cf7081bf26caeff86e77",
+      "rows": {
+        "premarket": 214081,
+        "regular": 292410,
+        "total": 506491
+      },
+      "symbol": "QQQ",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 30644,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1506,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 710,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 30644,
+          "processed_row_count": 214081,
+          "segments_with_missing_minutes": 710,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:47.367583+00:00",
+      "download_started_at": "2026-07-25T02:18:42.678267+00:00",
+      "file_count": 4518,
+      "partition_sha256": "ebfa55afb1f3f6c1249d712ae8143315dc8864d8dccee78add4a68fe2c697c17",
+      "rows": {
+        "premarket": 165440,
+        "regular": 292410,
+        "total": 457850
+      },
+      "symbol": "IWM",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 79285,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1492,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 753,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 79285,
+          "processed_row_count": 165440,
+          "segments_with_missing_minutes": 753,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:47.760946+00:00",
+      "download_started_at": "2026-07-25T02:19:26.881591+00:00",
+      "file_count": 4518,
+      "partition_sha256": "6e53dc6b4205b3a37a56be4a139ce2720a676cfe0398f8bff2b7629b334f0910",
+      "rows": {
+        "premarket": 51262,
+        "regular": 291377,
+        "total": 342639
+      },
+      "symbol": "DIA",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 194496,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1260,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 1040,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 193463,
+          "processed_row_count": 51262,
+          "segments_with_missing_minutes": 753,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 1033,
+          "processed_row_count": 291377,
+          "segments_with_missing_minutes": 287,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:47.811435+00:00",
+      "download_started_at": "2026-07-25T02:19:26.922655+00:00",
+      "file_count": 4518,
+      "partition_sha256": "6926f7136b7b9e98971d819c47588e61aeb10b308cea32004f6ae0c114f5b23d",
+      "rows": {
+        "premarket": 233072,
+        "regular": 292410,
+        "total": 525482
+      },
+      "symbol": "TQQQ",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 11653,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1506,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 618,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 11653,
+          "processed_row_count": 233072,
+          "segments_with_missing_minutes": 618,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:47.798527+00:00",
+      "download_started_at": "2026-07-25T02:19:26.942744+00:00",
+      "file_count": 4518,
+      "partition_sha256": "013e3d45e21e35daf4c1f416868899af4928fd3d4da0bb1eba67dc371f7eaa56",
+      "rows": {
+        "premarket": 227052,
+        "regular": 292410,
+        "total": 519462
+      },
+      "symbol": "SQQQ",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 17673,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1506,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 674,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 17673,
+          "processed_row_count": 227052,
+          "segments_with_missing_minutes": 674,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:47.743913+00:00",
+      "download_started_at": "2026-07-25T02:19:26.875673+00:00",
+      "file_count": 4518,
+      "partition_sha256": "ac90eb92f08b702b3d0bf18438b8e45eba41e2dc4e777bcb78e5f310f8bd31c9",
+      "rows": {
+        "premarket": 101719,
+        "regular": 289731,
+        "total": 391450
+      },
+      "symbol": "SPXL",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 145685,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1460,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 1160,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 143006,
+          "processed_row_count": 101719,
+          "segments_with_missing_minutes": 753,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 2679,
+          "processed_row_count": 289731,
+          "segments_with_missing_minutes": 407,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:47.766837+00:00",
+      "download_started_at": "2026-07-25T02:19:26.887609+00:00",
+      "file_count": 4518,
+      "partition_sha256": "6f07c17c3a4028aa7ca592aad03ae98e63d402131a6047f5e1b3b8edd3e28395",
+      "rows": {
+        "premarket": 98489,
+        "regular": 291023,
+        "total": 389512
+      },
+      "symbol": "SPXS",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 147623,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1418,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 1121,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 146236,
+          "processed_row_count": 98489,
+          "segments_with_missing_minutes": 753,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 1387,
+          "processed_row_count": 291023,
+          "segments_with_missing_minutes": 368,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:47.733517+00:00",
+      "download_started_at": "2026-07-25T02:19:26.901332+00:00",
+      "file_count": 4518,
+      "partition_sha256": "db4bc8268cbaa6f3b6017321ae52768d8d68f94b817290f02d9622f8cd3defaa",
+      "rows": {
+        "premarket": 103645,
+        "regular": 292346,
+        "total": 395991
+      },
+      "symbol": "GLD",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 141144,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1383,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 801,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 141080,
+          "processed_row_count": 103645,
+          "segments_with_missing_minutes": 751,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 64,
+          "processed_row_count": 292346,
+          "segments_with_missing_minutes": 50,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.117046+00:00",
+      "download_started_at": "2026-07-25T02:19:26.895973+00:00",
+      "file_count": 4518,
+      "partition_sha256": "42bc7df5a5a0f3f6236bd6cdb18210dfa79ca6c85c73c6f5065fe5480f9ec35a",
+      "rows": {
+        "premarket": 141063,
+        "regular": 292203,
+        "total": 433266
+      },
+      "symbol": "SLV",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 103869,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1412,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 845,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 103662,
+          "processed_row_count": 141063,
+          "segments_with_missing_minutes": 734,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 207,
+          "processed_row_count": 292203,
+          "segments_with_missing_minutes": 111,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.130028+00:00",
+      "download_started_at": "2026-07-25T02:19:26.866318+00:00",
+      "file_count": 4518,
+      "partition_sha256": "ab6a60d5591939b64acf8af08a381f07cb016fb79994835db7ecb3ef62ca71be",
+      "rows": {
+        "premarket": 93989,
+        "regular": 290324,
+        "total": 384313
+      },
+      "symbol": "USO",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 152822,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1287,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 1157,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 150736,
+          "processed_row_count": 93989,
+          "segments_with_missing_minutes": 751,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 2086,
+          "processed_row_count": 290324,
+          "segments_with_missing_minutes": 406,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.416489+00:00",
+      "download_started_at": "2026-07-25T02:19:27.622260+00:00",
+      "file_count": 4518,
+      "partition_sha256": "9e5d4c5f435d7b92d17c172804e8d16c1350338f8b263ab488e20cb6aab847f4",
+      "rows": {
+        "premarket": 155821,
+        "regular": 292405,
+        "total": 448226
+      },
+      "symbol": "TLT",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 88909,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1480,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 758,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 88904,
+          "processed_row_count": 155821,
+          "segments_with_missing_minutes": 753,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 5,
+          "processed_row_count": 292405,
+          "segments_with_missing_minutes": 5,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.381553+00:00",
+      "download_started_at": "2026-07-25T02:19:27.627871+00:00",
+      "file_count": 4518,
+      "partition_sha256": "880ca458dcab08ce651705fe71c6a1b467ff1ee3f8e50c41a9a58f5cf8d95d02",
+      "rows": {
+        "premarket": 58135,
+        "regular": 292410,
+        "total": 350545
+      },
+      "symbol": "XLF",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 186590,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1150,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 753,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 186590,
+          "processed_row_count": 58135,
+          "segments_with_missing_minutes": 753,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.430118+00:00",
+      "download_started_at": "2026-07-25T02:19:27.580844+00:00",
+      "file_count": 4518,
+      "partition_sha256": "e303e590b6e1e0d76ddb368107736ecb655a980579e574ed3f05aa58cce3846d",
+      "rows": {
+        "premarket": 38002,
+        "regular": 292386,
+        "total": 330388
+      },
+      "symbol": "XLK",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 206747,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1119,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 767,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 206723,
+          "processed_row_count": 38002,
+          "segments_with_missing_minutes": 753,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 24,
+          "processed_row_count": 292386,
+          "segments_with_missing_minutes": 14,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.454631+00:00",
+      "download_started_at": "2026-07-25T02:19:27.611690+00:00",
+      "file_count": 4518,
+      "partition_sha256": "d08cf4d1797ae067016bbfbd0bbeceb6942132c88061a800703e43d263b40659",
+      "rows": {
+        "premarket": 55974,
+        "regular": 292410,
+        "total": 348384
+      },
+      "symbol": "XLE",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 188751,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1138,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 753,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 188751,
+          "processed_row_count": 55974,
+          "segments_with_missing_minutes": 753,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.445175+00:00",
+      "download_started_at": "2026-07-25T02:19:27.593095+00:00",
+      "file_count": 4518,
+      "partition_sha256": "cd069f5808e89d1e4943c7b60389f925b39ce736994e1237a41e3203e02be8f4",
+      "rows": {
+        "premarket": 119310,
+        "regular": 292009,
+        "total": 411319
+      },
+      "symbol": "UVXY",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 125816,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1446,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 908,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 125415,
+          "processed_row_count": 119310,
+          "segments_with_missing_minutes": 752,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 401,
+          "processed_row_count": 292009,
+          "segments_with_missing_minutes": 156,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.405319+00:00",
+      "download_started_at": "2026-07-25T02:19:27.633067+00:00",
+      "file_count": 4518,
+      "partition_sha256": "c6689314561455e1e9b2a25627f558fabc576e0ca82f299bc9f18675d876ec4e",
+      "rows": {
+        "premarket": 74819,
+        "regular": 291529,
+        "total": 366348
+      },
+      "symbol": "GME",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 170787,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1205,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 1011,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 169906,
+          "processed_row_count": 74819,
+          "segments_with_missing_minutes": 748,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 881,
+          "processed_row_count": 291529,
+          "segments_with_missing_minutes": 263,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.782249+00:00",
+      "download_started_at": "2026-07-25T02:19:27.648483+00:00",
+      "file_count": 4518,
+      "partition_sha256": "7920755f57a1f19037dd631cd36f97a60ce36679abcc503d0feb9937a792cb12",
+      "rows": {
+        "premarket": 85897,
+        "regular": 292076,
+        "total": 377973
+      },
+      "symbol": "AMC",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 159162,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1351,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 836,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 158828,
+          "processed_row_count": 85897,
+          "segments_with_missing_minutes": 747,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 334,
+          "processed_row_count": 292076,
+          "segments_with_missing_minutes": 89,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:48.826142+00:00",
+      "download_started_at": "2026-07-25T02:19:27.603801+00:00",
+      "file_count": 4518,
+      "partition_sha256": "0472470dba5248a170c11d573a352ac18b758fae466b0accd1464b3611fb5d5b",
+      "rows": {
+        "premarket": 150189,
+        "regular": 292410,
+        "total": 442599
+      },
+      "symbol": "AAPL",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 94536,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1505,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 752,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 94536,
+          "processed_row_count": 150189,
+          "segments_with_missing_minutes": 752,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:49.176029+00:00",
+      "download_started_at": "2026-07-25T02:19:28.370633+00:00",
+      "file_count": 4518,
+      "partition_sha256": "54c747709621ff1fe66d53f106f7a01c6ff4f4816be614a6f79eb9866f92944e",
+      "rows": {
+        "premarket": 225536,
+        "regular": 292410,
+        "total": 517946
+      },
+      "symbol": "TSLA",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 19189,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1506,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 685,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 19189,
+          "processed_row_count": 225536,
+          "segments_with_missing_minutes": 685,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:49.166677+00:00",
+      "download_started_at": "2026-07-25T02:19:28.330193+00:00",
+      "file_count": 4518,
+      "partition_sha256": "c426f5fa03689fae0f8f3fc34b1e12633f46d5900e7d90e4c9a3d44f6b3a59b0",
+      "rows": {
+        "premarket": 220698,
+        "regular": 292410,
+        "total": 513108
+      },
+      "symbol": "NVDA",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 24027,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1505,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 541,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 24027,
+          "processed_row_count": 220698,
+          "segments_with_missing_minutes": 541,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:49.121713+00:00",
+      "download_started_at": "2026-07-25T02:19:28.317421+00:00",
+      "file_count": 4518,
+      "partition_sha256": "0747016b3bc046e64a6e20874d4d999637f425790ad859f241c370a2a7628585",
+      "rows": {
+        "premarket": 163873,
+        "regular": 292410,
+        "total": 456283
+      },
+      "symbol": "AMD",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 80852,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1503,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 750,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 80852,
+          "processed_row_count": 163873,
+          "segments_with_missing_minutes": 750,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 0,
+          "processed_row_count": 292410,
+          "segments_with_missing_minutes": 0,
+          "successful_segment_count": 753
+        }
+      }
+    },
+    {
+      "download_completed_at": "2026-07-25T02:47:49.100078+00:00",
+      "download_started_at": "2026-07-25T02:19:28.353167+00:00",
+      "file_count": 4518,
+      "partition_sha256": "df2fe31ff82b4e17e0ee733478f9ea303b4fcb6525c2937ddf84b4dd6bb409a9",
+      "rows": {
+        "premarket": 194724,
+        "regular": 292406,
+        "total": 487130
+      },
+      "symbol": "PLTR",
+      "trading_session_count": 753,
+      "validation": {
+        "cross_date_bar_count": 0,
+        "duplicate_timestamp_count": 0,
+        "missing_minute_count": 50005,
+        "out_of_order_segment_count": 0,
+        "outside_requested_window_count": 1503,
+        "provider_feed_echoed_segment_count": 0,
+        "provider_feed_not_echoed_segment_count": 1506,
+        "segments_with_missing_minutes": 736,
+        "successful_segments": 1506,
+        "unexpected_1600_bar_count": 746
+      },
+      "validation_by_segment": {
+        "premarket": {
+          "missing_minute_count": 50001,
+          "processed_row_count": 194724,
+          "segments_with_missing_minutes": 735,
+          "successful_segment_count": 753
+        },
+        "regular": {
+          "missing_minute_count": 4,
+          "processed_row_count": 292406,
+          "segments_with_missing_minutes": 1,
+          "successful_segment_count": 753
+        }
+      }
+    }
+  ],
+  "schema_version": "aml.dataset-manifest.v1",
+  "software": {
+    "commit_published": true,
+    "downloader_commit": "f166c2bd1d69d3220cf77917a98d69a511cadf08",
+    "repository": "https://github.com/shelbygolddevtrader/attention-momentum-lab"
+  },
+  "source": {
+    "adjustment": "all",
+    "endpoint": "https://data.alpaca.markets/v2/stocks/{symbol}/bars",
+    "feed_evidence": "Every request explicitly selected SIP. Alpaca did not echo the feed in these responses, so actual_feed remains null rather than being inferred.",
+    "provider": "Alpaca Markets",
+    "requested_feed": "sip",
+    "subscription": {
+      "plan": "Algo Trader Plus",
+      "price_usd_per_month": 99,
+      "provenance": "user-reported subscription; entitlement validated by successful authenticated requests"
+    }
+  },
+  "universe": {
+    "file": "config/liquid_day_trading_universe_v001.csv",
+    "sha256": "6fdff4fa7282e0ea93a5652f316315e1e1b80f88d4542456a1b9f77b6bbb08fd"
+  },
+  "validation": {
+    "active_failure_count": 0,
+    "archived_failure_file_count": 2,
+    "by_segment": {
+      "premarket": {
+        "missing_minute_count": 2466780,
+        "processed_row_count": 3161895,
+        "segments_with_missing_minutes": 16719,
+        "successful_segment_count": 17319
+      },
+      "regular": {
+        "missing_minute_count": 9105,
+        "processed_row_count": 6716325,
+        "segments_with_missing_minutes": 2157,
+        "successful_segment_count": 17319
+      }
+    },
+    "cross_date_bar_count": 0,
+    "duplicate_timestamp_count": 0,
+    "file_hashes_verified": true,
+    "missing_minute_count": 2475885,
+    "out_of_order_segment_count": 0,
+    "outside_requested_window_count": 32146,
+    "processed_row_counts_verified": true,
+    "provider_feed_echoed_segment_count": 0,
+    "provider_feed_not_echoed_segment_count": 34638,
+    "segments_with_missing_minutes": 18876,
+    "status": "passed",
+    "successful_segments": 34638,
+    "unexpected_1600_bar_count": 17158,
+    "verified_file_count": 103914
+  }
+}
