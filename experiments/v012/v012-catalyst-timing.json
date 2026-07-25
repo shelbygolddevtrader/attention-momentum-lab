@@ -1,0 +1,84 @@
+{
+  "schema_version": "aml.experiment.v001",
+  "status": "draft",
+  "rationale": "This draft records a research question without selecting favorable thresholds or authorizing evaluation.",
+  "strategy_baseline": {
+    "strategy_id": "attention_momentum",
+    "strategy_version": "0.1.1",
+    "baseline_commit": "378317dba28d93792d2f0a3ab4302a5d0b6abf7c"
+  },
+  "code_version": "7492b00c716ba676b20163b0f48995676cb1a231",
+  "registration_timestamp": "2026-07-25T20:00:00+00:00",
+  "registration_author": "shelbygolddevtrader",
+  "permitted_datasets": [
+    "deterministic synthetic catalyst fixtures",
+    "historical research data ending before 2026-07-24"
+  ],
+  "prohibited_datasets": [
+    "forward-validation outcomes",
+    "sealed holdout",
+    "July 27 2026 extension data"
+  ],
+  "target_population": "Frozen V0.1.1 attention-momentum candidates in a future explicitly approved historical research sample.",
+  "observation_window": "UNRESOLVED pending source-coverage and licensing review.",
+  "primary_metric": {
+    "name": "UNRESOLVED between-group outcome statistic",
+    "unit": "UNRESOLVED",
+    "direction": "descriptive"
+  },
+  "secondary_metrics": [],
+  "minimum_sample_size": {
+    "status": "unresolved",
+    "value": null,
+    "rationale": "No sample threshold will be chosen before source coverage is understood."
+  },
+  "decision_thresholds": {
+    "status": "unresolved",
+    "rule": "UNRESOLVED",
+    "rationale": "Thresholds require prospective preregistration after feasibility work."
+  },
+  "promotion_criteria": {
+    "status": "unresolved",
+    "rule": "UNRESOLVED",
+    "rationale": "No promotion rule is justified at the infrastructure stage."
+  },
+  "rejection_criteria": {
+    "status": "unresolved",
+    "rule": "UNRESOLVED",
+    "rationale": "No rejection rule is justified at the infrastructure stage."
+  },
+  "stop_conditions": {
+    "status": "unresolved",
+    "rule": "UNRESOLVED",
+    "rationale": "Operational and licensing stop conditions require future review."
+  },
+  "multiple_testing_family": "V0.1.2 catalyst experiments A-C; correction method UNRESOLVED.",
+  "leakage_risks": [
+    "Catalyst records arriving after a signal could be joined retrospectively.",
+    "Duplicate stories could be counted as independent evidence.",
+    "Forward-validation outcomes must remain sealed."
+  ],
+  "known_limitations": [
+    "Vendor coverage and first-seen timestamps are not yet characterized.",
+    "Catalyst labels are observational and may be subjective.",
+    "No causal claim or performance improvement is established."
+  ],
+  "notes": "Draft only. Evaluation commands are intentionally unavailable.",
+  "preregistration_hash": null,
+  "experiment_id": "v012-catalyst-timing",
+  "human_name": "Catalyst timing observation",
+  "hypothesis": "The time between first publication and signal generation helps distinguish newly developing moves from stale moves.",
+  "comparison_group": "Timing groups defined prospectively after timestamp-quality and coverage review.",
+  "feature_definitions": [
+    {
+      "name": "publication_to_signal_elapsed_minutes",
+      "definition": "Elapsed minutes from publication timestamp to signal timestamp; binning remains unresolved.",
+      "availability_time": "Publication and signal timestamps must both be known point-in-time, with no future record revisions."
+    },
+    {
+      "name": "first_seen_to_signal_elapsed_minutes",
+      "definition": "Elapsed minutes from collector first-seen timestamp to signal timestamp; binning remains unresolved.",
+      "availability_time": "First-seen timestamp must be no later than the signal timestamp."
+    }
+  ]
+}
