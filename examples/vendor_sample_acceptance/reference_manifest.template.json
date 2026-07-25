@@ -1,0 +1,27 @@
+{
+  "complete_bounded_universe_asserted": false,
+  "corporate_actions_file": "corporate_actions.template.csv",
+  "correction_policy_reference": "replace_with_vendor_document_reference",
+  "coverage_end_timestamp": "2024-07-01T00:00:00Z",
+  "coverage_start_timestamp": "2024-05-01T00:00:00Z",
+  "dataset_vintage": "replace_with_immutable_vintage",
+  "decision_timestamp": "2024-06-03T09:25:00-04:00",
+  "delivery_id": "replace_with_delivery_id",
+  "expected_universe_count": 0,
+  "listings_file": "listings.template.csv",
+  "profile": "reference_data",
+  "provider": "edi",
+  "release_id": "replace_with_release_id",
+  "sample_id": "replace_with_safe_sample_id",
+  "schema_version": "1.0.0",
+  "security_type_dictionary_reference": "replace_with_vendor_document_reference",
+  "source_sha256": {
+    "corporate_actions": "replace_with_64_character_sha256",
+    "listings": "replace_with_64_character_sha256",
+    "symbol_history": "replace_with_64_character_sha256",
+    "universe": "replace_with_64_character_sha256"
+  },
+  "symbol_history_file": "symbol_history.template.csv",
+  "universe_file": "universe.template.csv",
+  "universe_scope": "complete_bounded_us_common_stock_universe"
+}

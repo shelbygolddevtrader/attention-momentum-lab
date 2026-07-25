@@ -1,0 +1,44 @@
+{
+  "adjustment_policy_reference": "replace_with_vendor_document_reference",
+  "adjustment_semantics": "unadjusted",
+  "bars_file": "bars.template.csv",
+  "condition_policy_reference": "replace_with_vendor_document_reference",
+  "consolidated_sip_asserted": false,
+  "correction_policy_reference": "replace_with_vendor_document_reference",
+  "dataset_vintage": "replace_with_immutable_vintage",
+  "delivered_record_count": 0,
+  "delivery_complete_asserted": false,
+  "delivery_id": "replace_with_delivery_id",
+  "expected_symbols": [
+    "REPLACE_WITH_SAMPLE_SYMBOL"
+  ],
+  "feed_identity_evidence_reference": "replace_with_written_evidence",
+  "interval_label": "left",
+  "interpolation_performed": false,
+  "interpolation_policy_reference": "replace_with_vendor_document_reference",
+  "missing_minute_semantics": "replace_with_documented_semantics",
+  "page_count": 0,
+  "page_record_counts": [],
+  "pagination_complete": false,
+  "premarket_end_exclusive": "2024-06-03T09:25:00-04:00",
+  "premarket_status_by_symbol": {
+    "REPLACE_WITH_SAMPLE_SYMBOL": "observed"
+  },
+  "premarket_start_inclusive": "2024-06-03T04:00:00-04:00",
+  "profile": "market_data",
+  "provider": "massive",
+  "regular_calendar_id": "XNYS",
+  "regular_end_exclusive": "2024-06-03T16:00:00-04:00",
+  "regular_start_inclusive": "2024-06-03T09:30:00-04:00",
+  "release_id": "replace_with_release_id",
+  "requested_feed": "sip",
+  "sample_id": "replace_with_safe_sample_id",
+  "schema_version": "1.0.0",
+  "source_sha256": {
+    "bars": "replace_with_64_character_sha256"
+  },
+  "timeframe": "1Min",
+  "timestamp_timezone": "UTC",
+  "trading_date": "2024-06-03",
+  "zero_trade_minute_semantics": "replace_with_distinct_documented_semantics"
+}

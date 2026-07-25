@@ -136,3 +136,19 @@ Successful acquisition data and portfolio artifacts are hash-validated,
 write-once generated files beneath ignored `data/research/` and `artifacts/`
 paths. See `docs/ENGINEERING_REHEARSAL_V001.md` for scope, resumption, and the
 machine-visible reference-data and licensing limitations.
+
+### Vendor sample quarantine gate
+
+Before vendor market or reference samples can enter research, validate them
+locally with the strategy-independent acceptance checker:
+
+```bash
+.venv/bin/python scripts/check_vendor_sample.py --help
+```
+
+The checker has separate `market_data` and `reference_data` profiles and also
+requires a written licensing-evidence manifest. It writes deterministic JSON
+and Markdown reports under ignored `artifacts/vendor_sample_acceptance/` and
+never copies source samples into canonical research paths. See
+`docs/VENDOR_SAMPLE_ACCEPTANCE_V001.md` and the non-proprietary templates under
+`examples/vendor_sample_acceptance/`.

@@ -264,6 +264,9 @@ covering internal research, retention, and derived display.
 
 Request samples before starting a trial or download. Samples must be legally
 permitted for evaluation and retained only as the evaluation agreement allows.
+Run every delivery through `scripts/check_vendor_sample.py` using the local-only
+contracts in `VENDOR_SAMPLE_ACCEPTANCE_V001.md`. A technical pass does not admit
+data unless the separate written licensing manifest also passes.
 
 ### 5.1 Market-data sample
 

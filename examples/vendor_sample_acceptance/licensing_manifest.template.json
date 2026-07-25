@@ -1,0 +1,63 @@
+{
+  "agreement_id": "replace_with_executed_agreement_or_written_confirmation_id",
+  "contracting_entity": "replace_with_legal_entity",
+  "effective_date": "YYYY-MM-DD",
+  "fees": {
+    "display_fees": {
+      "evidence_reference": "replace_with_written_reference",
+      "evidence_type": "written_vendor_confirmation",
+      "status": "unresolved"
+    },
+    "exchange_fees": {
+      "evidence_reference": "replace_with_written_reference",
+      "evidence_type": "written_vendor_confirmation",
+      "status": "unresolved"
+    },
+    "non_display_fees": {
+      "evidence_reference": "replace_with_written_reference",
+      "evidence_type": "written_vendor_confirmation",
+      "status": "unresolved"
+    }
+  },
+  "provider": "replace_with_provider",
+  "restrictions": {
+    "alerts": {
+      "evidence_reference": "replace_with_written_reference",
+      "evidence_type": "executed_order_form",
+      "status": "unresolved"
+    },
+    "api": {
+      "evidence_reference": "replace_with_written_reference",
+      "evidence_type": "executed_order_form",
+      "status": "unresolved"
+    },
+    "downloads": {
+      "evidence_reference": "replace_with_written_reference",
+      "evidence_type": "executed_order_form",
+      "status": "unresolved"
+    },
+    "raw_display": {
+      "evidence_reference": "replace_with_written_reference",
+      "evidence_type": "executed_order_form",
+      "status": "unresolved"
+    },
+    "reconstructable_display": {
+      "evidence_reference": "replace_with_written_reference",
+      "evidence_type": "executed_order_form",
+      "status": "unresolved"
+    }
+  },
+  "rights": {
+    "backups": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"},
+    "cloud_processing": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"},
+    "contractor_access": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"},
+    "derived_works": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"},
+    "internal_research": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"},
+    "normalized_storage": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"},
+    "post_termination_retention": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"},
+    "raw_storage": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"},
+    "subscriber_conversational_display": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"},
+    "subscriber_dashboard_display": {"evidence_reference": "replace_with_written_reference", "evidence_type": "executed_order_form", "status": "unresolved"}
+  },
+  "schema_version": "1.0.0"
+}
