@@ -80,6 +80,10 @@ class RedactedProviderError(RuntimeError):
     """Provider failure whose message and retained payload contain no credentials."""
 
 
+class PermanentProviderAuthorizationError(RedactedProviderError):
+    """Credential or SIP-entitlement denial that unattended jobs must not retry."""
+
+
 def _redact_text(value: str, secrets: Sequence[str]) -> str:
     redacted = value
     for secret in secrets:
@@ -116,7 +120,12 @@ class RedactedProviderClient:
         try:
             return self._delegate.get_bars_range(*args, **kwargs)
         except Exception as exc:
-            safe = RedactedProviderError(
+            error_class = (
+                PermanentProviderAuthorizationError
+                if type(exc).__name__ == "AlpacaDataPermissionError"
+                else RedactedProviderError
+            )
+            safe = error_class(
                 f"Provider request failed ({type(exc).__name__})"
             )
             safe.retry_count = getattr(exc, "retry_count", 0)
@@ -257,10 +266,15 @@ class ForwardValidationPlan:
     control_root: Path
     sessions: tuple[date, ...]
     tasks: tuple[BackfillTask, ...]
+    storage_root: Path | None = None
+
+    @property
+    def acquisition_root(self) -> Path:
+        return self.storage_root or self.root
 
     @property
     def identity(self) -> dict[str, object]:
-        return {
+        identity = {
             "schema_version": FORWARD_VALIDATION_SCHEMA,
             "preregistration_version": VALIDATION_EXTENSION_VERSION,
             "baseline_tag": BASELINE_TAG,
@@ -282,6 +296,10 @@ class ForwardValidationPlan:
             "analysis_authorized": False,
             "holdout_access_authorized": False,
         }
+        if self.storage_root is not None:
+            identity["storage_scope"] = "project_external"
+            identity["storage_layout"] = "data-and-controls-v001"
+        return identity
 
     @property
     def request_id(self) -> str:
@@ -328,7 +346,7 @@ def _verify_existing_control_files(plan: ForwardValidationPlan) -> None:
 
 
 def _verify_partition_states(plan: ForwardValidationPlan, calendar: object) -> None:
-    dataset_root = plan.root / "data" / "research" / DATASET_VINTAGE
+    dataset_root = plan.acquisition_root / "data" / "research" / DATASET_VINTAGE
     if dataset_root.exists():
         for path in dataset_root.rglob("*"):
             if path.is_symlink():
@@ -345,7 +363,7 @@ def _verify_partition_states(plan: ForwardValidationPlan, calendar: object) -> N
         for request in requests_for_session(
             task.instrument.symbol, task.trading_date, schedule, DATASET_VINTAGE, "sip"
         ):
-            paths = research_segment_paths(plan.root, request)
+            paths = research_segment_paths(plan.acquisition_root, request)
             try:
                 segment_state(paths)
             except RuntimeError as exc:
@@ -361,6 +379,7 @@ def build_preflight_plan(
     calendar: object,
     universe: Path = DEFAULT_UNIVERSE,
     control_root: Path = DEFAULT_CONTROL_ROOT,
+    storage_root: Path | None = None,
     require_clean_repository: bool = True,
     source_commit: str | None = None,
 ) -> ForwardValidationPlan:
@@ -377,15 +396,26 @@ def build_preflight_plan(
     ):
         raise ForwardValidationError("A full lowercase hexadecimal source commit is required")
     universe_path = _repository_path(root, universe, "Universe")
-    control_path = _repository_path(root, control_root, "Control output")
-    verify_writable_destination(control_path)
     if universe_path != root / DEFAULT_UNIVERSE:
         raise ForwardValidationError("Universe must use the preregistered repository path")
-    if control_path != root / DEFAULT_CONTROL_ROOT:
-        raise ForwardValidationError("Control output must use the deterministic sealed path")
-    dataset_root = _repository_path(
-        root, Path("data") / "research" / DATASET_VINTAGE, "Dataset output"
-    )
+    if storage_root is None:
+        acquisition_root = root
+        control_path = _repository_path(root, control_root, "Control output")
+        verify_writable_destination(control_path)
+        if control_path != root / DEFAULT_CONTROL_ROOT:
+            raise ForwardValidationError("Control output must use the deterministic sealed path")
+        dataset_root = _repository_path(
+            root, Path("data") / "research" / DATASET_VINTAGE, "Dataset output"
+        )
+    else:
+        if control_root != DEFAULT_CONTROL_ROOT:
+            raise ForwardValidationError(
+                "External storage uses its fixed sealed control layout"
+            )
+        acquisition_root = validate_external_storage_root(root, storage_root)
+        control_path = acquisition_root / DEFAULT_CONTROL_ROOT
+        dataset_root = acquisition_root / "data" / "research" / DATASET_VINTAGE
+        verify_writable_destination(control_path)
     verify_writable_destination(dataset_root)
     instruments = load_universe(universe_path)
     if tuple(item.symbol for item in instruments) != FROZEN_UNIVERSE:
@@ -394,6 +424,7 @@ def build_preflight_plan(
     plan = ForwardValidationPlan(
         root, start, end, source_commit, universe_path, control_path,
         sessions, plan_tasks(instruments, sessions),
+        storage_root=(acquisition_root if acquisition_root != root else None),
     )
     _verify_existing_control_files(plan)
     _verify_partition_states(plan, calendar)
@@ -417,7 +448,38 @@ def preflight_report(plan: ForwardValidationPlan) -> dict[str, object]:
         "market_data_fetched": False,
         "strategy_replay_performed": False,
         "strategy_results_generated": False,
+        "storage_scope": (
+            "project_external" if plan.storage_root is not None else "repository_local"
+        ),
     }
+
+
+def validate_external_storage_root(repository_root: Path, storage_root: Path) -> Path:
+    """Require an owned, private, non-symlink directory outside the repository."""
+    repository_root = Path(repository_root).resolve()
+    raw = Path(storage_root)
+    if not raw.is_absolute() or ".." in raw.parts:
+        raise ForwardValidationError("External storage must be an absolute path without traversal")
+    absolute = validate_extension_input_path(raw)
+    if not absolute.exists() or not absolute.is_dir():
+        raise ForwardValidationError("External storage must be an existing directory")
+    if absolute.resolve() != absolute:
+        raise ForwardValidationError("External storage resolves unexpectedly")
+    try:
+        absolute.relative_to(repository_root)
+    except ValueError:
+        pass
+    else:
+        raise ForwardValidationError("External storage cannot be inside the Git repository")
+    storage_stat = absolute.stat()
+    if storage_stat.st_uid != os.getuid():
+        raise ForwardValidationError("External storage must be owned by the current user")
+    if stat.S_IMODE(storage_stat.st_mode) & 0o077:
+        raise ForwardValidationError("External storage permissions must be 0700 or stricter")
+    if not os.access(absolute, os.W_OK | os.X_OK):
+        raise ForwardValidationError("External storage is not writable")
+    _reject_finalized_collision(absolute)
+    return absolute
 
 
 def _publish_manifest_once(plan: ForwardValidationPlan) -> None:
@@ -551,11 +613,12 @@ def execute_acquisition(
         source_commit=plan.source_commit,
         start_date=plan.start.isoformat(), end_date=plan.end.isoformat(),
     )
-    with backfill_job_lock(plan.root, DATASET_VINTAGE):
+    with backfill_job_lock(plan.acquisition_root, DATASET_VINTAGE):
         for task in plan.tasks:
             try:
                 result = run_task(
-                    client, calendar, plan.root, task, dataset_vintage=DATASET_VINTAGE,
+                    client, calendar, plan.acquisition_root, task,
+                    dataset_vintage=DATASET_VINTAGE,
                     feed="sip", retry_failures=retry_failures,
                 )
             except Exception as exc:

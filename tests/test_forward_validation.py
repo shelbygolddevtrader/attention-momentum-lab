@@ -10,6 +10,7 @@ from aml.forward_validation import (
     DATASET_VINTAGE,
     ForwardValidationError,
     ForwardValidationPlan,
+    PermanentProviderAuthorizationError,
     RedactedProviderClient,
     build_preflight_plan,
     credential_presence,
@@ -488,3 +489,94 @@ def test_provider_exception_secrets_are_redacted_from_files_logs_and_terminal(tm
     assert secret_key not in all_text
     assert secret_value not in all_text
     assert "[REDACTED]" in all_text
+
+
+def test_external_storage_keeps_data_and_controls_outside_repository(
+    monkeypatch, tmp_path
+):
+    repository = tmp_path / "repository"
+    storage = tmp_path / "storage"
+    storage.mkdir(mode=0o700)
+    universe = _universe(repository)
+    roots = []
+
+    def complete(client, calendar, root, task, **kwargs):
+        roots.append(root)
+        return BackfillResult("SPY", EXTENSION_START, 2, 0, "completed")
+
+    monkeypatch.setattr("aml.forward_validation.run_task", complete)
+    plan = build_preflight_plan(
+        repository,
+        start=EXTENSION_START,
+        end=EXTENSION_START,
+        environment=ENVIRONMENT,
+        calendar=Calendar(),
+        universe=universe,
+        storage_root=storage,
+        require_clean_repository=False,
+        source_commit="a" * 40,
+    )
+    assert plan.storage_root == storage
+    assert plan.sealed_directory.is_relative_to(storage)
+    assert preflight_report(plan)["storage_scope"] == "project_external"
+    execute_acquisition(
+        plan, client=object(), calendar=Calendar(), clock=completed_clock
+    )
+    assert len(roots) == len(FROZEN_UNIVERSE)
+    assert set(roots) == {storage}
+    assert plan.manifest_path.is_file()
+    assert not (repository / "data").exists()
+    assert not (repository / "artifacts").exists()
+
+
+def test_external_storage_rejects_inside_symlink_and_unsafe_permissions(tmp_path):
+    repository = tmp_path / "repository"
+    universe = _universe(repository)
+
+    def preflight(storage):
+        return build_preflight_plan(
+            repository,
+            start=EXTENSION_START,
+            end=EXTENSION_START,
+            environment=ENVIRONMENT,
+            calendar=Calendar(),
+            universe=universe,
+            storage_root=storage,
+            require_clean_repository=False,
+            source_commit="a" * 40,
+        )
+
+    inside = repository / "external"
+    inside.mkdir(mode=0o700)
+    with pytest.raises(ForwardValidationError, match="inside the Git repository"):
+        preflight(inside)
+
+    unsafe = tmp_path / "unsafe"
+    unsafe.mkdir(mode=0o755)
+    unsafe.chmod(0o755)
+    with pytest.raises(ForwardValidationError, match="permissions"):
+        preflight(unsafe)
+
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    linked = tmp_path / "linked-storage"
+    try:
+        linked.symlink_to(private, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    with pytest.raises(ValueError, match="Symlinked"):
+        preflight(linked)
+
+
+def test_provider_authorization_denial_is_safely_classified_as_permanent():
+    class AlpacaDataPermissionError(RuntimeError):
+        pass
+
+    class DeniedClient:
+        def get_bars_range(self, *args, **kwargs):
+            raise AlpacaDataPermissionError("denied with secret-value")
+
+    client = RedactedProviderClient(DeniedClient(), ("secret-value",))
+    with pytest.raises(PermanentProviderAuthorizationError) as denied:
+        client.get_bars_range()
+    assert "secret-value" not in str(denied.value)
