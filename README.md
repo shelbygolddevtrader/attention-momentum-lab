@@ -201,6 +201,42 @@ See `docs/ATTENTION_MOMENTUM_AUDIT.md` for score and integrity-check semantics.
 The corrected Strategy V0.1.1 development/validation baseline and its read-only
 robustness review are recorded in `docs/STRATEGY_V011_BASELINE.md`.
 
+Completed tournament files under `final/` are immutable. Later analyses verify
+every source hash and publish under
+`artifacts/tournaments/<run_id>/analysis/<analysis_id>/`; any finalized hash
+mismatch fails closed. The corrected baseline has a documented pre-existing
+audit/diagnostic hash mismatch and must not be silently repaired.
+
+The next untouched validation extension is preregistered in
+`docs/STRATEGY_V011_VALIDATION_EXTENSION_V001.md` for the prospective
+2026-07-27 through 2028-07-26 interval. The start is the first eligible XNYS
+session strictly after the immutable preregistration commit; no extension or
+sealed-holdout results were accessed when it was selected. Strategy V0.1.1
+remains frozen, optimization is not authorized, all new context is
+observational, and shadow strategies receive zero capital. See
+`docs/ATTENTION_SHADOW_CONTEXT_V001.md` for schemas and deferred sources.
+
+The tournament foundation retains its original five-commit history, including
+the corrected elapsed-time implementation and V0.1.1 baseline designation.
+Later immutable-analysis, prospective-validation, and observational-shadow
+changes are separate commits so their behavior and provenance remain
+independently reviewable.
+
+Run the synthetic-only parity rehearsal without accessing research results:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_v011_shadow_rehearsal.py \
+  --output-root /tmp/aml-v011-shadow-rehearsal
+```
+
+Display an already-generated, hash-verified tournament analysis without
+recalculation:
+
+```bash
+.venv/bin/streamlit run scripts/run_portfolio_dashboard.py -- \
+  --tournament-analysis artifacts/tournaments/<run_id>/analysis/<analysis_id>
+```
+
 Long runs can be restarted with `--resume`. Completed strategy-symbol-day units
 are hash-verified before reuse, and final leaderboards are published atomically.
 See `docs/STRATEGY_TOURNAMENT_V001.md` for signal timing, strategy extension,
