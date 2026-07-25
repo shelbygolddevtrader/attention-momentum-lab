@@ -16,7 +16,6 @@ import pandas as pd
 
 from aml.market_calendar import NonTradingSessionError
 from aml.research_acquisition import (
-    AcquisitionRequest,
     AcquisitionSegment,
     acquire_research_segment,
     file_sha256,

@@ -175,6 +175,25 @@ change strategy scores, entries, exits, stop/target ordering, or P&L.
 
 Start with `FIRST_SESSION.md`.
 
+## Strategy tournament
+
+The research-only tournament framework runs multiple fixed, versioned intraday
+strategies through the same shared simulator and frozen SIP dataset. It defaults
+to development and validation; holdout access requires `--include-holdout` and
+never influences the composite score.
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_strategy_tournament.py --dry-run
+PYTHONPATH=src .venv/bin/python scripts/run_strategy_tournament.py \
+  --config config/strategy_tournament_baseline.yaml \
+  --splits development validation
+```
+
+Long runs can be restarted with `--resume`. Completed strategy-symbol-day units
+are hash-verified before reuse, and final leaderboards are published atomically.
+See `docs/STRATEGY_TOURNAMENT_V001.md` for signal timing, strategy extension,
+fixed splits, scoring, artifacts, and simulation limitations.
+
 ## Multi-strategy portfolio artifacts and dashboard
 
 The shared-capital simulator can publish deterministic, write-once research
