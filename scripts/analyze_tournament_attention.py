@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import json
 from pathlib import Path
+import subprocess
 from typing import Any
 
 import pandas as pd
@@ -16,6 +19,12 @@ from aml.tournament_attention import (
     session_feature_diagnostics,
     validate_attention_integrity,
 )
+from aml.tournament_analysis_artifacts import (
+    AnalysisProvenance,
+    PublishedAnalysis,
+    publish_tournament_analysis,
+    verify_finalized_tournament,
+)
 from aml.tournament_config import DatasetSplit
 from aml.tournament_runner import _load_session
 from aml.tournament_strategies import attention_momentum_feature_frame, build_strategy
@@ -26,6 +35,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--run-id", required=True)
     value.add_argument("--artifacts-root", type=Path, default=Path("artifacts/tournaments"))
     value.add_argument("--root", type=Path, default=Path.cwd())
+    value.add_argument("--analysis-version", default="1.0.0")
     return value
 
 
@@ -122,11 +132,42 @@ def _render(title: str, frame: pd.DataFrame) -> list[str]:
     return [f"\n{title}", "(none)" if frame.empty else frame.to_string(index=False)]
 
 
-def analyze_run(root: Path, artifacts_root: Path, run_id: str) -> tuple[pd.DataFrame, pd.DataFrame, str]:
+def _csv_bytes(frame: pd.DataFrame) -> bytes:
+    output = io.StringIO()
+    frame.to_csv(
+        output, index=False, lineterminator="\n", na_rep="", float_format="%.17g"
+    )
+    return output.getvalue().encode()
+
+
+def _source_state(root: Path) -> tuple[str, bool, str]:
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=root, check=True,
+        stdout=subprocess.PIPE, text=True,
+    ).stdout.strip()
+    porcelain = subprocess.run(
+        ["git", "status", "--porcelain", "-z"], cwd=root, check=True,
+        stdout=subprocess.PIPE,
+    ).stdout
+    digest = hashlib.sha256(porcelain)
+    records = [record for record in porcelain.decode().split("\0") if record]
+    for record in records:
+        logical = record[3:].split(" -> ")[-1]
+        path = root / logical
+        digest.update(logical.encode())
+        if path.is_file():
+            digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return commit, bool(porcelain), digest.hexdigest()
+
+
+def analyze_run(
+    root: Path, artifacts_root: Path, run_id: str, *, analysis_version: str = "1.0.0"
+) -> tuple[pd.DataFrame, pd.DataFrame, str, PublishedAnalysis]:
     root = root.resolve()
     artifacts_root = artifacts_root if artifacts_root.is_absolute() else root / artifacts_root
-    final = artifacts_root / run_id / "final"
-    manifest = json.loads((final / "run_manifest.json").read_text(encoding="utf-8"))
+    source = verify_finalized_tournament(artifacts_root, run_id)
+    final = source.final_directory
+    manifest = dict(source.manifest)
     signals = _read(final / "signals.csv")
     trades = _read(final / "trades.csv")
     sessions = _read(final / "session_results.csv")
@@ -226,19 +267,43 @@ def analyze_run(root: Path, artifacts_root: Path, run_id: str) -> tuple[pd.DataF
     for title, frame in sections:
         lines.extend(_render(title, frame))
     report = "\n".join(lines) + "\n"
-    final.mkdir(parents=True, exist_ok=True)
-    audit.to_csv(final / "attention_momentum_audit.csv", index=False, lineterminator="\n")
-    diagnostics.to_csv(
-        final / "attention_momentum_diagnostics.csv", index=False, lineterminator="\n"
+    commit, dirty, fingerprint = _source_state(root)
+    published = publish_tournament_analysis(
+        artifacts_root,
+        run_id,
+        AnalysisProvenance(
+            analysis_name="attention-momentum-audit",
+            analysis_version=analysis_version,
+            source_commit=commit,
+            source_worktree_dirty=dirty,
+            source_worktree_fingerprint=fingerprint,
+            deterministic_configuration={
+                "calendar_grouping": "trading_date",
+                "exact_elapsed_return": exact_elapsed_return,
+                "strategy_id": "attention_momentum",
+                "strategy_version": strategy.strategy_version,
+                "source_manifest_sha256": hashlib.sha256(
+                    (final / "run_manifest.json").read_bytes()
+                ).hexdigest(),
+            },
+        ),
+        {
+            "attention_momentum_audit.csv": _csv_bytes(audit),
+            "attention_momentum_diagnostics.csv": _csv_bytes(diagnostics),
+            "attention_momentum_analysis.txt": report.encode(),
+        },
     )
-    (final / "attention_momentum_analysis.txt").write_text(report, encoding="utf-8")
-    return audit, diagnostics, report
+    return audit, diagnostics, report, published
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
-    _, _, report = analyze_run(args.root, args.artifacts_root, args.run_id)
+    _, _, report, published = analyze_run(
+        args.root, args.artifacts_root, args.run_id,
+        analysis_version=args.analysis_version,
+    )
     print(report, end="")
+    print(f"Analysis directory: {published.directory}")
     return 0
 
 

@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import io
+import json
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 from aml.portfolio_artifacts import discover_completed_runs, load_portfolio_run
+from aml.tournament_analysis_artifacts import load_tournament_analysis
 
 
 def parser() -> argparse.ArgumentParser:
@@ -24,7 +27,43 @@ def parser() -> argparse.ArgumentParser:
         default=Path("artifacts/portfolio"),
         help="Directory containing immutable portfolio run directories",
     )
+    result.add_argument(
+        "--tournament-analysis",
+        type=Path,
+        help="Hash-verified persisted tournament analysis directory to display",
+    )
     return result
+
+
+def load_persisted_analysis_view(directory: Path) -> dict[str, object]:
+    """Load display-ready persisted values without running any analysis."""
+    loaded = load_tournament_analysis(directory)
+    view: dict[str, object] = {}
+    for name, value in loaded.items():
+        if name.endswith(".csv"):
+            view[name] = pd.read_csv(io.BytesIO(value))
+        elif name.endswith(".json"):
+            view[name] = json.loads(value)
+        else:
+            view[name] = value.decode("utf-8")
+    return view
+
+
+def _render_persisted_analysis(st: Any, directory: Path) -> None:
+    st.set_page_config(page_title="Tournament Analysis Artifacts", layout="wide")
+    st.title("Tournament Analysis Artifacts")
+    st.warning("Persisted, hash-verified analysis output only — no recalculation")
+    view = load_persisted_analysis_view(directory)
+    for name, value in view.items():
+        st.subheader(name)
+        if isinstance(value, pd.DataFrame):
+            _searchable_table(st, value, f"analysis_{name}")
+        elif isinstance(value, dict):
+            st.json(value)
+        elif name.endswith(".md"):
+            st.markdown(value)
+        else:
+            st.code(value)
 
 
 def _searchable_table(st: Any, frame: pd.DataFrame, key: str) -> None:
@@ -50,6 +89,10 @@ def main(argv: list[str] | None = None) -> None:
         raise RuntimeError(
             "Streamlit is not installed; install the project dashboard extra first"
         ) from exc
+
+    if args.tournament_analysis is not None:
+        _render_persisted_analysis(st, args.tournament_analysis)
+        return
 
     st.set_page_config(page_title="Portfolio Simulation Runs", layout="wide")
     st.title("Portfolio Simulation Runs")
