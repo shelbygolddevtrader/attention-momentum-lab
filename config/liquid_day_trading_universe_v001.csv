@@ -1,0 +1,24 @@
+symbol,market,category,notes
+SPY,S&P 500,index_etf,Primary liquid S&P 500 market proxy
+QQQ,Nasdaq-100,index_etf,Primary liquid Nasdaq-100 market proxy
+IWM,Russell 2000,index_etf,Primary liquid US small-cap market proxy
+DIA,Dow Jones,index_etf,Primary liquid Dow Jones market proxy
+TQQQ,Nasdaq-100,leveraged_index_etf,Three-times long Nasdaq-100 exposure
+SQQQ,Nasdaq-100,inverse_index_etf,Three-times inverse Nasdaq-100 exposure
+SPXL,S&P 500,leveraged_index_etf,Three-times long S&P 500 exposure
+SPXS,S&P 500,inverse_index_etf,Three-times inverse S&P 500 exposure
+GLD,Gold,commodity_etf,Liquid gold market proxy
+SLV,Silver,commodity_etf,Liquid silver market proxy
+USO,Crude oil,commodity_etf,Liquid US crude-oil market proxy
+TLT,US Treasury bonds,bond_etf,Liquid long-duration Treasury market proxy
+XLF,US financials,sector_etf,Liquid financial-sector market proxy
+XLK,US technology,sector_etf,Liquid technology-sector market proxy
+XLE,US energy,sector_etf,Liquid energy-sector market proxy
+UVXY,Equity volatility,volatility_etp,Liquid short-term volatility trading product
+GME,US equity,research_stock,Existing attention-momentum research symbol
+AMC,US equity,research_stock,Existing attention-momentum research symbol
+AAPL,US equity,liquid_stock,Existing highly liquid research symbol
+TSLA,US equity,liquid_stock,Existing highly liquid research symbol
+NVDA,US equity,liquid_stock,Existing highly liquid research symbol
+AMD,US equity,liquid_stock,Existing highly liquid research symbol
+PLTR,US equity,liquid_stock,Existing highly liquid research symbol

@@ -1,4 +1,4 @@
-# Strategy Constitution v0.1.0
+# Strategy Constitution v0.1.1
 
 ## Hypothesis
 

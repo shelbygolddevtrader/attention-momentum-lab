@@ -1,14 +1,15 @@
 # Attention Momentum Lab Project State
 
-**Audit date:** 2026-07-24
+**Audit date:** 2026-07-25
 
-**Canonical repository:** `/Users/daddy/Downloads/attention-momentum-lab`
+**Repository role:** isolated recovery branch based on canonical `main`
 
-**Branch:** `main`
+**Branch:** `recovery/tournament-v011`
 
-**Latest commit:** `66f78d0` (`feat: add bounded SIP engineering rehearsal`)
+**History:** canonical `8c3cebb`, recovered through merge `29be99c`; all five
+original recovered commits remain ancestors
 
-**Upstream state at audit:** 13 commits ahead of `origin/main`, 0 behind
+**Publication state:** local only; this recovery branch has not been pushed
 
 > Old chat instructions and conversation summaries may be stale. Treat this
 > document, the current Git history, executable code, tests, and versioned
@@ -48,15 +49,31 @@ does not place live orders.
 - `scripts/run_portfolio_dashboard.py`: read-only Streamlit display of persisted
   engine artifacts; it does not run or reinterpret the simulator.
 - `engineering_rehearsal.py`: fixed-scope, development-only AAPL SIP rehearsal.
-- The uncommitted `vendor_sample_acceptance.py` worktree addition provides a
-  local quarantine gate for market/reference samples and licensing evidence.
+- `vendor_sample_acceptance.py` provides a local quarantine gate for
+  market/reference samples and licensing evidence.
 
 ## Current strategy version
 
-`baseline_price_volume_momentum` version `0.1.0`, `research_only`, as defined in
-`config/strategy_v001.yaml` and `docs/STRATEGY_CONSTITUTION_V001.md`. Live
-trading, options, margin, and shorting remain disabled. This audit made no
-strategy change.
+The tournament production-candidate is frozen `attention_momentum` V0.1.1. Its
+corrected development/validation baseline is run `564345a77176524eb250`:
+development 120 trades and -$371.955421; validation 94 trades and +$61.145100.
+The validation result is period-concentrated and statistically inconclusive.
+The +3.057255% figure uses a resetting $2,000 reference allocation per replay
+unit and is not a continuously deployable portfolio return.
+
+No optimization is authorized. The next step is the preregistered untouched
+validation extension in `STRATEGY_V011_VALIDATION_EXTENSION_V001.md`. New
+context fields are observational only, shadow strategies receive no capital,
+retrospective winner/loser symbol selection is prohibited, and the sealed
+holdout remains untouched. The earlier `baseline_price_volume_momentum` V0.1.0
+configuration remains legacy research context; it is not a replacement version
+for frozen tournament Strategy V0.1.1.
+
+Completed tournament artifacts are immutable. Derived analyses now use a
+separate hash-verified analysis directory and fail closed on source mutation.
+The corrected baseline's audit and diagnostic CSVs were previously rewritten
+after finalization; that mismatch is documented and is not retroactively
+repaired.
 
 ## Milestone inventory
 
@@ -76,45 +93,33 @@ duplicate implementation tree was found.
 | Research cohort V001 design | Committed | `RESEARCH_COHORT_V001_DESIGN.md` | `98d0a65` |
 | Research acquisition foundation | Committed | acquisition/selection/reference modules and tests | `9ec28a4` |
 | Reference-data schemas | Committed | `RESEARCH_DATA_SCHEMAS_V001.md` and validators | `9ec28a4` |
-| Provider evaluation | Committed, with a small uncommitted cross-reference | `RESEARCH_PROVIDER_EVALUATION_V001.md` | `5a2b59f`, `0e864d4` |
+| Provider evaluation | Committed | `RESEARCH_PROVIDER_EVALUATION_V001.md` | `5a2b59f`, `0e864d4` |
 | Deterministic multi-strategy portfolio simulator | Committed | simulator, demonstration,  tests | `9871cef` |
 | Portfolio artifact persistence | Committed | artifact writer/loader and tests | `61b0c1b` |
 | Streamlit research dashboard | Committed | read-only dashboard and README launch instructions | `61b0c1b` |
 
 ## Tests
 
-The current worktree has **243 passing tests**. The focused Alpaca/acquisition,
-portfolio, historical-portfolio, engineering-rehearsal, and artifact subset has
-**105 passing tests**. Both counts include the current uncommitted vendor-sample
-acceptance tests where applicable. Four dependency deprecation warnings from
-`exchange_calendars`/pandas utilities remain; there are no test failures.
+Recovery verification covers acquisition, manifests, tournament behavior,
+immutable analysis, prospective-boundary controls, observational shadow
+context, and the complete suite. Exact counts belong in the recovery report and
+CI output so this state document does not become stale. Dependency deprecation
+warnings from `exchange_calendars`/NumPy utilities remain non-failing.
 
-## Committed versus uncommitted work
+## Recovered and subsequent work
 
-The milestone implementation through the bounded SIP engineering rehearsal is
-committed locally. Those commits have not been pushed: `main` is 13 commits
-ahead of `origin/main` and 0 behind.
-
-Pre-existing uncommitted work adds a strategy-independent vendor-sample
-quarantine/acceptance gate:
-
-- modified: `.gitignore`, `README.md`,
-  `docs/RESEARCH_PROVIDER_EVALUATION_V001.md`;
-- untracked: `docs/VENDOR_SAMPLE_ACCEPTANCE_V001.md`,
-  `scripts/check_vendor_sample.py`, `src/aml/vendor_sample_acceptance.py`,
-  `tests/test_vendor_sample_acceptance.py`, and the templates under
-  `examples/vendor_sample_acceptance/`;
-- created by this audit and still untracked: `docs/PROJECT_STATE.md` and
-  `docs/DECISION_LOG.md`.
-
-No stash, submodule, second worktree, or additional local branch was found.
+The recovery merge preserves canonical history and the five original recovered
+commits without squashing or replacement hashes. Immutable tournament-analysis
+publishing, prospective validation-extension controls, observational shadow
+context, and this documentation reconciliation are separate local commits.
+Nothing in this recovery has been pushed.
 
 ## Repository hygiene
 
 - `.env` is ignored and untracked; only `.env.example` is tracked, and no
   tracked secret/API-key/private-key pattern was found.
 - Research downloads under `data/research/`, generated outputs under
-  `artifacts/`, logs, caches, the virtual environment, and the uncommitted
+  `artifacts/`, logs, caches, the virtual environment, and the local
   `quarantine/` path are ignored. Important source, tests, configs, research
   designs, schemas, and vendor templates are not ignored.
 - No unresolved merge-conflict marker or abandoned `.tmp`, `.temp`, `.orig`,
@@ -126,23 +131,21 @@ No stash, submodule, second worktree, or additional local branch was found.
   ignored. Removing them or changing ignore rules was outside this audit's
   requested documentation-only changes.
 
-## Known development-only results
+## Result-access boundary
 
-Ignored local artifacts contain three persisted portfolio runs. They are not
-validation or profitability evidence:
-
-- development run `0dee4741950a870961b1`: $2,000 starting capital, one trade,
-  ending equity $1,990.537902537182;
-- engineering-rehearsal development run `9b0bf1974e703cec5950`: $2,000 starting
-  capital, zero trades, ending equity $2,000;
-- synthetic run `a7506bbba395170da159`: $3,000 starting capital, two accepted
-  proposals and one rejection, ending equity $3,015.299082.
-
-The local AAPL/GME May 2024 artifacts and batches are also development or
-pipeline-feasibility outputs. None belongs to the untouched V001 validation
-cohort.
+No ignored market data, generated tournament output, validation-extension
+result, or sealed-holdout material was copied into or accessed during recovery.
+The deterministic shadow rehearsal is synthetic and segregates all shadow P&L
+from deployed-strategy accounting.
 
 ## Validation boundary
+
+The frozen V0.1.1 extension is prospectively preregistered for the inclusive
+calendar interval 2026-07-27 through 2028-07-26. July 27 is the first eligible
+XNYS session strictly after the immutable preregistration commit. The 731-day
+inclusive duration is unchanged from the earlier draft; the boundary was not
+selected from results. Acquisition and replay remain unauthorized by the
+preregistration document.
 
 Validated now:
 
@@ -200,9 +203,7 @@ backups, processing, derived works, subscriber display, fees, and retention.
    evidence have not passed the local acceptance criteria.
 3. The point-in-time reference-data and commercial licensing gates prevent the
    21-session pilot and broad production acquisition from being authorized.
-4. The vendor-sample acceptance implementation and this audit documentation are
-   uncommitted and require review as one coherent worktree change.
-5. Tracked `src/attention_momentum_lab.egg-info/` packaging metadata and two
+4. Tracked `src/attention_momentum_lab.egg-info/` packaging metadata and two
    ignored `.DS_Store` files remain repository-hygiene cleanup candidates.
 
 ## Next three approved tasks
@@ -210,14 +211,14 @@ backups, processing, derived works, subscriber display, fees, and retention.
 These are the next repository-defined steps in order; this document does not
 authorize broad acquisition or strategy tuning:
 
-1. Review this audit and the existing uncommitted vendor-sample acceptance gate,
-   then decide the exact commit/push scope.
+1. Review the local recovery history and verification report before deciding
+   whether to promote or push it.
 2. Resolve the user-owned contracting, infrastructure, subscriber-display, and
    retention decisions; request legally permitted bounded samples and written
    rights evidence from Massive and EDI.
-3. Run the strategy-independent sample acceptance checks. Only after technical
-   and licensing approval, acquire the predefined 21-session pilot, freeze the
-   first 09:25 audit, and stop for review before any production expansion.
+3. Keep V0.1.1 frozen. Any future extension acquisition requires separate
+   authorization and must preserve the prospective boundary; the sealed
+   holdout remains inaccessible.
 
 ## Commands
 

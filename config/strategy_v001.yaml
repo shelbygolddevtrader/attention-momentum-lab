@@ -1,6 +1,6 @@
 strategy:
   id: baseline_price_volume_momentum
-  version: "0.1.0"
+  version: "0.1.1"
   mode: research_only
   simulated_capital_usd: 2000
 signal:

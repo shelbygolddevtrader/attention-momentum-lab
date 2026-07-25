@@ -12,11 +12,11 @@ from aml.settings import Settings
 
 def parser() -> argparse.ArgumentParser:
     """Build the single-session acquisition CLI parser."""
-    value = argparse.ArgumentParser(description="Acquire one segmented Research Cohort V001 SIP session")
+    value = argparse.ArgumentParser(description="Acquire one segmented Research Cohort V001 session")
     value.add_argument("symbol")
     value.add_argument("trading_date", type=date.fromisoformat)
     value.add_argument("--dataset-vintage", required=True)
-    value.add_argument("--feed", choices=("sip",), default="sip")
+    value.add_argument("--feed", choices=("iex", "sip"), default="sip")
     value.add_argument("--root", type=Path, default=Path.cwd())
     return value
 

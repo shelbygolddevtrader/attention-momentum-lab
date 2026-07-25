@@ -16,7 +16,7 @@ from aml.market_halts import (
 
 @dataclass(frozen=True, init=False)
 class SimulationConfig:
-    strategy_version: str = "0.1.0"
+    strategy_version: str = "0.1.1"
     candidate_score_threshold: int = CANDIDATE_SCORE_THRESHOLD
     eligible_score_threshold: int = ELIGIBLE_SCORE_THRESHOLD
     starting_equity: float = 2_000.0
@@ -30,7 +30,7 @@ class SimulationConfig:
     cooldown_minutes: int = 30
 
     def __init__(
-        self, strategy_version="0.1.0",
+        self, strategy_version="0.1.1",
         candidate_score_threshold=CANDIDATE_SCORE_THRESHOLD,
         eligible_score_threshold=UNSET_THRESHOLD,
         starting_equity=2_000.0, risk_fraction=0.005, stop_fraction=0.03,

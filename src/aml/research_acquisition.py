@@ -469,48 +469,60 @@ def acquire_research_session(
     """Acquire and persist the two isolated Research Cohort V001 segments."""
     schedule = calendar.schedule(trading_date, calendar_id)
     requests = requests_for_session(symbol, trading_date, schedule, dataset_vintage, feed)
-    saved = []
-    for request in requests:
-        payload = None
-        try:
-            payload, bars = client.get_bars_range(
-                request.symbol,
-                request.start_timestamp,
-                request.end_timestamp,
-                feed=request.requested_feed,
-                segment=request.segment.value,
-                trading_date=request.trading_date,
-                dataset_vintage=request.dataset_vintage,
-                allow_empty=request.segment is AcquisitionSegment.PREMARKET,
-            )
-            provider_metadata = payload.get("acquisition_metadata") or {}
-            processed, report = normalize_segment_bars(
-                bars,
-                request,
-                actual_feed=provider_metadata.get("actual_feed"),
-                actual_feed_evidence=provider_metadata.get("actual_feed_evidence", ""),
-                regular_expected_minutes=(
-                    schedule.expected_minutes
-                    if request.segment is AcquisitionSegment.REGULAR
-                    else None
-                ),
-            )
-            saved.append(
-                persist_acquisition(
-                    root, request, payload, processed, report, provider_metadata
-                )
-            )
-        except Exception as exc:
-            if isinstance(exc, FileExistsError):
-                raise
-            partial_payload = payload or getattr(exc, "partial_payload", None)
-            persist_acquisition_failure(
-                root, request, exc, provider="alpaca",
-                retry_count=getattr(exc, "retry_count", 0),
-                raw_payload=partial_payload,
-            )
+    return tuple(
+        acquire_research_segment(
+            client, root, request,
+            regular_expected_minutes=(
+                schedule.expected_minutes
+                if request.segment is AcquisitionSegment.REGULAR
+                else None
+            ),
+        )
+        for request in requests
+    )
+
+
+def acquire_research_segment(
+    client: Any,
+    root: Path,
+    request: AcquisitionRequest,
+    *,
+    regular_expected_minutes: pd.DatetimeIndex | None = None,
+) -> SegmentPaths:
+    """Acquire one write-once segment so broad jobs can resume safely."""
+    payload = None
+    try:
+        payload, bars = client.get_bars_range(
+            request.symbol,
+            request.start_timestamp,
+            request.end_timestamp,
+            feed=request.requested_feed,
+            segment=request.segment.value,
+            trading_date=request.trading_date,
+            dataset_vintage=request.dataset_vintage,
+            allow_empty=request.segment is AcquisitionSegment.PREMARKET,
+        )
+        provider_metadata = payload.get("acquisition_metadata") or {}
+        processed, report = normalize_segment_bars(
+            bars,
+            request,
+            actual_feed=provider_metadata.get("actual_feed"),
+            actual_feed_evidence=provider_metadata.get("actual_feed_evidence", ""),
+            regular_expected_minutes=regular_expected_minutes,
+        )
+        return persist_acquisition(
+            root, request, payload, processed, report, provider_metadata
+        )
+    except Exception as exc:
+        if isinstance(exc, FileExistsError):
             raise
-    return tuple(saved)
+        partial_payload = payload or getattr(exc, "partial_payload", None)
+        persist_acquisition_failure(
+            root, request, exc, provider="alpaca",
+            retry_count=getattr(exc, "retry_count", 0),
+            raw_payload=partial_payload,
+        )
+        raise
 
 
 def deterministic_calendar_plan(

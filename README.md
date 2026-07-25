@@ -13,6 +13,19 @@ activity from one exchange, so its volume and volume-derived features can differ
 materially from consolidated US-market activity. IEX remains available for
 feed comparisons and explicitly IEX-based workflows.
 
+Configure credentials and the historical default in `.env` (never commit this
+file):
+
+```dotenv
+ALPACA_API_KEY=your_key_id
+ALPACA_SECRET_KEY=your_secret_key
+ALPACA_HISTORICAL_DATA_FEED=sip  # allowed: sip or iex
+```
+
+`ALPACA_DATA_FEED` remains the legacy/live-client default. Historical commands
+use `ALPACA_HISTORICAL_DATA_FEED` unless `--feed` is supplied. Unsupported
+historical feed names fail during configuration parsing.
+
 ```bash
 # Historical research default (SIP)
 python -m aml.cli fetch --symbol GME --date 2024-05-14
@@ -33,6 +46,99 @@ Feed-qualified files use names such as `2024-05-14_sip_1min.csv` and
 `iex/` directories. Acquisition metadata records the requested feed, endpoint,
 parameters, page count, source raw file, and fetch time. Pagination follows
 every non-null Alpaca `next_page_token` automatically.
+
+Verify entitlement with a bounded, read-only historical request:
+
+```bash
+python -m aml.cli check-data-feed --symbol AAPL --date 2024-05-14 --feed sip
+python -m aml.cli check-data-feed --symbol AAPL --date 2024-05-14 --feed iex
+```
+
+An Alpaca HTTP 403 raises an explicit feed-permission error with plan guidance.
+The client never retries a denied SIP request as IEX.
+
+Run the controlled comparison below. `--download` acquires feed- and
+vintage-qualified premarket and regular files for both feeds; omit it to rerun
+the deterministic comparison from the hash-verified local files. Comparison
+artifacts contain fixed-order timestamp-aligned OHLCV rows and canonical JSON
+under `artifacts/feed_comparisons/`.
+
+```bash
+.venv/bin/python scripts/compare_alpaca_feeds.py GME 2024-05-13 \
+  --dataset-vintage alpaca-feed-validation-v001 --download
+.venv/bin/python scripts/compare_alpaca_feeds.py GME 2024-05-13 \
+  --dataset-vintage alpaca-feed-validation-v001
+```
+
+The initial bounded universe is `GME AMC AAPL TSLA NVDA AMD PLTR` on
+`2024-05-13` and `2024-05-14`. The repository does not yet document a genuine
+ordinary lower-volatility session, so none is silently invented; add one only
+after it is registered in the research manifest. Do not expand this command to
+a multi-year or full-market download yet.
+
+## Three-year liquid-markets backfill
+
+The reviewable universe in `config/liquid_day_trading_universe_v001.csv`
+contains liquid ETF proxies for the S&P 500, Nasdaq-100, Russell 2000, Dow,
+gold, silver, crude oil, Treasury bonds, major sectors, volatility, and the
+existing seven research stocks. It intentionally uses SPY as the S&P 500 market
+proxy instead of silently treating today's 500 constituents as a historically
+point-in-time universe.
+
+Plan the three-year SIP job without downloading anything:
+
+```bash
+.venv/bin/python scripts/backfill_liquid_markets.py \
+  --start 2023-07-24 --end 2026-07-23 \
+  --dataset-vintage alpaca-sip-liquid-markets-2023-07-24_to_2026-07-23-v001
+```
+
+Run a three-task engineering pilot, then remove `--max-tasks` for the complete
+resumable job:
+
+```bash
+.venv/bin/python scripts/backfill_liquid_markets.py \
+  --start 2023-07-24 --end 2026-07-23 \
+  --dataset-vintage alpaca-sip-liquid-markets-2023-07-24_to_2026-07-23-v001 \
+  --workers 3 --max-tasks 3 --execute
+```
+
+Each symbol/session writes separate premarket and regular-session raw,
+processed, and hash-verified metadata files beneath the ignored
+`data/research/<dataset-vintage>/` directory. Rerunning the same command verifies
+and skips completed segments. Failed write-once records remain visible and
+are never silently overwritten. This is market-data acquisition for research;
+it never submits orders.
+
+Transient DNS, connection, HTTP 429, and provider 5xx failures are retried with
+bounded exponential backoff. If all retries are exhausted, the failed attempt
+remains visible. Resume with `--retry-failures` to archive that attempt beneath
+`metadata/failed_attempts/` and retry without deleting the audit record.
+An advisory dataset lock prevents two downloader processes from writing the
+same vintage concurrently; stale lock files are harmless because the operating
+system releases the lock when its owning process exits.
+
+After a completed backfill, create the tracked dataset manifest against the
+published downloader commit. This rehashes every raw, processed, and metadata
+file, verifies processed row counts, and records one stable partition hash per
+symbol without placing the dataset itself in Git:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/build_dataset_manifest.py \
+  --source-commit <full-published-commit-sha>
+```
+
+The versioned JSON beneath `manifests/` contains coverage, source and
+subscription provenance, session definitions, rows per symbol, acquisition
+timestamps, validation totals, and path-independent partition hashes. Manifest
+generation fails closed on missing files, identity conflicts, unexpected feed
+evidence, duplicate or out-of-order timestamps, row-count drift, or hash drift.
+
+The report includes row count, timestamp bounds, duplicates, raw and
+halt-adjusted missing minutes, total volume, timestamp-aligned OHLCV difference
+count, and the existing quality-policy completeness result for each feed. SIP
+usually improves consolidated-market coverage, but better coverage alone does
+not demonstrate that the strategy is profitable.
 
 Legacy unsuffixed files are treated as historical IEX data, never SIP. Use
 `--feed legacy` to replay them. The old Python loader signature without a feed
@@ -68,6 +174,73 @@ Halt-aware completeness changes data-quality classification only. It does not
 change strategy scores, entries, exits, stop/target ordering, or P&L.
 
 Start with `FIRST_SESSION.md`.
+
+## Strategy tournament
+
+The research-only tournament framework runs multiple fixed, versioned intraday
+strategies through the same shared simulator and frozen SIP dataset. It defaults
+to development and validation; holdout access requires `--include-holdout` and
+never influences the composite score.
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_strategy_tournament.py --dry-run
+PYTHONPATH=src .venv/bin/python scripts/run_strategy_tournament.py \
+  --config config/strategy_tournament_baseline.yaml \
+  --splits development validation
+```
+
+Audit attention-momentum feature coverage, score provenance, execution reasons,
+and DST-safe calendar-month results for a completed run:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/analyze_tournament_attention.py \
+  --run-id 564345a77176524eb250
+```
+
+See `docs/ATTENTION_MOMENTUM_AUDIT.md` for score and integrity-check semantics.
+The corrected Strategy V0.1.1 development/validation baseline and its read-only
+robustness review are recorded in `docs/STRATEGY_V011_BASELINE.md`.
+
+Completed tournament files under `final/` are immutable. Later analyses verify
+every source hash and publish under
+`artifacts/tournaments/<run_id>/analysis/<analysis_id>/`; any finalized hash
+mismatch fails closed. The corrected baseline has a documented pre-existing
+audit/diagnostic hash mismatch and must not be silently repaired.
+
+The next untouched validation extension is preregistered in
+`docs/STRATEGY_V011_VALIDATION_EXTENSION_V001.md` for the prospective
+2026-07-27 through 2028-07-26 interval. The start is the first eligible XNYS
+session strictly after the immutable preregistration commit; no extension or
+sealed-holdout results were accessed when it was selected. Strategy V0.1.1
+remains frozen, optimization is not authorized, all new context is
+observational, and shadow strategies receive zero capital. See
+`docs/ATTENTION_SHADOW_CONTEXT_V001.md` for schemas and deferred sources.
+
+The tournament foundation retains its original five-commit history, including
+the corrected elapsed-time implementation and V0.1.1 baseline designation.
+Later immutable-analysis, prospective-validation, and observational-shadow
+changes are separate commits so their behavior and provenance remain
+independently reviewable.
+
+Run the synthetic-only parity rehearsal without accessing research results:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_v011_shadow_rehearsal.py \
+  --output-root /tmp/aml-v011-shadow-rehearsal
+```
+
+Display an already-generated, hash-verified tournament analysis without
+recalculation:
+
+```bash
+.venv/bin/streamlit run scripts/run_portfolio_dashboard.py -- \
+  --tournament-analysis artifacts/tournaments/<run_id>/analysis/<analysis_id>
+```
+
+Long runs can be restarted with `--resume`. Completed strategy-symbol-day units
+are hash-verified before reuse, and final leaderboards are published atomically.
+See `docs/STRATEGY_TOURNAMENT_V001.md` for signal timing, strategy extension,
+fixed splits, scoring, artifacts, and simulation limitations.
 
 ## Multi-strategy portfolio artifacts and dashboard
 
