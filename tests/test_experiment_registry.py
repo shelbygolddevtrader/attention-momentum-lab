@@ -67,6 +67,21 @@ def test_timezone_and_baseline_fail_closed():
     spec["registration_timestamp"] = "2026-07-25T20:00:00"
     with pytest.raises(ExperimentError, match="timezone"):
         validate_experiment(spec)
+
+
+def test_unsupported_schema_and_malformed_metrics_or_thresholds_fail():
+    spec = draft()
+    spec["schema_version"] = "aml.experiment.v999"
+    with pytest.raises(ExperimentError, match="Unsupported"):
+        validate_experiment(spec)
+    spec = draft()
+    spec["primary_metric"] = {"name": "missing exact metric fields"}
+    with pytest.raises(ExperimentError, match="metric schema"):
+        validate_experiment(spec)
+    spec = draft()
+    spec["decision_thresholds"]["status"] = "favorable"
+    with pytest.raises(ExperimentError, match="status"):
+        validate_experiment(spec)
     spec = draft()
     spec["strategy_baseline"]["strategy_version"] = "0.1.2"
     with pytest.raises(ExperimentError, match="baseline"):

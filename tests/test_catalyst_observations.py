@@ -37,6 +37,17 @@ def test_synthetic_collector_preserves_raw_before_normalization():
     assert observation["first_seen_timestamp"] != observation["acquisition_timestamp"]
 
 
+def test_raw_record_rejects_unknown_fields_and_unsupported_schema():
+    raw, _ = raw_and_observation()
+    raw["unknown"] = "synthetic"
+    with pytest.raises(CatalystSchemaError, match="missing or unknown"):
+        validate_raw_record(raw)
+    raw, _ = raw_and_observation()
+    raw["schema_version"] = "aml.catalyst.raw.v999"
+    with pytest.raises(CatalystSchemaError, match="Unsupported"):
+        validate_raw_record(raw)
+
+
 @pytest.mark.parametrize("field", ("headline", "direction"))
 def test_missing_and_unknown_observation_fields_fail(field):
     _, observation = raw_and_observation()
