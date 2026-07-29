@@ -208,6 +208,42 @@ def test_partial_mismatch_fails_closed_and_recovery_never_deletes(tmp_path):
     assert not (destination / result.manifest_path).exists()
 
 
+def test_recovery_rejects_unplanned_crash_leftovers_without_deleting_them(tmp_path):
+    result, repository, destination = plan(tmp_path)
+    first = result.artifacts[0]
+    write_once(destination, first.relative_path, first.record, ingestion.VALIDATORS[first.kind])
+    unexpected = (destination / first.relative_path).parent / ".crash-leftover.tmp"
+    unexpected.write_bytes(ingestion.canonical_json(first.record))
+    unexpected.chmod(0o600)
+    with pytest.raises(HistoricalIngestionError, match="unexpected artifact"):
+        build_ingestion_plan(
+            provider(), (JSONL.resolve(),), destination, repository, AS_OF,
+            limits(), recovery=True,
+        )
+    assert unexpected.is_file()
+    assert not (destination / result.manifest_path).exists()
+
+
+def test_recovery_is_idempotent_after_successful_manifest_publication(tmp_path):
+    result, repository, destination = plan(tmp_path)
+    manifest = publish_plan(destination, result)
+    before = {
+        path.relative_to(destination): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in destination.rglob("*") if path.is_file()
+    }
+    recovered = build_ingestion_plan(
+        provider(), (JSONL.resolve(),), destination, repository, AS_OF,
+        limits(), recovery=True,
+    )
+    assert recovered.run_id == result.run_id
+    assert publish_plan(destination, recovered, recovery=True) == manifest
+    after = {
+        path.relative_to(destination): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in destination.rglob("*") if path.is_file()
+    }
+    assert after == before
+
+
 def test_manifest_cannot_publish_before_every_artifact_verifies(tmp_path, monkeypatch):
     result, _, destination = plan(tmp_path)
     original = ingestion.write_once

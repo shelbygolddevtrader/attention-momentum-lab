@@ -98,7 +98,8 @@ Arbitrary binary input is unsupported. Input is never silently truncated.
 
 The raw identity binds schema, provider and provider version, provider release,
 stable source identifier, retrieval timestamp, source-file identity, record
-index, exact record-byte hash where available, logical-payload hash,
+format and byte-envelope semantics, byte lengths, record index, exact
+record-byte hash where available, logical-payload hash,
 normalizer version, and explicit correction predecessor.
 
 Observation identity binds raw identity, normalizer version, and normalized
@@ -136,6 +137,9 @@ The deterministic pipeline is:
 Every artifact is created atomically and write-once. The final manifest is the
 sole publication boundary. Files present without a valid manifest are
 unpublished evidence and cannot be treated as an ingested dataset.
+New directory entries, completed artifact files, and their containing
+directories are fsynced so the recovery boundary does not rely only on buffered
+writes.
 
 ## Validation stages
 
@@ -186,6 +190,8 @@ membership only and cannot cross security identities or event dates.
 normalization, temporal checks, lineage checks, clustering, published-registry
 scan, collision preflight, and deterministic plan construction. They create no
 file, directory, permission change, registry mutation, or network request.
+The CLI disables project bytecode-cache creation before importing ingestion
+modules, so a dry run does not create `__pycache__` files.
 
 Example, with an already-created private external root:
 
@@ -224,9 +230,11 @@ incomplete, or published state. It never changes storage.
 `recover` reconstructs the plan from the same bounded inputs and configuration.
 Every existing partial file must match the planned canonical bytes exactly.
 Matching files are retained; missing files may be atomically created. Any
-mismatch stops recovery. Recovery never deletes, overwrites, truncates, or
-silently quarantines evidence. The manifest is written only after every
-planned artifact exists and verifies byte-for-byte.
+mismatch or unexpected crash-leftover file stops recovery. Recovery never
+deletes, overwrites, truncates, or silently quarantines evidence. The manifest
+is written only after every planned artifact exists and verifies byte-for-byte.
+Repeating explicit recovery after successful publication verifies the identical
+manifest and artifacts and returns without rewriting them.
 
 If the original deterministic inputs are unavailable or a partial artifact
 differs, the incomplete batch must remain unpublished for manual review. A

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -92,14 +94,50 @@ def test_raw_identity_is_independent_of_mapping_insertion_order():
         "provider_release": "release-v001",
         "source_identifier": "story-001",
         "retrieval_timestamp": "2024-01-01T00:00:00+00:00",
+        "source_label": "source-a.json",
+        "source_format": "json-object",
+        "source_file_byte_length": 100,
         "source_file_hash": "a" * 64,
         "source_record_index": 0,
+        "source_record_byte_envelope": "exact",
+        "source_record_byte_length": 100,
         "source_record_byte_hash": "b" * 64,
         "logical_payload_hash": "c" * 64,
         "normalization_version": "normalizer-v001",
         "revision_of_raw_id": None,
     }
     assert raw_identity(fields) == raw_identity(dict(reversed(list(fields.items()))))
+
+
+def test_raw_identity_distinguishes_source_format_and_byte_envelope():
+    base = {
+        "schema_version": "aml.catalyst.raw.v002",
+        "provider": "synthetic-local",
+        "provider_version": "v001",
+        "provider_release": "release-v001",
+        "source_identifier": "story-001",
+        "retrieval_timestamp": "2024-01-01T00:00:00+00:00",
+        "source_label": "source-a.json",
+        "source_format": "json-object",
+        "source_file_byte_length": 100,
+        "source_file_hash": "a" * 64,
+        "source_record_index": 0,
+        "source_record_byte_envelope": "exact",
+        "source_record_byte_length": 100,
+        "source_record_byte_hash": "b" * 64,
+        "logical_payload_hash": "c" * 64,
+        "normalization_version": "normalizer-v001",
+        "revision_of_raw_id": None,
+    }
+    changed_format = {**base, "source_format": "jsonl"}
+    changed_envelope = {
+        **base,
+        "source_record_byte_envelope": "source-file-only",
+        "source_record_byte_length": None,
+        "source_record_byte_hash": None,
+    }
+    assert raw_identity(base) != raw_identity(changed_format)
+    assert raw_identity(base) != raw_identity(changed_envelope)
 
 
 @pytest.mark.parametrize(
@@ -171,6 +209,28 @@ def test_cli_dry_run_is_deterministic_and_writes_nothing(tmp_path):
     assert first.stdout == second.stdout
     assert json.loads(first.stdout)["writes_performed"] == 0
     assert list(destination.iterdir()) == []
+
+
+def test_cli_dry_run_does_not_create_project_bytecode_cache(tmp_path):
+    repository, destination = roots(tmp_path / "roots")
+    isolated_source = tmp_path / "isolated-src"
+    shutil.copytree(
+        ROOT / "src/aml",
+        isolated_source / "aml",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(isolated_source)
+    environment.pop("PYTHONDONTWRITEBYTECODE", None)
+    subprocess.run(
+        cli_command("dry-run", destination),
+        cwd=repository,
+        capture_output=True,
+        text=True,
+        check=True,
+        env=environment,
+    )
+    assert list(isolated_source.rglob("__pycache__")) == []
 
 
 def test_cli_publish_and_status_use_manifest_boundary(tmp_path):

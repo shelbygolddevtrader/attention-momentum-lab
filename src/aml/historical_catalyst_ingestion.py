@@ -226,8 +226,13 @@ def raw_identity(record: Mapping[str, object]) -> str:
         "provider_release": record["provider_release"],
         "source_identifier": record["source_identifier"],
         "retrieval_timestamp": record["retrieval_timestamp"],
+        "source_label": record["source_label"],
+        "source_format": record["source_format"],
+        "source_file_byte_length": record["source_file_byte_length"],
         "source_file_hash": record["source_file_hash"],
         "source_record_index": record["source_record_index"],
+        "source_record_byte_envelope": record["source_record_byte_envelope"],
+        "source_record_byte_length": record["source_record_byte_length"],
         "source_record_byte_hash": record["source_record_byte_hash"],
         "logical_payload_hash": record["logical_payload_hash"],
         "normalization_version": record["normalization_version"],
@@ -820,7 +825,18 @@ def build_ingestion_plan(
     if len({str(record["raw_id"]) for record in raws}) != len(raws):
         raise HistoricalIngestionError("Duplicate immutable raw identifier")
     existing_raws, existing_observations = _published_records(root)
-    _validate_lineage(raws, existing_raws)
+    lineage_existing = dict(existing_raws)
+    if recovery:
+        for raw in raws:
+            raw_id = str(raw["raw_id"])
+            if raw_id not in lineage_existing:
+                continue
+            if lineage_existing[raw_id] != raw:
+                raise HistoricalIngestionError(
+                    "Published raw identity differs from the recovery plan"
+                )
+            del lineage_existing[raw_id]
+    _validate_lineage(raws, lineage_existing)
     observations = [dict(normalizer.normalize(raw, as_of)) for raw in raws]
     _apply_revision_observations(observations, raws, existing_observations)
     clusters = _clusters(observations, deduplicator)
@@ -1010,8 +1026,25 @@ def preflight_plan(root: Path, plan: IngestionPlan, *, recovery: bool) -> dict[s
     matching = 0
     missing = 0
     manifest = root / plan.manifest_path
+    _validate_batch_contents(root, plan)
     if manifest.exists():
-        raise HistoricalIngestionError("A valid or conflicting manifest already occupies this run ID")
+        if not recovery:
+            raise HistoricalIngestionError(
+                "A valid or conflicting manifest already occupies this run ID"
+            )
+        _validate_existing_artifact_path(root, manifest)
+        if manifest.read_bytes() != canonical_json(plan.manifest):
+            raise HistoricalIngestionError(
+                "Published manifest differs from the deterministic recovery plan"
+            )
+        for artifact in plan.artifacts:
+            destination = root / artifact.relative_path
+            _validate_existing_artifact_path(root, destination)
+            if destination.read_bytes() != canonical_json(artifact.record):
+                raise HistoricalIngestionError(
+                    "Published artifact differs from the deterministic recovery plan"
+                )
+        return {"matching": len(plan.artifacts), "missing": 0, "published": 1}
     for artifact in plan.artifacts:
         destination = root / artifact.relative_path
         if destination.exists():
@@ -1025,11 +1058,49 @@ def preflight_plan(root: Path, plan: IngestionPlan, *, recovery: bool) -> dict[s
             matching += 1
         else:
             missing += 1
-    return {"matching": matching, "missing": missing}
+    return {"matching": matching, "missing": missing, "published": 0}
+
+
+def _validate_batch_contents(root: Path, plan: IngestionPlan) -> None:
+    batch = root / "ingestions" / plan.run_id
+    if not batch.exists():
+        return
+    if batch.is_symlink() or not batch.is_dir():
+        raise HistoricalIngestionError("Planned batch path is unsafe")
+    expected_files = {
+        root / artifact.relative_path for artifact in plan.artifacts
+    } | {root / plan.manifest_path}
+    expected_directories = {batch}
+    for expected in expected_files:
+        current = expected.parent
+        while current != root:
+            expected_directories.add(current)
+            current = current.parent
+    for path in batch.rglob("*"):
+        if path.is_symlink():
+            raise HistoricalIngestionError("Incomplete batch contains a symlink")
+        if path.is_dir():
+            if path not in expected_directories:
+                raise HistoricalIngestionError(
+                    "Incomplete batch contains an unexpected directory"
+                )
+            info = path.stat()
+            if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
+                raise HistoricalIngestionError("Incomplete batch directory permissions are unsafe")
+        elif path.is_file():
+            _validate_existing_artifact_path(root, path)
+            if path not in expected_files:
+                raise HistoricalIngestionError(
+                    "Incomplete batch contains an unexpected artifact"
+                )
+        else:
+            raise HistoricalIngestionError("Incomplete batch contains an unsafe path")
 
 
 def publish_plan(root: Path, plan: IngestionPlan, *, recovery: bool = False) -> Path:
-    preflight_plan(root, plan, recovery=recovery)
+    preflight = preflight_plan(root, plan, recovery=recovery)
+    if preflight["published"]:
+        return root / plan.manifest_path
     for artifact in plan.artifacts:
         destination = root / artifact.relative_path
         if destination.exists():

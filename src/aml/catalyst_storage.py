@@ -70,7 +70,16 @@ def _prepare_destination_components(root: Path, parent: Path) -> None:
         current = current / part
         if not current.exists():
             current.mkdir(mode=0o700)
+            _fsync_directory(current.parent)
         _validate_private_directory(current)
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def _reject_finalized(path: Path, root: Path) -> None:
@@ -110,11 +119,7 @@ def write_once(
             os.link(temporary, destination, follow_symlinks=False)
         except FileExistsError as exc:
             raise CatalystStorageError("Write-once catalyst record already exists") from exc
-        directory = os.open(destination.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        _fsync_directory(destination.parent)
     finally:
         if temporary.exists():
             temporary.unlink()
@@ -156,11 +161,7 @@ def finalize_partition(partition: Path, identity: Mapping[str, object]) -> Path:
             os.link(temporary, marker, follow_symlinks=False)
         except FileExistsError as exc:
             raise CatalystStorageError("Partition is already finalized") from exc
-        directory = os.open(partition, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        _fsync_directory(partition)
     finally:
         if temporary.exists():
             temporary.unlink()

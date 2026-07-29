@@ -1,5 +1,7 @@
 import json
+import os
 from pathlib import Path
+import stat
 
 import pytest
 
@@ -153,3 +155,21 @@ def test_finalization_rejects_unknown_identity_and_publishes_atomically(
     with pytest.raises(OSError, match="interrupted"):
         finalize_partition(partition, finalization_identity())
     assert not (partition / ".finalized.json").exists()
+
+
+def test_new_storage_directories_are_fsynced_for_crash_durability(
+    monkeypatch, tmp_path
+):
+    _, storage = roots(tmp_path)
+    raw, _ = records()
+    original_fsync = storage_module.os.fsync
+    fsynced_directories = []
+
+    def tracking_fsync(descriptor):
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            fsynced_directories.append(descriptor)
+        original_fsync(descriptor)
+
+    monkeypatch.setattr(storage_module.os, "fsync", tracking_fsync)
+    write_once(storage, raw_path(raw), raw, validate_raw_record)
+    assert len(fsynced_directories) >= 4

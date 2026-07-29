@@ -6,13 +6,18 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 
-from aml.historical_catalyst_ingestion import (
+sys.dont_write_bytecode = True
+
+from aml.historical_catalyst_ingestion import (  # noqa: E402
     ExactObservationalContentDeduplicator, StrictSyntheticHistoricalNormalizer,
     build_ingestion_plan, inspect_batch_status, publish_plan,
     validate_historical_root,
 )
-from aml.historical_catalyst_providers import InputLimits, LocalHistoricalFileProvider
+from aml.historical_catalyst_providers import (  # noqa: E402
+    InputLimits, LocalHistoricalFileProvider,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
