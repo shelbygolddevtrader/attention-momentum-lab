@@ -1,5 +1,8 @@
 # Attention Momentum Lab
 
+The fail-closed execution-readiness report for the frozen Winner Archetype V001
+study is in [docs/WINNER_ARCHETYPE_DISCOVERY_DECISION_GATE_V001.md](docs/WINNER_ARCHETYPE_DISCOVERY_DECISION_GATE_V001.md).
+
 Research protocol: [Historical Winner Archetype Discovery V0.1](docs/HISTORICAL_WINNER_ARCHETYPE_DISCOVERY_V001.md)
 
 Research-only V0.1.2 experiment registration and passive catalyst-data contracts
