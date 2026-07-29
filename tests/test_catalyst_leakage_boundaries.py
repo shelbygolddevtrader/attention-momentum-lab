@@ -10,6 +10,9 @@ ROOT = Path(__file__).parents[1]
 V011_MODULES = (
     "src/aml/signals.py",
     "src/aml/tournament_strategies.py",
+    "src/aml/trade_simulator.py",
+    "src/aml/portfolio_simulator.py",
+    "src/aml/batch_evaluation.py",
     "src/aml/forward_validation.py",
     "scripts/run_v011_forward_validation.py",
 )
@@ -18,6 +21,8 @@ CATALYST_MODULES = (
     "src/aml/catalyst_storage.py",
     "src/aml/catalyst_collectors.py",
     "src/aml/experiment_registry.py",
+    "src/aml/historical_catalyst_ingestion.py",
+    "src/aml/historical_catalyst_providers.py",
 )
 
 
@@ -48,6 +53,26 @@ def test_catalyst_modules_have_no_network_clients():
     prohibited = {"requests", "urllib", "http.client", "socket", "aiohttp"}
     for relative in CATALYST_MODULES:
         assert prohibited.isdisjoint(imported_modules(relative)), relative
+
+
+def test_operator_and_forward_validation_do_not_invoke_historical_ingestion():
+    protected = (
+        "scripts/run_v011_forward_validation.py",
+        "src/aml/forward_validation.py",
+    )
+    for relative in protected:
+        imports = imported_modules(relative)
+        assert not any("historical_catalyst" in name for name in imports), relative
+
+
+def test_historical_ingestion_cli_has_no_network_or_evaluation_commands():
+    relative = "scripts/ingest_historical_catalysts.py"
+    prohibited = {"requests", "urllib", "http.client", "socket", "aiohttp"}
+    assert prohibited.isdisjoint(imported_modules(relative))
+    source = (ROOT / relative).read_text(encoding="utf-8").casefold()
+    assert "evaluate" not in source
+    assert "alpaca" not in source
+    assert "sec edgar" not in source
 
 
 def test_synthetic_fixture_contains_no_forward_outcomes():

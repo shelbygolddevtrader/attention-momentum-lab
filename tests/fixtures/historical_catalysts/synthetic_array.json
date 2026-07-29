@@ -1,0 +1,31 @@
+[
+  {
+    "schema_version": "aml.catalyst.historical-input.v001",
+    "source_identifier": "synthetic-array-story-001",
+    "retrieval_timestamp": "2024-02-01T15:00:10+00:00",
+    "provider_release": "synthetic-release-v001",
+    "revision_of_raw_id": null,
+    "payload": {
+      "symbol": "ARRAY",
+      "security_identifier": "SYNTHETIC-ARRAY",
+      "publication_timestamp": "2024-02-01T15:00:00+00:00",
+      "first_seen_timestamp": "2024-02-01T15:00:05+00:00",
+      "effective_event_timestamp": null,
+      "effective_event_timestamp_origin": "unknown",
+      "source_name": "Synthetic Array Source",
+      "source_type": "other",
+      "source_locator": "synthetic://historical/array-001",
+      "headline": "SYNTHETIC: Fictional array record",
+      "normalized_summary": "Synthetic JSON-array limitation fixture.",
+      "catalyst_category": "other",
+      "direction": "unknown",
+      "novelty": 1,
+      "materiality": 1,
+      "company_specificity": 2,
+      "source_credibility": 2,
+      "is_primary_source": false,
+      "language": "en"
+    },
+    "synthetic": true
+  }
+]
