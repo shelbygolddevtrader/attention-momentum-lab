@@ -1,5 +1,14 @@
 # Attention Momentum Lab
 
+Winner Archetype Protocol V002 is defined in
+[`docs/WINNER_ARCHETYPE_PROTOCOL_V002.md`](docs/WINNER_ARCHETYPE_PROTOCOL_V002.md).
+It prospectively binds the complete point-in-time universe, source capabilities,
+stable identities, early-close semantics, evidence completeness, and immutable
+discovery identity. Its readiness command remains blocked until every required
+source is independently proven; it performs no empirical analysis. V001 remains
+frozen as described in
+[`docs/WINNER_ARCHETYPE_V002_COMPATIBILITY.md`](docs/WINNER_ARCHETYPE_V002_COMPATIBILITY.md).
+
 The fail-closed execution-readiness report for the frozen Winner Archetype V001
 study is in [docs/WINNER_ARCHETYPE_DISCOVERY_DECISION_GATE_V001.md](docs/WINNER_ARCHETYPE_DISCOVERY_DECISION_GATE_V001.md).
 
