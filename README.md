@@ -1,5 +1,7 @@
 # Attention Momentum Lab
 
+Research protocol: [Historical Winner Archetype Discovery V0.1](docs/HISTORICAL_WINNER_ARCHETYPE_DISCOVERY_V001.md)
+
 Research-only V0.1.2 experiment registration and passive catalyst-data contracts
 are documented in
 [`docs/V012_EXPERIMENT_AND_CATALYST_FRAMEWORK_V001.md`](docs/V012_EXPERIMENT_AND_CATALYST_FRAMEWORK_V001.md).
