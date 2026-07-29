@@ -5,6 +5,11 @@ are documented in
 [`docs/V012_EXPERIMENT_AND_CATALYST_FRAMEWORK_V001.md`](docs/V012_EXPERIMENT_AND_CATALYST_FRAMEWORK_V001.md).
 They are isolated from the frozen Strategy V0.1.1 execution path.
 
+Bounded, local-only historical catalyst ingestion is documented in
+[`docs/HISTORICAL_CATALYST_INGESTION_V001.md`](docs/HISTORICAL_CATALYST_INGESTION_V001.md).
+It uses synthetic fixtures only, has no network adapter, and is not connected
+to strategy execution, forward validation, or market-data replay.
+
 A private, modular research system for testing whether unusual price/volume momentum can be detected without look-ahead bias.
 
 This project connects to Alpaca paper APIs, downloads one-minute bars, replays a stock-day chronologically, calculates a transparent baseline score, logs every candidate, and produces separate price and volume charts.
