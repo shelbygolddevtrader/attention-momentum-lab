@@ -236,6 +236,7 @@
     {
       "schema_version": "aml.winner-archetype.outcome-definition.v001",
       "definition_version": "intraday-path-primary-v001",
+      "direction": "long",
       "reference_price_semantics": "bar_open",
       "reference_time": "09:30",
       "evaluation_start": "09:30",
@@ -254,6 +255,7 @@
     {
       "schema_version": "aml.winner-archetype.outcome-definition.v001",
       "definition_version": "intraday-path-sensitivity-v001",
+      "direction": "long",
       "reference_price_semantics": "bar_open",
       "reference_time": "09:30",
       "evaluation_start": "09:30",
@@ -300,6 +302,7 @@
     "maximum_controls": 2,
     "with_replacement": false,
     "same_session_required": true,
+    "winner_order_fields": ["session", "symbol", "event_id"],
     "tie_break_fields": ["symbol", "event_id"]
   },
   "deterministic_seed": 20260729,
@@ -315,5 +318,11 @@
     "predeclared_market_regime"
   ],
   "multiple_testing_correction": "benjamini_hochberg",
-  "holdout_access_policy": "frozen_hypothesis_and_parameter_hash_required"
+  "holdout_access_policy": "frozen_hypothesis_and_parameter_hash_required",
+  "feature_input_window_policy": "every_feature_window_ends_at_or_before_snapshot_cutoff",
+  "multiple_testing_family": "all_predeclared_archetype_feature_contrasts_v001",
+  "effect_size_definition": "Standardized mean difference for numeric fields and category-specific standardized proportion difference for categorical fields.",
+  "missing_data_sensitivity_plan": "Repeat predeclared contrasts with complete-case and explicit-missingness representations without outcome-informed imputation.",
+  "outcome_sensitivity_plan": "Repeat only the two predeclared outcome-definition versions and report directional consistency.",
+  "regime_stability_plan": "Report chronological-block and predeclared point-in-time market-regime summaries without retrospective outcome labels."
 }

@@ -68,6 +68,7 @@ def _outcome_definition() -> OutcomeDefinition:
     return OutcomeDefinition(
         schema_version=OUTCOME_DEFINITION_SCHEMA,
         definition_version="synthetic-cli-v001",
+        direction="long",
         reference_price_semantics="bar_open",
         reference_time="09:30",
         evaluation_start="09:30",
@@ -95,7 +96,10 @@ def _synthetic_bars(case: str) -> list[MinuteBar]:
     else:
         prices = [(100, 101, 99, 100), (100, 100, 94, 95), (95, 96, 93, 94), (94, 95, 93, 94), (94, 95, 93, 94)]
     return [
-        MinuteBar((start + timedelta(minutes=index)).isoformat(), *values)
+        MinuteBar(
+            (start + timedelta(minutes=index)).isoformat(), "SYNTH",
+            "2024-06-03", "America/New_York", *values, 1_000,
+        )
         for index, values in enumerate(prices)
     ]
 
@@ -125,9 +129,29 @@ def _events() -> list[CandidateEvent]:
 
 
 def _load_hypothesis(path: Path) -> HypothesisRecord:
+    normalized_parts = {part.casefold().replace("_", "-") for part in path.parts}
+    if normalized_parts & {"holdout", "sealed", "validation-extension", "forward-validation"}:
+        raise ValueError("Hypothesis CLI cannot access protected outcome paths")
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    current = Path(absolute.anchor)
+    for part in absolute.parts[1:]:
+        current = current / part
+        if current.exists() and current.is_symlink():
+            raise ValueError("Hypothesis path contains a symlink")
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 1_000_000:
         raise ValueError("Hypothesis path is unsafe")
-    value = json.loads(path.read_text(encoding="utf-8"))
+    def unique_object(pairs):
+        result = {}
+        for key, item in pairs:
+            if key in result:
+                raise ValueError(f"Duplicate hypothesis key: {key}")
+            result[key] = item
+        return result
+
+    value = json.loads(
+        path.read_text(encoding="utf-8"), object_pairs_hook=unique_object,
+        parse_constant=lambda item: (_ for _ in ()).throw(ValueError(item)),
+    )
     if not isinstance(value, dict) or value.get("schema_version") != HYPOTHESIS_SCHEMA:
         raise ValueError("Hypothesis file has an unsupported schema")
     return HypothesisRecord.from_mapping(value)

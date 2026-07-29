@@ -12,14 +12,17 @@ from aml.winner_archetype import (
     freeze_hypothesis,
     plan_chronological_partitions,
     validate_append_only_result,
+    validate_archetype_registry,
     validate_hypothesis_registry,
 )
 from aml.winner_archetype_contracts import (
     ARCHETYPE_ASSIGNMENT_SCHEMA,
     ARCHETYPE_SCHEMA,
+    HYPOTHESIS_FREEZE_SCHEMA,
     HYPOTHESIS_SCHEMA,
     ArchetypeAssignment,
     ArchetypeDefinition,
+    HypothesisFreezeSpec,
     HypothesisRecord,
     WinnerArchetypeError,
     WinnerArchetypeExperimentSpec,
@@ -63,6 +66,23 @@ def hypothesis(
     )
 
 
+def freeze_spec():
+    return HypothesisFreezeSpec(
+        schema_version=HYPOTHESIS_FREEZE_SCHEMA,
+        rule_or_model_specification={"rule": "premarket_gap >= threshold"},
+        parameter_values={"threshold": .1},
+        outcome_definition_hash="a" * 64,
+        matching_spec_hash="b" * 64,
+        partition_plan_id="c" * 64,
+        feature_definition_hashes={"premarket_gap": "d" * 64},
+        missing_data_policy="No imputation.",
+        statistical_test="Synthetic matched contrast.",
+        multiple_testing_family="family-v001",
+        decision_threshold={"minimum_effect": .1},
+        deterministic_seed=20260729,
+    )
+
+
 def test_repository_experiment_spec_is_strict_versioned_and_deterministic():
     first = load_experiment_spec(SPEC_PATH)
     second = WinnerArchetypeExperimentSpec.from_mapping(spec_mapping())
@@ -93,6 +113,27 @@ def test_experiment_loader_rejects_duplicate_json_keys(tmp_path):
     path.write_text('{"schema_version":"one","schema_version":"two"}', encoding="utf-8")
     with pytest.raises(WinnerArchetypeError, match="invalid JSON"):
         load_experiment_spec(path)
+
+
+def test_experiment_loader_rejects_protected_paths_and_symlink_components(tmp_path):
+    protected = tmp_path / "sealed" / "experiment.json"
+    protected.parent.mkdir()
+    protected.write_text(json.dumps(spec_mapping()), encoding="utf-8")
+    with pytest.raises(WinnerArchetypeError, match="protected outcome paths"):
+        load_experiment_spec(protected)
+
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "experiment.json").write_text(
+        json.dumps(spec_mapping()), encoding="utf-8"
+    )
+    linked = tmp_path / "linked"
+    try:
+        linked.symlink_to(real, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    with pytest.raises(WinnerArchetypeError, match="symlink"):
+        load_experiment_spec(linked / "experiment.json")
 
 
 def test_boolean_as_integer_nonfinite_duplicate_features_and_bad_timezone_fail():
@@ -149,6 +190,10 @@ def test_feature_snapshot_binds_cutoff_missingness_and_source_manifests():
         source_manifest_hashes=("b" * 64, "a" * 64),
         completeness_status="partial",
         feature_values={"premarket_gap": .1, "spread_bps": None},
+        feature_window_end_timestamps={
+            "premarket_gap": "2024-06-03T09:24:59-04:00",
+            "spread_bps": "2024-06-03T09:24:58-04:00",
+        },
     )
     assert snapshot.missingness == {"premarket_gap": False, "spread_bps": True}
     assert snapshot.source_manifest_hashes == ("a" * 64, "b" * 64)
@@ -170,6 +215,27 @@ def test_feature_snapshot_rejects_post_cutoff_information():
             source_manifest_hashes=("a" * 64,),
             completeness_status="complete",
             feature_values={"premarket_gap": .1},
+            feature_window_end_timestamps={
+                "premarket_gap": "2024-06-03T09:25:00-04:00",
+            },
+        )
+
+
+def test_feature_snapshot_rejects_future_ending_aggregate_window():
+    spec = load_experiment_spec(SPEC_PATH)
+    with pytest.raises(WinnerArchetypeError, match="window extends"):
+        build_feature_snapshot(
+            session="2024-06-03", symbol="TEST",
+            security_identifier="SYNTHETIC-TEST",
+            snapshot_spec=spec.decision_snapshots[2],
+            latest_input_timestamp="2024-06-03T09:24:00-04:00",
+            feature_definition_version="feature-set-v001",
+            source_manifest_hashes=("a" * 64,),
+            completeness_status="complete",
+            feature_values={"premarket_gap": .1},
+            feature_window_end_timestamps={
+                "premarket_gap": "2024-06-03T09:26:00-04:00",
+            },
         )
 
 
@@ -181,9 +247,9 @@ def test_hypothesis_freeze_identity_excludes_human_timestamp_metadata():
     assert canonical_hash(draft.identity_payload()) == canonical_hash(
         changed_timestamp.identity_payload()
     )
-    frozen = freeze_hypothesis(draft, {"threshold": .1})
+    frozen = freeze_hypothesis(draft, freeze_spec())
     assert frozen.frozen is True
-    assert frozen.parameter_freeze_hash == canonical_hash({"threshold": .1})
+    assert frozen.parameter_freeze_hash == freeze_spec().identity
     with pytest.raises(WinnerArchetypeError, match="parameter_freeze_hash"):
         hypothesis(frozen=True, parameter_hash=None)
 
@@ -214,6 +280,21 @@ def test_hypothesis_supersession_is_append_only_and_deterministic():
     assert validate_hypothesis_registry((original, revised)) == validate_hypothesis_registry(
         (original, revised)
     )
+    fork = hypothesis(
+        "hypothesis-003", sequence=3, supersedes="hypothesis-001"
+    )
+    with pytest.raises(WinnerArchetypeError, match="cannot fork"):
+        validate_hypothesis_registry((original, revised, fork))
+
+
+def test_hypothesis_freeze_binds_complete_reproduction_contract():
+    original = freeze_spec()
+    frozen = freeze_hypothesis(hypothesis(), original)
+    changed = replace(original, outcome_definition_hash="e" * 64)
+    changed_frozen = freeze_hypothesis(hypothesis(), changed)
+    assert frozen.parameter_freeze_hash != changed_frozen.parameter_freeze_hash
+    with pytest.raises(WinnerArchetypeError, match="requires feature"):
+        replace(original, feature_definition_hashes={})
 
 
 def test_phase_guards_reject_holdout_in_discovery_and_unfrozen_holdout_access():
@@ -226,9 +307,7 @@ def test_phase_guards_reject_holdout_in_discovery_and_unfrozen_holdout_access():
             execution_phase="holdout", requested_partition="holdout",
             hypothesis=hypothesis(),
         )
-    frozen = freeze_hypothesis(
-        hypothesis(validation_status="passed"), {"threshold": .1}
-    )
+    frozen = freeze_hypothesis(hypothesis(validation_status="passed"), freeze_spec())
     with pytest.raises(WinnerArchetypeError, match="does not match"):
         authorize_phase_access(
             execution_phase="holdout", requested_partition="holdout",
@@ -236,6 +315,14 @@ def test_phase_guards_reject_holdout_in_discovery_and_unfrozen_holdout_access():
         )
     authorize_phase_access(
         execution_phase="holdout", requested_partition="holdout",
+        hypothesis=frozen, supplied_parameter_hash=frozen.parameter_freeze_hash,
+    )
+    with pytest.raises(WinnerArchetypeError, match="Validation access requires"):
+        authorize_phase_access(
+            execution_phase="validation", requested_partition="validation"
+        )
+    authorize_phase_access(
+        execution_phase="validation", requested_partition="validation",
         hypothesis=frozen, supplied_parameter_hash=frozen.parameter_freeze_hash,
     )
 
@@ -283,19 +370,77 @@ def test_archetype_contract_prohibits_performance_interpretation():
         "assignment_method": "Predeclared exact synthetic rule.",
         "inclusion_rule": "premarket_gap >= 0.1",
         "feature_names": ("premarket_gap",),
+        "feature_definition_hashes": ("b" * 64,),
         "discovery_partition_id": "discovery-v001",
+        "population_manifest_hash": "c" * 64,
+        "missing_data_policy": "No imputation.",
+        "normalization_method": "Predeclared raw fraction.",
+        "distance_or_clustering_method": "Predeclared exact rule.",
+        "cluster_label_stabilization_method": "Rule identity hash.",
+        "parameter_hash": "d" * 64,
+        "minimum_sample_size": 30,
         "sample_count": 30,
         "winner_count": 10,
         "control_count": 20,
         "missingness_summary": {"premarket_gap": 0.0},
         "balance_diagnostic_ids": ("a" * 64,),
         "hypothesis_status": "descriptive",
+        "sample_sufficiency": "meets_minimum",
         "interpretation_status": "no_performance_claim_permitted",
     }
     assert ArchetypeDefinition(**values).sample_count == 30
     values["interpretation_status"] = "profitable"
     with pytest.raises(WinnerArchetypeError, match="performance claims"):
         ArchetypeDefinition(**values)
+    values["interpretation_status"] = "no_performance_claim_permitted"
+    values["sample_count"] = 0
+    values["winner_count"] = 0
+    values["control_count"] = 0
+    with pytest.raises(WinnerArchetypeError, match="cannot be empty"):
+        ArchetypeDefinition(**values)
+
+
+def test_archetype_registry_rejects_duplicate_ids_and_performance_narratives():
+    values = {
+        "schema_version": ARCHETYPE_SCHEMA, "archetype_id": "archetype-001",
+        "version": "archetype-v001", "description": "Synthetic grouping.",
+        "assignment_method": "Exact rule.", "inclusion_rule": "gap >= 0.1",
+        "feature_names": ("premarket_gap",),
+        "feature_definition_hashes": ("a" * 64,),
+        "discovery_partition_id": "discovery-v001",
+        "population_manifest_hash": "b" * 64,
+        "missing_data_policy": "No imputation.",
+        "normalization_method": "Raw fraction.",
+        "distance_or_clustering_method": "Exact rule.",
+        "cluster_label_stabilization_method": "Rule hash.",
+        "parameter_hash": "c" * 64, "minimum_sample_size": 30,
+        "sample_count": 1, "winner_count": 1, "control_count": 0,
+        "missingness_summary": {"premarket_gap": 0.0},
+        "balance_diagnostic_ids": ("d" * 64,),
+        "hypothesis_status": "descriptive", "sample_sufficiency": "insufficient",
+        "interpretation_status": "no_performance_claim_permitted",
+    }
+    record = ArchetypeDefinition(**values)
+    with pytest.raises(WinnerArchetypeError, match="Duplicate"):
+        validate_archetype_registry((record, record))
+    with pytest.raises(WinnerArchetypeError, match="cannot claim performance"):
+        ArchetypeDefinition(**{**values, "description": "Profitable setup"})
+
+
+def test_statistical_safeguards_are_identity_bound_and_strict():
+    value = spec_mapping()
+    original = WinnerArchetypeExperimentSpec.from_mapping(value)
+    value["multiple_testing_family"] = "changed-family-v002"
+    changed = WinnerArchetypeExperimentSpec.from_mapping(value)
+    assert original.identity != changed.identity
+    value = spec_mapping()
+    value["confidence_level"] = 1.0
+    with pytest.raises(WinnerArchetypeError, match="confidence_level"):
+        WinnerArchetypeExperimentSpec.from_mapping(value)
+    value = spec_mapping()
+    value["bootstrap_iterations"] = 0
+    with pytest.raises(WinnerArchetypeError, match="bootstrap_iterations"):
+        WinnerArchetypeExperimentSpec.from_mapping(value)
 
 
 def test_archetype_assignment_identity_binds_method_event_and_partition():
@@ -303,6 +448,8 @@ def test_archetype_assignment_identity_binds_method_event_and_partition():
         "archetype_id": "archetype-001",
         "event_id": "event-001",
         "partition": "discovery",
+        "feature_snapshot_id": "b" * 64,
+        "population_manifest_hash": "c" * 64,
         "assignment_method_hash": "a" * 64,
     }
     assignment = ArchetypeAssignment(
@@ -313,3 +460,5 @@ def test_archetype_assignment_identity_binds_method_event_and_partition():
     assert assignment.assignment_id == canonical_hash(payload)
     with pytest.raises(WinnerArchetypeError, match="assignment_id"):
         replace(assignment, partition="validation")
+    with pytest.raises(WinnerArchetypeError, match="cannot access holdout"):
+        replace(assignment, partition="holdout")

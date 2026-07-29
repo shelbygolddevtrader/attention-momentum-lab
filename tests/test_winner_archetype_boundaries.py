@@ -70,6 +70,23 @@ def test_cli_validation_creates_no_bytecode_cache_or_output(tmp_path):
     assert after == before
 
 
+def test_cli_rejects_hypothesis_path_through_symlink(tmp_path):
+    target = tmp_path / "target"
+    target.mkdir()
+    (target / "hypothesis.json").write_text("{}", encoding="utf-8")
+    linked = tmp_path / "linked"
+    try:
+        linked.symlink_to(target, target_is_directory=True)
+    except OSError:
+        return
+    result = subprocess.run(
+        command("validate-hypothesis", str(linked / "hypothesis.json")),
+        cwd=tmp_path, capture_output=True, text=True, env=ENVIRONMENT,
+    )
+    assert result.returncode != 0
+    assert "symlink" in result.stderr
+
+
 def test_research_layer_has_no_network_or_provider_dependency():
     sources = "\n".join(
         path.read_text(encoding="utf-8")

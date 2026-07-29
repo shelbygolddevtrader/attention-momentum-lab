@@ -26,6 +26,7 @@ ARCHETYPE_SCHEMA = "aml.winner-archetype.definition.v001"
 ARCHETYPE_ASSIGNMENT_SCHEMA = "aml.winner-archetype.assignment.v001"
 BALANCE_SCHEMA = "aml.winner-archetype.balance-diagnostic.v001"
 HYPOTHESIS_SCHEMA = "aml.winner-archetype.hypothesis.v001"
+HYPOTHESIS_FREEZE_SCHEMA = "aml.winner-archetype.hypothesis-freeze.v001"
 MANIFEST_SCHEMA = "aml.winner-archetype.manifest.v001"
 
 HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -34,6 +35,11 @@ SYMBOL_PATTERN = re.compile(r"^[A-Z][A-Z0-9.-]{0,14}$")
 MAX_TEXT = 20_000
 MAX_COLLECTION = 10_000
 PHASES = {"discovery", "validation", "holdout", "paper_forward"}
+APPROVED_MATCHING_FIELDS = {
+    "price", "premarket_gap", "premarket_dollar_volume",
+    "premarket_relative_volume", "atr_percent_20", "spread_bps",
+    "market_cap", "float_shares", "catalyst_category", "sector", "industry",
+}
 OUTCOME_DERIVED_FIELDS = {
     "winner", "outcome", "mfe", "mae", "future_return", "forward_return",
     "pnl", "profit", "loss", "target_hit", "stop_hit", "outcome_severity",
@@ -324,6 +330,7 @@ class FeatureSnapshot(StrictContract):
     completeness_status: str
     feature_values: Mapping[str, object]
     missingness: Mapping[str, bool]
+    feature_window_end_timestamps: Mapping[str, str]
     canonical_feature_hash: str
 
     SCHEMA = FEATURE_SNAPSHOT_SCHEMA
@@ -364,12 +371,23 @@ class FeatureSnapshot(StrictContract):
         _bounded_json(dict(self.feature_values))
         if set(self.feature_values) != set(self.missingness):
             raise WinnerArchetypeError("Feature values and missingness keys differ")
+        if set(self.feature_values) != set(self.feature_window_end_timestamps):
+            raise WinnerArchetypeError("Feature values and input-window keys differ")
         for key, missing in self.missingness.items():
             _identifier(key, "missingness feature")
             if type(missing) is not bool:
                 raise WinnerArchetypeError("Missingness values must be boolean")
             if missing != (self.feature_values[key] is None):
                 raise WinnerArchetypeError("Missingness does not match feature value")
+            window_end = _timestamp(
+                self.feature_window_end_timestamps[key], f"{key}.window_end"
+            )
+            if (
+                self.cutoff_semantics == "exclusive" and not window_end < observed
+            ) or (
+                self.cutoff_semantics == "inclusive" and not window_end <= observed
+            ):
+                raise WinnerArchetypeError("Feature input window extends past the cutoff")
         expected = canonical_hash({key: self.feature_values[key] for key in sorted(self.feature_values)})
         if _hash(self.canonical_feature_hash, "canonical_feature_hash") != expected:
             raise WinnerArchetypeError("Feature hash does not match canonical values")
@@ -379,6 +397,7 @@ class FeatureSnapshot(StrictContract):
 class OutcomeDefinition(StrictContract):
     schema_version: str
     definition_version: str
+    direction: str
     reference_price_semantics: str
     reference_time: str
     evaluation_start: str
@@ -400,6 +419,8 @@ class OutcomeDefinition(StrictContract):
         if self.schema_version != self.SCHEMA:
             raise WinnerArchetypeError("Unsupported outcome-definition schema")
         _identifier(self.definition_version, "definition_version")
+        if self.direction not in {"long", "short"}:
+            raise WinnerArchetypeError("Outcome direction is unsupported")
         if self.reference_price_semantics not in {"bar_open", "bar_close", "declared_external"}:
             raise WinnerArchetypeError("reference_price_semantics is unsupported")
         reference = _clock(self.reference_time, "reference_time")
@@ -439,10 +460,12 @@ class OutcomeRecord(StrictContract):
     session: str
     outcome_definition_version: str
     outcome_definition_hash: str
+    direction: str
     reference_timestamp: str
     reference_price: float | None
     evaluation_window: tuple[str, str]
     input_manifest_hash: str
+    verified_halt_evidence_hash: str
     completeness_status: str
     missing_minutes: int
     verified_halt_minutes: int
@@ -473,6 +496,8 @@ class OutcomeRecord(StrictContract):
         _date(self.session, "session")
         _identifier(self.outcome_definition_version, "outcome_definition_version")
         _hash(self.outcome_definition_hash, "outcome_definition_hash")
+        if self.direction not in {"long", "short"}:
+            raise WinnerArchetypeError("Outcome direction is unsupported")
         _timestamp(self.reference_timestamp, "reference_timestamp")
         if self.reference_price is not None:
             _number(self.reference_price, "reference_price", minimum=0.0000001)
@@ -482,6 +507,7 @@ class OutcomeRecord(StrictContract):
         if start >= end:
             raise WinnerArchetypeError("evaluation_window is invalid")
         _hash(self.input_manifest_hash, "input_manifest_hash")
+        _hash(self.verified_halt_evidence_hash, "verified_halt_evidence_hash")
         if self.completeness_status not in {"complete", "halt_adjusted_complete", "incomplete", "no_usable_bars"}:
             raise WinnerArchetypeError("completeness_status is unsupported")
         _integer(self.missing_minutes, "missing_minutes")
@@ -506,11 +532,13 @@ class OutcomeRecord(StrictContract):
             "session": self.session,
             "outcome_definition_version": self.outcome_definition_version,
             "outcome_definition_hash": self.outcome_definition_hash,
+            "direction": self.direction,
             "reference_timestamp": self.reference_timestamp,
             "reference_price": self.reference_price,
             "evaluation_window": self.evaluation_window,
             "halt_treatment": self.completeness_status,
             "input_manifest_hash": self.input_manifest_hash,
+            "verified_halt_evidence_hash": self.verified_halt_evidence_hash,
             "canonical_result_hash": self.canonical_result_hash,
         }
         if self.outcome_id != canonical_hash(identity_payload):
@@ -527,6 +555,7 @@ class ControlMatchingSpec(StrictContract):
     maximum_controls: int
     with_replacement: bool
     same_session_required: bool
+    winner_order_fields: tuple[str, ...]
     tie_break_fields: tuple[str, ...]
 
     SCHEMA = MATCHING_SCHEMA
@@ -539,6 +568,8 @@ class ControlMatchingSpec(StrictContract):
         prohibited = {item for item in fields if is_outcome_derived_field(item)}
         if prohibited:
             raise WinnerArchetypeError("Outcome-derived matching fields are prohibited")
+        if not set(fields).issubset(APPROVED_MATCHING_FIELDS):
+            raise WinnerArchetypeError("Matching fields are not in the approved pre-outcome set")
         if set(self.field_scales) != set(fields) or set(self.field_weights) != set(fields):
             raise WinnerArchetypeError("Matching scales and weights must cover every field exactly")
         for field in fields:
@@ -552,6 +583,9 @@ class ControlMatchingSpec(StrictContract):
             raise WinnerArchetypeError("with_replacement must be boolean")
         if self.same_session_required is not True:
             raise WinnerArchetypeError("Control matching must require the same session")
+        winner_order = _strings(self.winner_order_fields, "winner_order_fields")
+        if winner_order != ("session", "symbol", "event_id"):
+            raise WinnerArchetypeError("Winner ordering must be session, symbol, then event_id")
         ties = _strings(self.tie_break_fields, "tie_break_fields")
         if ties != ("symbol", "event_id"):
             raise WinnerArchetypeError("Tie-breaking must be symbol then event_id")
@@ -561,6 +595,7 @@ class ControlMatchingSpec(StrictContract):
         _exact_mapping(value, set(cls.__dataclass_fields__) - {"SCHEMA"}, "Matching spec")
         payload = dict(value)
         payload["matching_fields"] = tuple(payload["matching_fields"])
+        payload["winner_order_fields"] = tuple(payload["winner_order_fields"])
         payload["tie_break_fields"] = tuple(payload["tie_break_fields"])
         return cls(**payload)  # type: ignore[arg-type]
 
@@ -625,13 +660,22 @@ class ArchetypeDefinition(StrictContract):
     assignment_method: str
     inclusion_rule: str
     feature_names: tuple[str, ...]
+    feature_definition_hashes: tuple[str, ...]
     discovery_partition_id: str
+    population_manifest_hash: str
+    missing_data_policy: str
+    normalization_method: str
+    distance_or_clustering_method: str
+    cluster_label_stabilization_method: str
+    parameter_hash: str
+    minimum_sample_size: int
     sample_count: int
     winner_count: int
     control_count: int
     missingness_summary: Mapping[str, float]
     balance_diagnostic_ids: tuple[str, ...]
     hypothesis_status: str
+    sample_sufficiency: str
     interpretation_status: str
 
     SCHEMA = ARCHETYPE_SCHEMA
@@ -643,13 +687,34 @@ class ArchetypeDefinition(StrictContract):
             _identifier(getattr(self, field), field)
         for field in ("description", "assignment_method", "inclusion_rule"):
             _text(getattr(self, field), field)
+        if any(
+            token in self.description.casefold()
+            for token in ("profitable", "predictive", "tradable", "statistically significant")
+        ):
+            raise WinnerArchetypeError("Discovery archetype descriptions cannot claim performance")
         _strings(self.feature_names, "feature_names")
+        if len(self.feature_definition_hashes) != len(self.feature_names):
+            raise WinnerArchetypeError("Every archetype feature requires a definition hash")
+        for item in self.feature_definition_hashes:
+            _hash(item, "feature_definition_hash")
+        _hash(self.population_manifest_hash, "population_manifest_hash")
+        for field in (
+            "missing_data_policy", "normalization_method",
+            "distance_or_clustering_method", "cluster_label_stabilization_method",
+        ):
+            _text(getattr(self, field), field)
+        _hash(self.parameter_hash, "parameter_hash")
+        _integer(self.minimum_sample_size, "minimum_sample_size", minimum=1)
+        if not self.discovery_partition_id.startswith("discovery-"):
+            raise WinnerArchetypeError("Archetypes must originate in discovery")
         counts = [
             _integer(getattr(self, field), field)
             for field in ("sample_count", "winner_count", "control_count")
         ]
         if counts[1] + counts[2] > counts[0]:
             raise WinnerArchetypeError("Archetype counts are inconsistent")
+        if counts[0] == 0:
+            raise WinnerArchetypeError("An archetype cannot be empty")
         for feature, value in self.missingness_summary.items():
             _identifier(feature, "missingness feature")
             if not 0 <= _number(value, "missingness rate") <= 1:
@@ -658,6 +723,14 @@ class ArchetypeDefinition(StrictContract):
             _hash(item, "balance_diagnostic_id")
         if self.hypothesis_status not in {"descriptive", "proposed", "frozen"}:
             raise WinnerArchetypeError("hypothesis_status is unsupported")
+        if self.sample_sufficiency not in {"insufficient", "meets_minimum"}:
+            raise WinnerArchetypeError("sample_sufficiency is unsupported")
+        expected_sufficiency = (
+            "meets_minimum" if self.sample_count >= self.minimum_sample_size
+            else "insufficient"
+        )
+        if self.sample_sufficiency != expected_sufficiency:
+            raise WinnerArchetypeError("sample_sufficiency does not match the sample count")
         if self.interpretation_status != "no_performance_claim_permitted":
             raise WinnerArchetypeError("Discovery archetypes cannot carry performance claims")
 
@@ -669,6 +742,8 @@ class ArchetypeAssignment(StrictContract):
     archetype_id: str
     event_id: str
     partition: str
+    feature_snapshot_id: str
+    population_manifest_hash: str
     assignment_method_hash: str
 
     SCHEMA = ARCHETYPE_ASSIGNMENT_SCHEMA
@@ -679,8 +754,10 @@ class ArchetypeAssignment(StrictContract):
         _hash(self.assignment_id, "assignment_id")
         _identifier(self.archetype_id, "archetype_id")
         _identifier(self.event_id, "event_id")
-        if self.partition not in PHASES:
-            raise WinnerArchetypeError("Assignment partition is unsupported")
+        if self.partition not in {"discovery", "validation"}:
+            raise WinnerArchetypeError("Archetype assignment cannot access holdout or paper data")
+        _hash(self.feature_snapshot_id, "feature_snapshot_id")
+        _hash(self.population_manifest_hash, "population_manifest_hash")
         _hash(self.assignment_method_hash, "assignment_method_hash")
         payload = {
             key: value for key, value in self.to_dict().items()
@@ -696,11 +773,14 @@ class BalanceDiagnostic(StrictContract):
     diagnostic_id: str
     matching_version: str
     matching_spec_hash: str
+    matched_set_hash: str
     feature_name: str
     stage: str
     winner_count: int
     control_count: int
+    unmatched_winner_count: int
     standardized_mean_difference: float | None
+    calculation_status: str
     missing_winner_count: int
     missing_control_count: int
 
@@ -712,11 +792,20 @@ class BalanceDiagnostic(StrictContract):
         _hash(self.diagnostic_id, "diagnostic_id")
         _identifier(self.matching_version, "matching_version")
         _hash(self.matching_spec_hash, "matching_spec_hash")
+        _hash(self.matched_set_hash, "matched_set_hash")
         _identifier(self.feature_name, "feature_name")
         if self.stage not in {"before", "after"}:
             raise WinnerArchetypeError("Balance stage is unsupported")
-        for field in ("winner_count", "control_count", "missing_winner_count", "missing_control_count"):
+        for field in (
+            "winner_count", "control_count", "unmatched_winner_count",
+            "missing_winner_count", "missing_control_count",
+        ):
             _integer(getattr(self, field), field)
+        if self.calculation_status not in {
+            "calculated", "balanced_zero_variance", "undefined_zero_variance",
+            "insufficient_data",
+        }:
+            raise WinnerArchetypeError("Balance calculation_status is unsupported")
         if self.standardized_mean_difference is not None:
             _number(self.standardized_mean_difference, "standardized_mean_difference")
         payload = {
@@ -796,6 +885,43 @@ class HypothesisRecord(StrictContract):
 
 
 @dataclass(frozen=True)
+class HypothesisFreezeSpec(StrictContract):
+    schema_version: str
+    rule_or_model_specification: Mapping[str, object]
+    parameter_values: Mapping[str, object]
+    outcome_definition_hash: str
+    matching_spec_hash: str
+    partition_plan_id: str
+    feature_definition_hashes: Mapping[str, str]
+    missing_data_policy: str
+    statistical_test: str
+    multiple_testing_family: str
+    decision_threshold: Mapping[str, object]
+    deterministic_seed: int
+
+    SCHEMA = HYPOTHESIS_FREEZE_SCHEMA
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA:
+            raise WinnerArchetypeError("Unsupported hypothesis-freeze schema")
+        for field in ("rule_or_model_specification", "parameter_values", "decision_threshold"):
+            value = getattr(self, field)
+            if not isinstance(value, Mapping) or not value:
+                raise WinnerArchetypeError(f"{field} must be a non-empty mapping")
+            _bounded_json(dict(value))
+        for field in ("outcome_definition_hash", "matching_spec_hash", "partition_plan_id"):
+            _hash(getattr(self, field), field)
+        if not self.feature_definition_hashes:
+            raise WinnerArchetypeError("A freeze requires feature-definition hashes")
+        for name, item in self.feature_definition_hashes.items():
+            _identifier(name, "frozen feature name")
+            _hash(item, "feature_definition_hash")
+        for field in ("missing_data_policy", "statistical_test", "multiple_testing_family"):
+            _text(getattr(self, field), field)
+        _integer(self.deterministic_seed, "deterministic_seed")
+
+
+@dataclass(frozen=True)
 class WinnerArchetypeExperimentSpec(StrictContract):
     schema_version: str
     experiment_version: str
@@ -830,6 +956,12 @@ class WinnerArchetypeExperimentSpec(StrictContract):
     sensitivity_dimensions: tuple[str, ...]
     multiple_testing_correction: str
     holdout_access_policy: str
+    feature_input_window_policy: str
+    multiple_testing_family: str
+    effect_size_definition: str
+    missing_data_sensitivity_plan: str
+    outcome_sensitivity_plan: str
+    regime_stability_plan: str
 
     SCHEMA = EXPERIMENT_SCHEMA
 
@@ -877,6 +1009,14 @@ class WinnerArchetypeExperimentSpec(StrictContract):
             raise WinnerArchetypeError("multiple_testing_correction is unsupported")
         if self.holdout_access_policy != "frozen_hypothesis_and_parameter_hash_required":
             raise WinnerArchetypeError("holdout_access_policy is unsafe")
+        if self.feature_input_window_policy != "every_feature_window_ends_at_or_before_snapshot_cutoff":
+            raise WinnerArchetypeError("feature_input_window_policy is unsafe")
+        for field in (
+            "multiple_testing_family", "effect_size_definition",
+            "missing_data_sensitivity_plan", "outcome_sensitivity_plan",
+            "regime_stability_plan",
+        ):
+            _text(getattr(self, field), field)
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> WinnerArchetypeExperimentSpec:
@@ -969,6 +1109,15 @@ def load_experiment_spec(path: str | Any) -> WinnerArchetypeExperimentSpec:
     from pathlib import Path
 
     source = Path(path)
+    normalized_parts = {part.casefold().replace("_", "-") for part in source.parts}
+    if normalized_parts & {"holdout", "sealed", "validation-extension", "forward-validation"}:
+        raise WinnerArchetypeError("Research contracts cannot be loaded from protected outcome paths")
+    absolute = source if source.is_absolute() else Path.cwd() / source
+    current = Path(absolute.anchor)
+    for part in absolute.parts[1:]:
+        current = current / part
+        if current.exists() and current.is_symlink():
+            raise WinnerArchetypeError("Experiment specification path contains a symlink")
     if source.is_symlink() or not source.is_file() or source.stat().st_size > 1_000_000:
         raise WinnerArchetypeError("Experiment specification path is unsafe")
     def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:

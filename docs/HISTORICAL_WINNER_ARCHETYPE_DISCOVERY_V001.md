@@ -110,9 +110,11 @@ Versioned snapshot contracts are defined at:
 Premarket and post-open snapshots cannot be pooled under one feature identity.
 Every `FeatureSnapshot` binds session, normalized security identity, exact zoned
 decision timestamp, exclusive/inclusive semantics, latest input timestamp,
-feature-definition version, source-manifest hashes, completeness, explicit
-missingness, and the canonical feature-value hash. Input at or after an exclusive
-cutoff is rejected. No later value may be substituted for a missing earlier one.
+feature-definition version, the end timestamp of every feature's complete input
+window, source-manifest hashes, completeness, explicit missingness, and the
+canonical feature-value hash. Every feature window must end at or before an
+inclusive cutoff and strictly before an exclusive cutoff. No later value may be
+substituted for a missing earlier one.
 
 Each `FeatureDefinition` declares name, version, family, units, observation
 window, required inputs, missing behavior, whether zero differs from missing,
@@ -146,6 +148,7 @@ sensitivity definitions explicitly bind:
 
 - normalized security identity and session;
 - definition version and complete definition hash;
+- long or short outcome direction;
 - reference timestamp and price semantics;
 - evaluation window and America/New_York timezone;
 - upside and downside thresholds;
@@ -163,7 +166,16 @@ Exact threshold touches count. If upside and downside are both touched within on
 minute bar, ordering is unknowable and the conservative result is
 `ambiguous_downside_first`. Missing minutes are never forward-filled. Verified
 halt minutes may be excluded only when an explicit halt interval is supplied;
-they remain counted in provenance. No usable bars produces null path metrics.
+they remain counted in provenance. Bars and halt evidence bind the symbol,
+session, timezone, and source evidence; a bar inside a verified halt or outside
+the declared evaluation window fails closed. Missing or halted minutes interrupt
+the consecutive-momentum count, and a missing final evaluation bar makes the
+close-relative label unavailable. No usable bars produces null path metrics.
+
+The reward-to-risk label is a first-touch path label: reward must be reached
+before the declared risk distance. Risk first, or reward and risk within the same
+minute, is conservatively false even when a later bar reaches the reward level.
+The outcome record binds a canonical digest of the exact verified halt evidence.
 
 These labels make no claim about fills, liquidity, slippage, tradability, or
 realizable profit. Such claims require a separately preregistered execution study.
@@ -180,6 +192,13 @@ point-in-time and legally available—market cap, float, catalyst category, sect
 and industry. Outcome severity, MFE, MAE, future returns, target/stop status, P&L,
 and any later price action are prohibited matching fields.
 
+Matching fields are an explicit allowlist, so a merely unfamiliar field cannot
+enter matching by avoiding an outcome-like name. Winners are processed in the
+identity-bound order `(session, symbol, event_id)` before the without-replacement
+greedy allocation. This is deterministic but remains an order-priority design
+choice that reports unmatched winners rather than claiming a globally optimal
+assignment.
+
 Distance is the weighted sum of absolute field differences divided by frozen
 field scales. Missing required dimensions make a candidate ineligible rather
 than silently imputing it. Ties resolve by symbol then event ID. Input order,
@@ -190,8 +209,10 @@ balance diagnostic.
 
 Balance diagnostics are mandatory before feature interpretation. They report
 winner/control counts, missingness, and standardized mean differences before and
-after matching. Poor balance is a limitation, not permission to revise matching
-after viewing outcomes.
+after matching. Each diagnostic binds the complete matched-set hash, unmatched
+winner count, and an explicit calculation status for insufficient or
+zero-variance cases. Poor balance is a limitation, not permission to revise
+matching after viewing outcomes.
 
 ## Archetype discovery contract
 
@@ -200,10 +221,14 @@ contrasts, simple descriptive multivariate analysis, and deterministic clusterin
 of normalized decision-time features. Fuzzy storytelling is prohibited.
 
 Every archetype records a stable ID and version, description, exact rule or
-assignment method, features, discovery partition, sample/winner/control counts,
-missingness, balance-diagnostic identities, and hypothesis status. Its mandatory
-interpretation field is `no_performance_claim_permitted`. Every assignment binds
-the event, partition, archetype, and assignment-method hash.
+assignment method, feature-definition hashes, population-manifest hash,
+missing-data and normalization policies, deterministic clustering or distance
+method, stable-label method, parameter hash, discovery partition,
+sample/winner/control counts, minimum sample and sufficiency status, missingness,
+balance-diagnostic identities, and hypothesis status. Its mandatory interpretation
+field is `no_performance_claim_permitted`. Every assignment binds the event,
+partition, archetype, feature snapshot, population manifest, and assignment-method
+hash. Assignment artifacts cannot directly reference holdout or paper partitions.
 
 Archetypes below the configured minimum of 30 events are explicitly exploratory.
 Names must describe observable structure, not profitability or famous examples.
@@ -217,14 +242,19 @@ status, backward-only supersession, and the parameter-freeze hash. Duplicate IDs
 sequence gaps, cycles, forward supersession, or self-supersession fail closed.
 
 A human-authored creation timestamp is metadata only and is excluded from
-identity. Freezing hashes the complete proposed parameter set. Changing a rule
-requires a new hypothesis version; it cannot mutate the frozen record. Validation
-and holdout result identities must be append-only and may not overwrite earlier
-results.
+identity. Freezing hashes the complete rule or model specification, parameter
+values, outcome definition, matching contract, partition plan, named feature
+definition hashes, missing-data policy, statistical test, multiple-testing
+family, decision threshold, and deterministic seed. A frozen hypothesis is
+required before validation access. Changing any frozen element requires a new
+hypothesis version; it cannot mutate the frozen record. Supersession is a single
+append-only chain and cannot fork. Validation and holdout result identities must
+be append-only and may not overwrite earlier results.
 
 The explicit phase guard allows discovery to read discovery only, validation to
-read discovery and validation, holdout to read holdout only after freeze checks,
-and paper-forward to read future paper observations only. Discovery access to
+read discovery and validation only after freeze checks, holdout to read holdout
+only after a passing internal-validation status and exact freeze-hash checks, and
+paper-forward to read future paper observations only. Discovery access to
 holdout-labeled outcomes fails immediately.
 
 ## Statistical safeguards

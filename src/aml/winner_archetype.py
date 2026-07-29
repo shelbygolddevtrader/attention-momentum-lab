@@ -20,6 +20,7 @@ from aml.winner_archetype_contracts import (
     DecisionSnapshotSpec,
     FeatureSnapshot,
     HypothesisRecord,
+    HypothesisFreezeSpec,
     ExperimentManifest,
     MANIFEST_SCHEMA,
     MatchedControlRecord,
@@ -33,6 +34,7 @@ from aml.winner_archetype_contracts import (
 
 MAX_MINUTE_BARS = 1_000
 MAX_CANDIDATES = 100_000
+MAX_CANDIDATE_FEATURES = 100
 
 
 @dataclass(frozen=True)
@@ -50,10 +52,14 @@ class PartitionPlan:
 @dataclass(frozen=True)
 class MinuteBar:
     timestamp: str
+    symbol: str
+    session: str
+    timezone: str
     open: float
     high: float
     low: float
     close: float
+    volume: float
 
     def parsed_timestamp(self) -> datetime:
         try:
@@ -65,12 +71,33 @@ class MinuteBar:
         return value
 
     def validate(self) -> None:
-        self.parsed_timestamp()
+        parsed = self.parsed_timestamp()
+        if not self.symbol or self.symbol != self.symbol.upper():
+            raise WinnerArchetypeError("Minute-bar symbol must be normalized")
+        try:
+            date.fromisoformat(self.session)
+            zone = ZoneInfo(self.timezone)
+        except (ValueError, KeyError) as exc:
+            raise WinnerArchetypeError("Minute-bar session or timezone is malformed") from exc
+        if parsed.utcoffset() != parsed.astimezone(zone).utcoffset():
+            raise WinnerArchetypeError("Minute-bar timestamp offset conflicts with its timezone")
         values = (self.open, self.high, self.low, self.close)
         if any(type(item) not in {int, float} or not math.isfinite(float(item)) or item <= 0 for item in values):
             raise WinnerArchetypeError("Minute-bar prices must be positive and finite")
+        if type(self.volume) not in {int, float} or not math.isfinite(float(self.volume)) or self.volume < 0:
+            raise WinnerArchetypeError("Minute-bar volume must be non-negative and finite")
         if self.low > min(self.open, self.close) or self.high < max(self.open, self.close) or self.low > self.high:
             raise WinnerArchetypeError("Minute-bar OHLC values are inconsistent")
+
+
+@dataclass(frozen=True)
+class VerifiedHaltInterval:
+    symbol: str
+    session: str
+    timezone: str
+    start_timestamp: str
+    end_timestamp: str
+    evidence_hash: str
 
 
 @dataclass(frozen=True)
@@ -93,6 +120,8 @@ class CandidateEvent:
             raise WinnerArchetypeError("Candidate symbol must be normalized")
         if type(self.winner) is not bool:
             raise WinnerArchetypeError("Candidate winner eligibility must be boolean")
+        if len(self.pre_outcome_features) > MAX_CANDIDATE_FEATURES:
+            raise WinnerArchetypeError("Candidate feature input exceeds the bounded limit")
         for field, value in self.pre_outcome_features.items():
             if is_outcome_derived_field(field):
                 raise WinnerArchetypeError("Post-outcome candidate fields are prohibited")
@@ -166,6 +195,7 @@ def build_feature_snapshot(
     source_manifest_hashes: Iterable[str],
     completeness_status: str,
     feature_values: Mapping[str, object],
+    feature_window_end_timestamps: Mapping[str, str],
 ) -> FeatureSnapshot:
     session_date = date.fromisoformat(session)
     local_time = datetime.strptime(snapshot_spec.local_time, "%H:%M").time()
@@ -190,29 +220,70 @@ def build_feature_snapshot(
         completeness_status=completeness_status,
         feature_values=values,
         missingness=missingness,
+        feature_window_end_timestamps={
+            key: feature_window_end_timestamps[key]
+            for key in sorted(feature_window_end_timestamps)
+        },
         canonical_feature_hash=canonical_hash(values),
     )
 
 
 def _halt_minutes(
-    intervals: Sequence[tuple[str, str]], zone: ZoneInfo
-) -> set[datetime]:
+    intervals: Sequence[VerifiedHaltInterval], zone: ZoneInfo, symbol: str, session: str,
+    relevant_start: datetime, relevant_end: datetime,
+) -> tuple[set[datetime], str]:
     result: set[datetime] = set()
-    for raw_start, raw_end in intervals:
+    evidence_payloads: list[dict[str, str]] = []
+    for interval in intervals:
+        if interval.symbol != symbol or interval.session != session:
+            raise WinnerArchetypeError("Halt evidence belongs to another symbol or session")
+        if interval.timezone != zone.key:
+            raise WinnerArchetypeError("Halt evidence timezone differs from the outcome definition")
+        if len(interval.evidence_hash) != 64:
+            raise WinnerArchetypeError("Halt evidence hash is malformed")
         try:
-            start = datetime.fromisoformat(raw_start.replace("Z", "+00:00")).astimezone(zone)
-            end = datetime.fromisoformat(raw_end.replace("Z", "+00:00")).astimezone(zone)
+            int(interval.evidence_hash, 16)
+        except ValueError as exc:
+            raise WinnerArchetypeError("Halt evidence hash is malformed") from exc
+        try:
+            raw_start = datetime.fromisoformat(
+                interval.start_timestamp.replace("Z", "+00:00")
+            )
+            raw_end = datetime.fromisoformat(
+                interval.end_timestamp.replace("Z", "+00:00")
+            )
         except ValueError as exc:
             raise WinnerArchetypeError("Halt interval timestamp is malformed") from exc
+        if raw_start.tzinfo is None or raw_end.tzinfo is None:
+            raise WinnerArchetypeError("Halt interval timestamps require timezones")
+        if (
+            raw_start.utcoffset() != raw_start.astimezone(zone).utcoffset()
+            or raw_end.utcoffset() != raw_end.astimezone(zone).utcoffset()
+        ):
+            raise WinnerArchetypeError("Halt timestamp offset conflicts with its timezone")
+        start = raw_start.astimezone(zone)
+        end = raw_end.astimezone(zone)
         if start > end or start.second or end.second or start.microsecond or end.microsecond:
             raise WinnerArchetypeError("Halt intervals must be ordered whole minutes")
+        if start.date() != date.fromisoformat(session) or end.date() != date.fromisoformat(session):
+            raise WinnerArchetypeError("Halt evidence falls outside the declared session")
+        if end < relevant_start or start > relevant_end:
+            raise WinnerArchetypeError("Halt evidence falls outside the relevant outcome window")
+        evidence_payloads.append(asdict(interval))
         current = start
         while current <= end:
+            if current in result:
+                raise WinnerArchetypeError("Verified halt intervals overlap")
             result.add(current)
             current += timedelta(minutes=1)
             if len(result) > MAX_MINUTE_BARS:
                 raise WinnerArchetypeError("Halt interval input exceeds the bound")
-    return result
+    return result, canonical_hash(sorted(
+        evidence_payloads,
+        key=lambda item: (
+            item["start_timestamp"], item["end_timestamp"], item["evidence_hash"]
+        ),
+    ))
 
 
 def calculate_outcome(
@@ -223,7 +294,7 @@ def calculate_outcome(
     definition: OutcomeDefinition,
     bars: Sequence[MinuteBar],
     input_manifest_hash: str,
-    verified_halt_intervals: Sequence[tuple[str, str]] = (),
+    verified_halt_intervals: Sequence[VerifiedHaltInterval] = (),
     declared_reference_price: float | None = None,
 ) -> OutcomeRecord:
     """Calculate descriptive labels without fill inference or tradability claims."""
@@ -243,11 +314,17 @@ def calculate_outcome(
     indexed: dict[datetime, MinuteBar] = {}
     for bar in bars:
         bar.validate()
+        if bar.symbol != symbol or bar.session != session:
+            raise WinnerArchetypeError("Minute bar belongs to another symbol or session")
+        if bar.timezone != definition.session_timezone:
+            raise WinnerArchetypeError("Minute-bar timezone differs from the outcome definition")
         timestamp = bar.parsed_timestamp().astimezone(zone)
         if timestamp.second or timestamp.microsecond:
             raise WinnerArchetypeError("Minute bars must use whole-minute timestamps")
         if timestamp.date() != day:
             raise WinnerArchetypeError("Minute bar falls outside the declared session")
+        if timestamp != reference_time and not window_start <= timestamp <= window_end:
+            raise WinnerArchetypeError("Minute bar falls outside the declared evaluation input")
         if timestamp in indexed:
             raise WinnerArchetypeError("Minute-bar timestamps must be unique")
         indexed[timestamp] = bar
@@ -265,7 +342,12 @@ def calculate_outcome(
     else:
         reference_price = float(reference_bar.close)
 
-    halts = _halt_minutes(verified_halt_intervals, zone)
+    halts, halt_evidence_hash = _halt_minutes(
+        verified_halt_intervals, zone, symbol, session,
+        min(reference_time, window_start), window_end,
+    )
+    if set(indexed) & halts:
+        raise WinnerArchetypeError("A minute bar conflicts with verified full-halt evidence")
     expected: list[datetime] = []
     current = window_start
     while current <= window_end:
@@ -291,12 +373,22 @@ def calculate_outcome(
     sustained: bool | None = None
     closed_above: bool | None = None
     if reference_price is not None and usable:
-        mfe = max(float(bar.high) / reference_price - 1 for _, bar in usable)
-        mae = min(float(bar.low) / reference_price - 1 for _, bar in usable)
+        if definition.direction == "long":
+            favorable_returns = [float(bar.high) / reference_price - 1 for _, bar in usable]
+            adverse_returns = [float(bar.low) / reference_price - 1 for _, bar in usable]
+        else:
+            favorable_returns = [1 - float(bar.low) / reference_price for _, bar in usable]
+            adverse_returns = [1 - float(bar.high) / reference_price for _, bar in usable]
+        mfe = max(favorable_returns)
+        mae = min(adverse_returns)
         threshold_order = "neither"
         for _, bar in usable:
-            hit_upside = bar.high / reference_price - 1 >= definition.upside_threshold
-            hit_downside = bar.low / reference_price - 1 <= -definition.downside_threshold
+            if definition.direction == "long":
+                hit_upside = bar.high / reference_price - 1 >= definition.upside_threshold
+                hit_downside = bar.low / reference_price - 1 <= -definition.downside_threshold
+            else:
+                hit_upside = 1 - bar.low / reference_price >= definition.upside_threshold
+                hit_downside = 1 - bar.high / reference_price <= -definition.downside_threshold
             if hit_upside and hit_downside:
                 threshold_order = "ambiguous_downside_first"
                 break
@@ -306,16 +398,47 @@ def calculate_outcome(
             if hit_upside:
                 threshold_order = "upside_first"
                 break
-        reward_to_risk = mfe >= definition.reward_to_risk_multiple * definition.downside_threshold
+        reward_to_risk = False
+        reward_threshold = (
+            definition.reward_to_risk_multiple * definition.downside_threshold
+        )
+        for _, bar in usable:
+            if definition.direction == "long":
+                hit_reward = bar.high / reference_price - 1 >= reward_threshold
+                hit_risk = bar.low / reference_price - 1 <= -definition.downside_threshold
+            else:
+                hit_reward = 1 - bar.low / reference_price >= reward_threshold
+                hit_risk = 1 - bar.high / reference_price <= -definition.downside_threshold
+            if hit_reward and hit_risk:
+                break
+            if hit_risk:
+                break
+            if hit_reward:
+                reward_to_risk = True
+                break
         run = 0
         sustained = False
-        for _, bar in usable:
-            if bar.close / reference_price - 1 >= definition.sustained_momentum_threshold:
+        for timestamp in expected:
+            if timestamp in halts or timestamp not in indexed:
+                run = 0
+                continue
+            bar = indexed[timestamp]
+            directional_close_return = (
+                bar.close / reference_price - 1
+                if definition.direction == "long"
+                else 1 - bar.close / reference_price
+            )
+            if directional_close_return >= definition.sustained_momentum_threshold:
                 run += 1
                 sustained = sustained or run >= definition.sustained_minutes
             else:
                 run = 0
-        closed_above = usable[-1][1].close > reference_price
+        closing_timestamp = expected_nonhalt[-1] if expected_nonhalt else None
+        closed_above = (
+            indexed[closing_timestamp].close > reference_price
+            if closing_timestamp is not None and closing_timestamp in indexed
+            else None
+        )
 
     definition_hash = definition.identity
     result = {
@@ -325,10 +448,12 @@ def calculate_outcome(
         "session": session,
         "outcome_definition_version": definition.definition_version,
         "outcome_definition_hash": definition_hash,
+        "direction": definition.direction,
         "reference_timestamp": reference_time.isoformat(),
         "reference_price": reference_price,
         "evaluation_window": (window_start.isoformat(), window_end.isoformat()),
         "input_manifest_hash": input_manifest_hash,
+        "verified_halt_evidence_hash": halt_evidence_hash,
         "completeness_status": completeness,
         "missing_minutes": missing,
         "verified_halt_minutes": halt_count,
@@ -347,11 +472,13 @@ def calculate_outcome(
         "session": session,
         "outcome_definition_version": definition.definition_version,
         "outcome_definition_hash": definition_hash,
+        "direction": definition.direction,
         "reference_timestamp": reference_time.isoformat(),
         "reference_price": result["reference_price"],
         "evaluation_window": result["evaluation_window"],
         "halt_treatment": completeness,
         "input_manifest_hash": input_manifest_hash,
+        "verified_halt_evidence_hash": halt_evidence_hash,
         "canonical_result_hash": result_hash,
     }
     return OutcomeRecord(
@@ -460,6 +587,13 @@ def balance_diagnostics(
     spec: ControlMatchingSpec,
 ) -> tuple[BalanceDiagnostic, ...]:
     """Return pre/post standardized mean differences and missingness counts."""
+    if len(candidates) > MAX_CANDIDATES:
+        raise WinnerArchetypeError("Candidate input exceeds the bounded limit")
+    for candidate in candidates:
+        candidate.validate()
+    identifiers = [item.event_id for item in candidates]
+    if len(set(identifiers)) != len(identifiers):
+        raise WinnerArchetypeError("Candidate event IDs must be unique")
     by_id = {item.event_id: item for item in candidates}
     winners = [item for item in candidates if item.winner]
     all_controls = [item for item in candidates if not item.winner]
@@ -467,6 +601,40 @@ def balance_diagnostics(
     matched_control_ids = [item.control_event_id for item in matches if item.control_event_id]
     result: list[BalanceDiagnostic] = []
     matching_spec_hash = spec.identity
+    ranks_by_winner: dict[str, set[int]] = {}
+    reused_controls: set[str] = set()
+    for match in matches:
+        if (
+            match.matching_spec_hash != matching_spec_hash
+            or match.matching_version != spec.matching_version
+            or match.fields_used != spec.matching_fields
+            or match.with_replacement != spec.with_replacement
+        ):
+            raise WinnerArchetypeError("Balance match does not use the supplied matching spec")
+        winner = by_id.get(match.winner_event_id)
+        if winner is None or not winner.winner or winner.session != match.session:
+            raise WinnerArchetypeError("Balance match winner is absent or inconsistent")
+        ranks = ranks_by_winner.setdefault(match.winner_event_id, set())
+        if match.rank > spec.maximum_controls or match.rank in ranks:
+            raise WinnerArchetypeError("Balance match ranks are invalid")
+        ranks.add(match.rank)
+        if match.control_event_id is not None:
+            control = by_id.get(match.control_event_id)
+            if control is None or control.winner or control.session != match.session:
+                raise WinnerArchetypeError("Balance match control is absent or inconsistent")
+            if not spec.with_replacement and match.control_event_id in reused_controls:
+                raise WinnerArchetypeError("Balance match reuses a control")
+            reused_controls.add(match.control_event_id)
+    expected_ranks = set(range(1, spec.maximum_controls + 1))
+    if any(ranks != expected_ranks for ranks in ranks_by_winner.values()):
+        raise WinnerArchetypeError("Balance match ranks are incomplete")
+    expected_matches = plan_matched_controls(candidates, spec)
+    if sorted(item.match_id for item in matches) != sorted(
+        item.match_id for item in expected_matches
+    ):
+        raise WinnerArchetypeError("Balance matches do not reconcile to the match plan")
+    matched_set_hash = canonical_hash(sorted(item.match_id for item in matches))
+    unmatched_winner_count = len(winners) - len(matched_winner_ids)
     for stage, left_group, right_group in (
         ("before", winners, all_controls),
         (
@@ -501,18 +669,29 @@ def balance_diagnostics(
                 variants.append((field, [], []))
             for diagnostic_field, left_valid, right_valid in variants:
                 smd: float | None = None
+                calculation_status = "insufficient_data"
                 if left_valid and right_valid:
                     pooled = math.sqrt((pstdev(left_valid) ** 2 + pstdev(right_valid) ** 2) / 2)
                     difference = fmean(left_valid) - fmean(right_valid)
-                    smd = difference / pooled if pooled else (0.0 if difference == 0 else None)
+                    if pooled:
+                        smd = difference / pooled
+                        calculation_status = "calculated"
+                    elif difference == 0:
+                        smd = 0.0
+                        calculation_status = "balanced_zero_variance"
+                    else:
+                        calculation_status = "undefined_zero_variance"
                 payload = {
                     "matching_version": spec.matching_version,
                     "matching_spec_hash": matching_spec_hash,
+                    "matched_set_hash": matched_set_hash,
                     "feature_name": diagnostic_field,
                     "stage": stage,
                     "winner_count": len(left_group),
                     "control_count": len(right_group),
+                    "unmatched_winner_count": unmatched_winner_count,
                     "standardized_mean_difference": smd,
+                    "calculation_status": calculation_status,
                     "missing_winner_count": len(left_raw) - len(left_nonmissing),
                     "missing_control_count": len(right_raw) - len(right_nonmissing),
                 }
@@ -535,15 +714,32 @@ def validate_hypothesis_registry(records: Sequence[HypothesisRecord]) -> str:
     if sequences != list(range(1, len(records) + 1)):
         raise WinnerArchetypeError("Hypothesis registry sequence is not append-only")
     seen: set[str] = set()
+    superseded_predecessors: set[str] = set()
     for record in records:
         if record.supersedes_hypothesis_id is not None:
             if record.supersedes_hypothesis_id not in seen:
                 raise WinnerArchetypeError("Hypothesis supersession must point backward")
+            if record.supersedes_hypothesis_id in superseded_predecessors:
+                raise WinnerArchetypeError("Hypothesis supersession cannot fork")
+            superseded_predecessors.add(record.supersedes_hypothesis_id)
             predecessor = next(item for item in records if item.hypothesis_id == record.supersedes_hypothesis_id)
             if predecessor.rejection_status != "superseded":
                 raise WinnerArchetypeError("Superseded hypothesis must be marked superseded")
         seen.add(record.hypothesis_id)
     return canonical_hash([record.identity_payload() for record in records])
+
+
+def validate_archetype_registry(records: Sequence[object]) -> str:
+    """Reject duplicate archetype identities and bind deterministic registry order."""
+    from aml.winner_archetype_contracts import ArchetypeDefinition
+
+    if not records or any(not isinstance(item, ArchetypeDefinition) for item in records):
+        raise WinnerArchetypeError("Archetype registry requires validated definitions")
+    identifiers = [item.archetype_id for item in records]
+    if len(set(identifiers)) != len(identifiers):
+        raise WinnerArchetypeError("Duplicate archetype IDs")
+    ordered = sorted(records, key=lambda item: (item.archetype_id, item.version))
+    return canonical_hash([item.to_dict() for item in ordered])
 
 
 def authorize_phase_access(
@@ -569,19 +765,28 @@ def authorize_phase_access(
     if requested_partition == "holdout":
         if hypothesis is None or not hypothesis.frozen:
             raise WinnerArchetypeError("Holdout access requires a frozen hypothesis")
-        if hypothesis.validation_status not in {"passed", "inconclusive"}:
+        if hypothesis.validation_status != "passed":
             raise WinnerArchetypeError("Holdout access requires completed internal validation")
         if supplied_parameter_hash != hypothesis.parameter_freeze_hash:
             raise WinnerArchetypeError("Holdout parameter hash does not match the freeze")
+    if requested_partition == "validation":
+        if hypothesis is None or not hypothesis.frozen:
+            raise WinnerArchetypeError("Validation access requires a frozen hypothesis")
+        if supplied_parameter_hash != hypothesis.parameter_freeze_hash:
+            raise WinnerArchetypeError("Validation parameter hash does not match the freeze")
 
 
-def freeze_hypothesis(record: HypothesisRecord, parameters: Mapping[str, object]) -> HypothesisRecord:
+def freeze_hypothesis(record: HypothesisRecord, freeze_spec: HypothesisFreezeSpec) -> HypothesisRecord:
     """Return a new immutable frozen record; the timestamp metadata is identity-neutral."""
     if record.frozen:
         raise WinnerArchetypeError("Hypothesis is already frozen")
     payload = asdict(record)
     payload["frozen"] = True
-    payload["parameter_freeze_hash"] = canonical_hash(parameters)
+    if set(record.allowed_features) != set(freeze_spec.feature_definition_hashes):
+        raise WinnerArchetypeError(
+            "Frozen hypothesis features must be represented by definition hashes"
+        )
+    payload["parameter_freeze_hash"] = freeze_spec.identity
     return HypothesisRecord(**payload)
 
 
