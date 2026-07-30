@@ -2,15 +2,19 @@
 
 Status: prospective design only; pilot unauthorized; no empirical data opened
 
-Protocol identity: `4e227c590e960c434e21c751692e32a8cc5dbd1b7e1843b993e35fec3a81538b`
+Protocol identity: `52b42287f6cd7ee6404a64ece074b8bca80f75967195c2c944e48d1b26f66fa5`
 
-Readiness identity: `715fe028d66e4d32f3900e19a618260554ab38703363d93ef83c0799662e12c9`
+Readiness identity: `867338c763d77c55690809d18e322b07008ce0bf3f3da2bfaf20d9979e148e12`
 
 This is an independent, provider-bounded preliminary protocol. It is not V002,
 does not inherit V002 readiness credit, and cannot satisfy V002 evidence
 requirements. V002 remains frozen, blocked, and authoritative for audit-grade
 work. Lean results cannot establish catalyst completeness, historical-universe
 completeness, live tradability, production readiness, or a deployable edge.
+
+The separate design-only capital ladder is frozen in
+`docs/LEAN_CAPITAL_GOVERNANCE_V001.md`. It binds this protocol identity but
+creates no paper, live, spending or reserve-transfer authority.
 
 ## Scientific question
 

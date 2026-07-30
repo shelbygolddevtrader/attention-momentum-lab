@@ -36,13 +36,13 @@ SESSIONS = [item["session"] for item in json.loads(SESSION_PATH.read_text())["se
 
 def test_tracked_protocol_and_readiness_are_canonical_identity_bound_and_blocked():
     assert PROTOCOL["protocol_identity"] == (
-        "4e227c590e960c434e21c751692e32a8cc5dbd1b7e1843b993e35fec3a81538b"
+        "52b42287f6cd7ee6404a64ece074b8bca80f75967195c2c944e48d1b26f66fa5"
     )
     assert canonical_protocol_bytes(PROTOCOL_PATH) == canonical_json(PROTOCOL)
     readiness = build_readiness(PROTOCOL)
     assert json.loads(READINESS_PATH.read_text()) == readiness
     assert readiness["readiness_identity"] == (
-        "715fe028d66e4d32f3900e19a618260554ab38703363d93ef83c0799662e12c9"
+        "867338c763d77c55690809d18e322b07008ce0bf3f3da2bfaf20d9979e148e12"
     )
     assert readiness["status"] == "blocked"
     assert readiness["pilot_authorized"] is False

@@ -2,7 +2,7 @@
   "schema_version": "aml.lean-discovery.protocol.v001",
   "protocol_version": "lean-discovery-protocol-v001",
   "prospective_as_of": "2026-07-30T00:00:00+00:00",
-  "protocol_identity": "4e227c590e960c434e21c751692e32a8cc5dbd1b7e1843b993e35fec3a81538b",
+  "protocol_identity": "52b42287f6cd7ee6404a64ece074b8bca80f75967195c2c944e48d1b26f66fa5",
   "independence": {
     "v002_protocol_identity": "11dc7d4af498dc61f166c6d5a4edc72d0038279cd9782d2584a54ac40348e580",
     "v002_readiness_identity": "01fb43fca4cc138277c8e105cc2d071e918db826e62ce78d3b6767b010d8d1b6",
@@ -178,6 +178,13 @@
     "incremental_cost_condition": "zero_only_if_current_SIP_entitlement_permits_the_period_request_rate_and_local_research_retention",
     "upgrade_conditions": ["historical_SIP_premarket_unavailable", "rate_or_pagination_prevents_complete_bounded_pull", "retention_not_permitted", "split_data_unavailable_or_inconsistent"],
     "alternative_provider": "separate_human_approved_review_required_no_provider_selected_or_purchased_by_this_protocol"
+  },
+  "capital_governance": {
+    "specification_version": "lean-capital-governance-v001",
+    "status": "design_only",
+    "paper_authorized": false,
+    "live_authorized": false,
+    "separate_human_approval_required": true
   },
   "authorization": {
     "human_authorization_required": true,

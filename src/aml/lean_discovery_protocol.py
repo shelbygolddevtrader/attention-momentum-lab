@@ -118,7 +118,7 @@ def validate_protocol(value: Mapping[str, object]) -> dict[str, object]:
         "claim_ladder", "calendar_and_cohort", "universe", "provider_scope",
         "candidate_selection", "feature_registry", "outcome_registry",
         "statistical_plan", "missing_data", "isolation", "cost_plan",
-        "authorization",
+        "capital_governance", "authorization",
     }
     if set(value) != expected:
         raise LeanProtocolError("Lean protocol contains missing or unexpected fields")
@@ -192,6 +192,14 @@ def validate_protocol(value: Mapping[str, object]) -> dict[str, object]:
         "pilot_authorized": False,
     }:
         raise LeanProtocolError("Tracked lean protocol must remain unauthorized")
+    if value["capital_governance"] != {
+        "specification_version": "lean-capital-governance-v001",
+        "status": "design_only",
+        "paper_authorized": False,
+        "live_authorized": False,
+        "separate_human_approval_required": True,
+    }:
+        raise LeanProtocolError("Capital governance must remain design-only")
     return dict(value)
 
 

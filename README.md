@@ -6,6 +6,10 @@ It is a provider-bounded, preliminary price-and-volume research design with its
 own identity, readiness state, artifact namespace, claim ladder and sealed
 chronological partitions. The pilot is not authorized and no empirical data has
 been opened. It does not alter or inherit readiness credit from V002.
+Its design-only capital release, loss-limit, scaling and auditable self-funding
+rules are frozen in
+[`docs/LEAN_CAPITAL_GOVERNANCE_V001.md`](docs/LEAN_CAPITAL_GOVERNANCE_V001.md).
+No paper, live, reserve-transfer or provider-purchase authority is enabled.
 
 Winner Archetype Protocol V002 is defined in
 [`docs/WINNER_ARCHETYPE_PROTOCOL_V002.md`](docs/WINNER_ARCHETYPE_PROTOCOL_V002.md).
