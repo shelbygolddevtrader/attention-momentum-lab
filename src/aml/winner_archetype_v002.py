@@ -25,6 +25,7 @@ EVIDENCE_SCHEMA = "aml.winner-archetype.evidence-assertion.v002"
 INPUT_MANIFEST_SCHEMA = "aml.winner-archetype.input-manifest.v002"
 EXPERIMENT_BINDING_SCHEMA = "aml.winner-archetype.experiment-binding.v002"
 READINESS_SCHEMA = "aml.winner-archetype.readiness.v002"
+READINESS_EVIDENCE_SCHEMA = "aml.winner-archetype.readiness-evidence.v002"
 V001_EXPERIMENT_IDENTITY = (
     "f72e8f7f9b1e19dac707f941dc09ec30e19e4e2260ea57454f3ffc7fc19d520a"
 )
@@ -762,6 +763,191 @@ class ImmutableInputManifest:
             validate_not_future(self.correction_timestamp, as_of, "correction_timestamp")
 
 
+@dataclass(frozen=True)
+class RequirementReadinessEvidence:
+    """Manifest-only evidence for one source requirement; never empirical rows."""
+
+    dataset: str
+    required_capability: str
+    capability: ProviderCapability | None
+    entitlement: EntitlementEvidence | None
+    input_manifests: tuple[ImmutableInputManifest, ...]
+    coverage_evidence_hashes: tuple[str, ...]
+    expected_security_set_hash: str | None
+    observed_security_set_hash: str | None
+    expected_session_set_hash: str | None
+    observed_session_set_hash: str | None
+    conflict_status: str
+
+    def __post_init__(self) -> None:
+        _text(self.dataset, "dataset")
+        _text(self.required_capability, "required_capability")
+        if self.capability is not None:
+            if (
+                self.capability.dataset != self.dataset
+                or self.capability.capability != self.required_capability
+            ):
+                raise V002Error("Capability evidence does not match its source requirement")
+        if self.entitlement is not None:
+            if self.capability is None:
+                raise V002Error("Entitlement evidence requires a bound capability")
+            if self.entitlement.capability_identity != self.capability.identity:
+                raise V002Error("Entitlement evidence does not bind the declared capability")
+        ordered = deterministic_unique_records(self.input_manifests)
+        if ordered != self.input_manifests:
+            raise V002Error("Input manifests must be deterministically ordered and unique")
+        if any(item.dataset != self.dataset for item in self.input_manifests):
+            raise V002Error("Input manifest dataset does not match its source requirement")
+        if self.input_manifests and self.capability is None:
+            raise V002Error("Acquired manifests require a bound provider capability")
+        for manifest in self.input_manifests:
+            if (
+                manifest.source_name != self.capability.provider_name
+                or manifest.source_role != self.capability.source_role
+                or manifest.feed_type != self.capability.feed_type
+            ):
+                raise V002Error("Input manifest does not match its provider capability")
+            capability_start = date.fromisoformat(self.capability.coverage_start)
+            capability_end = date.fromisoformat(self.capability.coverage_end)
+            manifest_start = _timestamp(manifest.coverage_start, "coverage_start").date()
+            manifest_end = _timestamp(manifest.coverage_end, "coverage_end").date()
+            if not capability_start <= manifest_start <= manifest_end <= capability_end:
+                raise V002Error("Input manifest exceeds declared provider coverage")
+            if self.entitlement is not None:
+                retrieved = _timestamp(manifest.retrieval_timestamp, "retrieval_timestamp")
+                valid_from = _timestamp(self.entitlement.valid_from, "valid_from")
+                valid_to = _timestamp(self.entitlement.valid_to, "valid_to")
+                if not valid_from <= retrieved <= valid_to:
+                    raise V002Error("Input manifest was retrieved outside entitlement validity")
+        if self.coverage_evidence_hashes:
+            _sorted_unique_hashes(
+                self.coverage_evidence_hashes,
+                "coverage_evidence_hashes",
+            )
+        for expected_field, observed_field in (
+            ("expected_security_set_hash", "observed_security_set_hash"),
+            ("expected_session_set_hash", "observed_session_set_hash"),
+        ):
+            expected = getattr(self, expected_field)
+            observed = getattr(self, observed_field)
+            if (expected is None) != (observed is None):
+                raise V002Error("Expected and observed coverage hashes must be supplied together")
+            if expected is not None:
+                _hash(expected, expected_field)
+                _hash(observed, observed_field)
+        if self.conflict_status not in {"clear", "conflicting", "unverified"}:
+            raise V002Error("Conflict status is unsupported")
+
+    @property
+    def identity(self) -> str:
+        return canonical_hash(asdict(self))
+
+
+@dataclass(frozen=True)
+class ReadinessEvidenceBundle:
+    """Provider-neutral readiness ledger bound to the frozen V002 identities."""
+
+    schema_version: str
+    evidence_version: str
+    protocol_identity: str
+    source_requirements_identity: str
+    as_of: str
+    requirements: tuple[RequirementReadinessEvidence, ...]
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, object]) -> "ReadinessEvidenceBundle":
+        expected = set(cls.__dataclass_fields__)
+        if set(value) != expected or value.get("schema_version") != READINESS_EVIDENCE_SCHEMA:
+            raise V002Error("Readiness evidence contains missing or unexpected fields")
+        _text(value["evidence_version"], "evidence_version")
+        _hash(value["protocol_identity"], "protocol_identity")
+        _hash(value["source_requirements_identity"], "source_requirements_identity")
+        _timestamp(value["as_of"], "as_of")
+        raw_requirements = value["requirements"]
+        if not isinstance(raw_requirements, list) or not raw_requirements:
+            raise V002Error("Readiness evidence requirements cannot be empty")
+        requirements = tuple(_readiness_requirement_from_mapping(item) for item in raw_requirements)
+        ordered = tuple(sorted(requirements, key=lambda item: (item.dataset, item.required_capability)))
+        if requirements != ordered:
+            raise V002Error("Readiness evidence requirements must be deterministically ordered")
+        keys = [(item.dataset, item.required_capability) for item in requirements]
+        if len(keys) != len(set(keys)):
+            raise V002Error("Readiness evidence requirements cannot be duplicated")
+        bundle = cls(
+            schema_version=value["schema_version"],
+            evidence_version=value["evidence_version"],
+            protocol_identity=value["protocol_identity"],
+            source_requirements_identity=value["source_requirements_identity"],
+            as_of=value["as_of"],
+            requirements=requirements,
+        )
+        for requirement in bundle.requirements:
+            if requirement.capability is not None:
+                requirement.capability.validate_as_of(bundle.as_of)
+            if requirement.entitlement is not None:
+                requirement.entitlement.validate_as_of(bundle.as_of)
+            for manifest in requirement.input_manifests:
+                manifest.validate_as_of(bundle.as_of)
+        return bundle
+
+    @property
+    def identity(self) -> str:
+        return canonical_hash(asdict(self))
+
+
+def _readiness_requirement_from_mapping(value: object) -> RequirementReadinessEvidence:
+    if not isinstance(value, Mapping):
+        raise V002Error("Readiness requirement evidence must be an object")
+    expected = set(RequirementReadinessEvidence.__dataclass_fields__)
+    if set(value) != expected:
+        raise V002Error("Readiness requirement evidence contains missing or unexpected fields")
+    capability_value = value["capability"]
+    entitlement_value = value["entitlement"]
+    manifests_value = value["input_manifests"]
+    if capability_value is not None and not isinstance(capability_value, Mapping):
+        raise V002Error("Capability evidence must be an object or null")
+    if entitlement_value is not None and not isinstance(entitlement_value, Mapping):
+        raise V002Error("Entitlement evidence must be an object or null")
+    if not isinstance(manifests_value, list):
+        raise V002Error("Input manifests must be a list")
+    manifests = []
+    for item in manifests_value:
+        if not isinstance(item, Mapping):
+            raise V002Error("Input manifest evidence must be an object")
+        manifest_values = dict(item)
+        manifest_values["completeness_state"] = _state(
+            manifest_values.get("completeness_state"),
+            "completeness_state",
+        )
+        manifest_values["raw_sha256"] = tuple(manifest_values.get("raw_sha256", ()))
+        manifest_values["normalized_sha256"] = tuple(
+            manifest_values.get("normalized_sha256", ())
+        )
+        manifests.append(ImmutableInputManifest(**manifest_values))
+    entitlement = None
+    if entitlement_value is not None:
+        entitlement_values = dict(entitlement_value)
+        entitlement_values["status"] = _state(entitlement_values.get("status"), "status")
+        entitlement = EntitlementEvidence(**entitlement_values)
+    return RequirementReadinessEvidence(
+        dataset=value["dataset"],
+        required_capability=value["required_capability"],
+        capability=None if capability_value is None else ProviderCapability(**capability_value),
+        entitlement=entitlement,
+        input_manifests=tuple(manifests),
+        coverage_evidence_hashes=tuple(value["coverage_evidence_hashes"]),
+        expected_security_set_hash=value["expected_security_set_hash"],
+        observed_security_set_hash=value["observed_security_set_hash"],
+        expected_session_set_hash=value["expected_session_set_hash"],
+        observed_session_set_hash=value["observed_session_set_hash"],
+        conflict_status=value["conflict_status"],
+    )
+
+
+def load_readiness_evidence_v002(path: Path) -> ReadinessEvidenceBundle:
+    return ReadinessEvidenceBundle.from_mapping(_strict_json(path))
+
+
 def validate_expected_coverage(
     expected_security_ids: Iterable[str],
     observed_security_ids: Iterable[str],
@@ -843,8 +1029,28 @@ class DiscoveryExperimentBinding:
 def build_readiness_report(
     protocol: WinnerArchetypeProtocolV002,
     matrix: SourceRequirementsMatrix,
+    evidence: ReadinessEvidenceBundle | None = None,
 ) -> dict[str, object]:
     """Build a deterministic pre-acquisition report without reading empirical inputs."""
+    if evidence is not None:
+        if evidence.protocol_identity != protocol.identity:
+            raise V002Error("Readiness evidence does not bind the loaded protocol")
+        if evidence.source_requirements_identity != matrix.identity:
+            raise V002Error("Readiness evidence does not bind the loaded source matrix")
+        expected_keys = {
+            (item.dataset, item.required_capability) for item in matrix.requirements
+        }
+        observed_keys = {
+            (item.dataset, item.required_capability) for item in evidence.requirements
+        }
+        if expected_keys != observed_keys:
+            raise V002Error("Readiness evidence must cover every source requirement exactly once")
+        evidence_by_key = {
+            (item.dataset, item.required_capability): item
+            for item in evidence.requirements
+        }
+    else:
+        evidence_by_key = {}
     prerequisites = []
     categories: dict[str, int] = {
         "capability": 0,
@@ -856,23 +1062,79 @@ def build_readiness_report(
     }
     for requirement in matrix.requirements:
         failures = []
-        if requirement.provider_candidate == "unselected":
+        bound = evidence_by_key.get((requirement.dataset, requirement.required_capability))
+        capability_missing = (
+            bound.capability is None
+            if bound is not None
+            else requirement.provider_candidate == "unselected"
+        )
+        if capability_missing:
             failures.append("capability_unverified")
             categories["capability"] += 1
-        if requirement.entitlement_status not in {"verified", "not_required"}:
+        entitlement_missing = (
+            requirement.entitlement_status != "not_required"
+            and (
+                bound is None
+                or bound.entitlement is None
+            )
+        ) if bound is not None else requirement.entitlement_status not in {"verified", "not_required"}
+        if entitlement_missing:
             failures.append("entitlement_unverified")
             categories["entitlement"] += 1
-        if requirement.readiness_state in {"unavailable", "not_acquired"}:
+        acquisition_missing = (
+            not bound.input_manifests
+            if bound is not None
+            else requirement.readiness_state in {"unavailable", "not_acquired"}
+        )
+        if acquisition_missing:
             failures.append("not_acquired")
             categories["acquisition"] += 1
-        if requirement.readiness_state in {"coverage_unknown", "unavailable"}:
+        if bound is not None:
+            security_coverage_required = (
+                requirement.security_coverage != "market_calendar_not_security_specific"
+            )
+            coverage_unproven = (
+                not bound.coverage_evidence_hashes
+                or (
+                    security_coverage_required
+                    and bound.expected_security_set_hash is None
+                )
+                or bound.expected_session_set_hash is None
+                or (
+                    security_coverage_required
+                    and bound.expected_security_set_hash != bound.observed_security_set_hash
+                )
+                or bound.expected_session_set_hash != bound.observed_session_set_hash
+            )
+        else:
+            coverage_unproven = requirement.readiness_state in {"coverage_unknown", "unavailable"}
+        if coverage_unproven:
             failures.append("coverage_unproven")
             categories["coverage"] += 1
-        if requirement.readiness_state != "complete":
+        if bound is not None:
+            completeness_unproven = (
+                not bound.input_manifests
+                or any(
+                    item.completeness_state
+                    not in {CompletenessState.COMPLETE, CompletenessState.CORRECTED}
+                    for item in bound.input_manifests
+                )
+                or coverage_unproven
+            )
+        else:
+            completeness_unproven = requirement.readiness_state != "complete"
+        if completeness_unproven:
             failures.append("completeness_unproven")
             categories["completeness"] += 1
-        if requirement.readiness_state == "conflicting":
-            failures.append("source_conflict")
+        conflict_failure = None
+        if bound is not None and bound.conflict_status == "unverified":
+            conflict_failure = "conflict_unverified"
+        elif (
+            bound is not None and bound.conflict_status == "conflicting"
+        ) or (bound is None and requirement.readiness_state == "conflicting"):
+            conflict_failure = "source_conflict"
+        if conflict_failure is not None:
+            failures.append(conflict_failure)
             categories["conflict"] += 1
         prerequisites.append(
             {
@@ -895,4 +1157,6 @@ def build_readiness_report(
         "prerequisites": prerequisites,
         "unresolved_by_category": categories,
     }
+    if evidence is not None:
+        payload["readiness_evidence_identity"] = evidence.identity
     return {**payload, "readiness_identity": canonical_hash(payload)}

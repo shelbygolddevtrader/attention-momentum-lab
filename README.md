@@ -8,6 +8,9 @@ discovery identity. Its readiness command remains blocked until every required
 source is independently proven; it performs no empirical analysis. V001 remains
 frozen as described in
 [`docs/WINNER_ARCHETYPE_V002_COMPATIBILITY.md`](docs/WINNER_ARCHETYPE_V002_COMPATIBILITY.md).
+The implementation and external-data prerequisites for the first discovery-only
+pilot are enumerated in
+[`docs/WINNER_ARCHETYPE_V002_READINESS_ROADMAP.md`](docs/WINNER_ARCHETYPE_V002_READINESS_ROADMAP.md).
 
 The fail-closed execution-readiness report for the frozen Winner Archetype V001
 study is in [docs/WINNER_ARCHETYPE_DISCOVERY_DECISION_GATE_V001.md](docs/WINNER_ARCHETYPE_DISCOVERY_DECISION_GATE_V001.md).

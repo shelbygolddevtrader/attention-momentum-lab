@@ -11,6 +11,7 @@ from aml.winner_archetype_v002 import (
     authorize_discovery_path,
     build_readiness_report,
     load_protocol_v002,
+    load_readiness_evidence_v002,
     load_source_requirements_v002,
 )
 
@@ -29,6 +30,11 @@ def parser() -> argparse.ArgumentParser:
         "--source-requirements",
         type=Path,
         default=Path("config/winner_archetype_source_requirements_v002.json"),
+    )
+    result.add_argument(
+        "--readiness-evidence",
+        type=Path,
+        help="optional manifest-only V002 readiness evidence ledger",
     )
     result.add_argument("--format", choices=("json", "text"), default="json")
     return result
@@ -63,9 +69,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     protocol_path = authorize_discovery_path(args.protocol, REPOSITORY_ROOT)
     matrix_path = authorize_discovery_path(args.source_requirements, REPOSITORY_ROOT)
+    evidence = None
+    if args.readiness_evidence is not None:
+        evidence_path = authorize_discovery_path(args.readiness_evidence, REPOSITORY_ROOT)
+        evidence = load_readiness_evidence_v002(evidence_path)
     report = build_readiness_report(
         load_protocol_v002(protocol_path),
         load_source_requirements_v002(matrix_path),
+        evidence,
     )
     if args.format == "json":
         print(canonical_json(report).decode("utf-8"), end="")

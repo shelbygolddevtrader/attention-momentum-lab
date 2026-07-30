@@ -15,6 +15,7 @@ from aml.winner_archetype_v002 import (
     EVIDENCE_SCHEMA,
     EXPERIMENT_BINDING_SCHEMA,
     INPUT_MANIFEST_SCHEMA,
+    READINESS_EVIDENCE_SCHEMA,
     SECURITY_IDENTITY_SCHEMA,
     SESSION_SCHEMA,
     SYMBOL_LINEAGE_SCHEMA,
@@ -27,6 +28,8 @@ from aml.winner_archetype_v002 import (
     EvidenceAssertion,
     ImmutableInputManifest,
     ProviderCapability,
+    ReadinessEvidenceBundle,
+    RequirementReadinessEvidence,
     SecurityIdentity,
     SessionContract,
     SourceRequirementsMatrix,
@@ -38,6 +41,7 @@ from aml.winner_archetype_v002 import (
     build_readiness_report,
     deterministic_unique_records,
     load_protocol_v002,
+    load_readiness_evidence_v002,
     load_source_requirements_v002,
     validate_expected_coverage,
 )
@@ -237,6 +241,52 @@ def experiment(**changes):
     }
     values.update(changes)
     return DiscoveryExperimentBinding(**values)
+
+
+def readiness_evidence(*, conflict_dataset=None):
+    requirements = []
+    for index, requirement in enumerate(MATRIX.requirements):
+        declared = capability(
+            declaration_id=f"synthetic-{requirement.dataset}",
+            dataset=requirement.dataset,
+            capability=requirement.required_capability,
+            feed_type="sip" if requirement.dataset in {"sip_trades", "sip_quotes", "sip_minute_bars"} else "not_applicable",
+            pagination_or_file_identity=f"file-{requirement.dataset}",
+        )
+        authorized = None
+        if requirement.entitlement_status != "not_required":
+            authorized = entitlement(
+                capability_identity=declared.identity,
+                valid_to="2026-08-01T00:00:00+00:00",
+            )
+        acquired = manifest(
+            dataset=requirement.dataset,
+            feed_type=declared.feed_type,
+            query_or_file_identity=f"query-{index:02d}-{requirement.dataset}",
+        )
+        requirements.append(
+            RequirementReadinessEvidence(
+                dataset=requirement.dataset,
+                required_capability=requirement.required_capability,
+                capability=declared,
+                entitlement=authorized,
+                input_manifests=(acquired,),
+                coverage_evidence_hashes=(HASHES[3],),
+                expected_security_set_hash=HASHES[4],
+                observed_security_set_hash=HASHES[4],
+                expected_session_set_hash=HASHES[5],
+                observed_session_set_hash=HASHES[5],
+                conflict_status="conflicting" if requirement.dataset == conflict_dataset else "clear",
+            )
+        )
+    return ReadinessEvidenceBundle(
+        schema_version=READINESS_EVIDENCE_SCHEMA,
+        evidence_version="synthetic-readiness-v001",
+        protocol_identity=PROTOCOL.identity,
+        source_requirements_identity=MATRIX.identity,
+        as_of="2026-07-30T00:00:00+00:00",
+        requirements=tuple(requirements),
+    )
 
 
 def test_repository_protocol_and_source_matrix_are_strict_and_deterministic():
@@ -529,6 +579,125 @@ def test_readiness_enumerates_layered_failures_and_never_authorizes_pilot():
         "01fb43fca4cc138277c8e105cc2d071e918db826e62ce78d3b6767b010d8d1b6"
     )
     assert report == build_readiness_report(PROTOCOL, MATRIX)
+
+
+def test_readiness_evidence_can_reconcile_every_requirement_without_authorizing_pilot():
+    evidence = readiness_evidence()
+    report = build_readiness_report(PROTOCOL, MATRIX, evidence)
+    assert report["status"] == "ready"
+    assert report["pilot_authorized"] is False
+    assert report["empirical_data_opened"] is False
+    assert report["readiness_evidence_identity"] == evidence.identity
+    assert all(value == 0 for value in report["unresolved_by_category"].values())
+    assert all(item["ready"] for item in report["prerequisites"])
+    assert report == build_readiness_report(PROTOCOL, MATRIX, evidence)
+
+
+def test_readiness_evidence_fails_closed_on_conflict_and_coverage_mismatch():
+    conflicted = readiness_evidence(conflict_dataset="sip_quotes")
+    report = build_readiness_report(PROTOCOL, MATRIX, conflicted)
+    quote = next(item for item in report["prerequisites"] if item["dataset"] == "sip_quotes")
+    assert quote["failures"] == ["source_conflict"]
+
+    requirements = list(readiness_evidence().requirements)
+    requirements[0] = replace(requirements[0], observed_session_set_hash=HASHES[6])
+    mismatched = replace(readiness_evidence(), requirements=tuple(requirements))
+    report = build_readiness_report(PROTOCOL, MATRIX, mismatched)
+    first = report["prerequisites"][0]
+    assert first["failures"] == ["completeness_unproven", "coverage_unproven"]
+
+
+def test_readiness_evidence_binds_acquisition_to_capability_and_entitlement():
+    evidence = readiness_evidence()
+    requirement = evidence.requirements[0]
+    with pytest.raises(V002Error, match="provider capability"):
+        replace(
+            requirement,
+            input_manifests=(
+                replace(requirement.input_manifests[0], source_name="another-provider"),
+            ),
+        )
+    with pytest.raises(V002Error, match="entitlement validity"):
+        replace(
+            requirement,
+            entitlement=replace(
+                requirement.entitlement,
+                valid_from="2026-07-30T00:00:00+00:00",
+                verified_at="2026-07-30T00:00:00+00:00",
+            ),
+        )
+
+
+def test_readiness_evidence_rejects_missing_rows_wrong_identity_and_future_evidence():
+    evidence = readiness_evidence()
+    with pytest.raises(V002Error, match="every source requirement"):
+        build_readiness_report(PROTOCOL, MATRIX, replace(evidence, requirements=evidence.requirements[1:]))
+    with pytest.raises(V002Error, match="loaded protocol"):
+        build_readiness_report(PROTOCOL, MATRIX, replace(evidence, protocol_identity="0" * 64))
+    calendar_index = next(
+        index
+        for index, item in enumerate(evidence.requirements)
+        if item.dataset == "exchange_calendar"
+    )
+    future = replace(
+        evidence.requirements[calendar_index].capability,
+        declared_at="2026-07-31T00:00:00+00:00",
+    )
+    with pytest.raises(V002Error, match="future-dated"):
+        ReadinessEvidenceBundle.from_mapping(
+            _readiness_bundle_mapping(
+                replace(
+                    evidence,
+                    requirements=(
+                        *evidence.requirements[:calendar_index],
+                        replace(evidence.requirements[calendar_index], capability=future),
+                        *evidence.requirements[calendar_index + 1:],
+                    ),
+                )
+            )
+        )
+
+
+def _readiness_bundle_mapping(bundle):
+    value = {
+        "schema_version": bundle.schema_version,
+        "evidence_version": bundle.evidence_version,
+        "protocol_identity": bundle.protocol_identity,
+        "source_requirements_identity": bundle.source_requirements_identity,
+        "as_of": bundle.as_of,
+        "requirements": [],
+    }
+    for requirement in bundle.requirements:
+        item = {
+            "dataset": requirement.dataset,
+            "required_capability": requirement.required_capability,
+            "capability": None if requirement.capability is None else vars(requirement.capability),
+            "entitlement": None if requirement.entitlement is None else vars(requirement.entitlement),
+            "input_manifests": [vars(manifest) for manifest in requirement.input_manifests],
+            "coverage_evidence_hashes": list(requirement.coverage_evidence_hashes),
+            "expected_security_set_hash": requirement.expected_security_set_hash,
+            "observed_security_set_hash": requirement.observed_security_set_hash,
+            "expected_session_set_hash": requirement.expected_session_set_hash,
+            "observed_session_set_hash": requirement.observed_session_set_hash,
+            "conflict_status": requirement.conflict_status,
+        }
+        if item["entitlement"] is not None:
+            item["entitlement"] = {**item["entitlement"], "status": requirement.entitlement.status.value}
+        item["input_manifests"] = [
+            {**manifest, "completeness_state": requirement.input_manifests[index].completeness_state.value}
+            for index, manifest in enumerate(item["input_manifests"])
+        ]
+        value["requirements"].append(item)
+    return value
+
+
+def test_readiness_evidence_loader_is_strict_and_deterministic(tmp_path):
+    evidence = readiness_evidence()
+    path = tmp_path / "readiness.json"
+    path.write_text(json.dumps(_readiness_bundle_mapping(evidence)), encoding="utf-8")
+    loaded = load_readiness_evidence_v002(path)
+    assert loaded == evidence
+    assert loaded.identity == evidence.identity
 
 
 def test_cli_json_and_text_are_deterministic_blocked_and_write_nothing(tmp_path):
