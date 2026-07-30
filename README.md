@@ -26,6 +26,12 @@ V002 resolves V001 implementation ambiguities under new identities while
 preserving V001 as immutable history. It does not contain an empirical runner,
 results, scores, provider access, or execution authority.
 
+The synthetic-only executable layer for those ten frozen contracts is described
+in [`docs/PROFESSIONAL_STRATEGY_EXECUTORS_V001.md`](docs/PROFESSIONAL_STRATEGY_EXECUTORS_V001.md).
+It evaluates canonical in-memory fixtures, emits immutable proposal metadata,
+and remains blocked from empirical discovery, tournament scoring, providers,
+brokers, production, and capital.
+
 Winner Archetype Protocol V002 is defined in
 [`docs/WINNER_ARCHETYPE_PROTOCOL_V002.md`](docs/WINNER_ARCHETYPE_PROTOCOL_V002.md).
 It prospectively binds the complete point-in-time universe, source capabilities,
