@@ -1,0 +1,59 @@
+{
+  "schema_version": "aml.professional-strategy-olympics.protocol.v001",
+  "protocol_version": "professional-strategy-olympics-v001",
+  "prospective_as_of": "2026-07-30T00:00:00+00:00",
+  "protocol_identity": "8a7f4c2ca1c6b133e769992ef8315186de87b0f7f1baedf6d549536db6f72f3e",
+  "purpose": "Under the same provider-bounded dataset candidate universe chronological partitions execution assumptions and risk budget compare which predefined professional day-trading strategy families demonstrate the strongest reproducible net performance without treating popularity as profitability.",
+  "independence": {
+    "lean_protocol_identity": "52b42287f6cd7ee6404a64ece074b8bca80f75967195c2c944e48d1b26f66fa5",
+    "lean_readiness_identity": "867338c763d77c55690809d18e322b07008ce0bf3f3da2bfaf20d9979e148e12",
+    "capital_governance_identity": "6defde5b21b8aac1a4a1b15c501621163dcb9c400f629abd29b257f7a51073cf",
+    "v002_protocol_identity": "11dc7d4af498dc61f166c6d5a4edc72d0038279cd9782d2584a54ac40348e580",
+    "identity_mutation": "prohibited",
+    "readiness_credit_inheritance": "none"
+  },
+  "dataset_binding": {
+    "provider_scope": "same_provider_bounded_Alpaca_SIP_bar_scope_planned_by_Lean_Discovery_V001",
+    "feed": "sip",
+    "candidate_universe": "Lean_Discovery_V001_retrieval_time_provider_universe_and_selection_rules",
+    "session_plan_identity": "167847cf198764f72b76c976a4993f7d8f4a4e262d4dc53018ec9317c7d6196c",
+    "partition_policy": "Lean_Discovery_V001_selection_only_horizon_then_chronological_50_25_25",
+    "bar_scope": "left_labeled_one_minute_premarket_and_regular_session_bars",
+    "benchmark": "SPY",
+    "short_borrow_evidence": "unavailable_short_versions_exhibition_only",
+    "excluded_evidence": ["full_order_book", "hidden_liquidity", "historical_borrow_fees", "historical_short_locates", "level_II", "news_receipt_timestamps", "options_flow", "precise_tape_sequence", "queue_position"],
+    "planning_assumption": "no_entitlement_or_empirical_completeness_credit_until_separate_evidence"
+  },
+  "divisions": {
+    "benchmark_division": "exactly_ten_preregistered_strategy_families",
+    "research_division_entries": [],
+    "research_division_reservation": ["approved_ensembles", "attention_momentum_versions", "future_discovery_generated_strategies", "winner_archetype_candidates"],
+    "exhibition_classification": "insufficient_evidence_or_dataset_incompatible_no_medal_no_advancement"
+  },
+  "artifact_namespace": "artifacts/professional_strategy_olympics/v001",
+  "claim_ladder": [
+    {"level": 0, "label": "design_only"},
+    {"level": 1, "label": "pipeline_operational"},
+    {"level": 2, "label": "discovery_result"},
+    {"level": 3, "label": "discovery_advancement"},
+    {"level": 4, "label": "validation_passed"},
+    {"level": 5, "label": "holdout_passed"},
+    {"level": 6, "label": "paper_forward_candidate"},
+    {"level": 7, "label": "tiny_live_candidate"},
+    {"level": 8, "label": "self_funding_candidate"},
+    {"level": 9, "label": "controlled_scaling_candidate"}
+  ],
+  "provenance": {
+    "required_run_bindings": ["code_commit", "cost_model_identity", "entitlement_identity", "execution_model_identity", "feed", "lean_protocol_identity", "olympics_protocol_identity", "output_hashes", "partition_identity", "provider", "random_seed", "risk_model_identity", "session_plan_identity", "source_manifest_identities", "strategy_contract_identity"],
+    "hash_algorithm": "SHA-256",
+    "canonical_serialization": "UTF-8_JSON_sorted_keys_no_NaN",
+    "result_mutability": "write_once_identity_bound"
+  },
+  "authorization": {
+    "human_authorization_required": true,
+    "pilot_authorized": false,
+    "paper_authorized": false,
+    "live_authorized": false,
+    "capital_release_authorized": false
+  }
+}
