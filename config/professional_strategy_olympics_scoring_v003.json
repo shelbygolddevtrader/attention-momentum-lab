@@ -1,0 +1,199 @@
+{
+  "schema_version": "aml.professional-strategy-olympics.scoring-clarification-bundle.v003",
+  "clarification_version": "professional-strategy-olympics-scoring-clarification-v003",
+  "prospective_as_of": "2026-07-30T00:00:00Z",
+  "bundle_identity": "7f1656ffbd4e577dd1b58019b67a50a48acf0be1d8a05646c8066758644eae81",
+  "historical_lineage": {
+    "design_base_commit": "971c0915af7ffddb3ac53c0cde7d2bc6b5638c4d",
+    "v001_protocol_identity": "8a7f4c2ca1c6b133e769992ef8315186de87b0f7f1baedf6d549536db6f72f3e",
+    "v001_registry_identity": "af1e44069fd5e226ad702469fdf10c7e0b1c49c803065e20c83588b22e17bbc0",
+    "v001_tournament_identity": "10d41bf657759b5db5b5524a18158a480797ab9dcfcca59e7921672d31bb70aa",
+    "v001_readiness_identity": "ebe1179fea526e4bad0c808609ff68320840d57d2172355227edfeccaf054602",
+    "v002_protocol_identity": "fb4bc0623dab857320b914ad7dcd787cead3e16aaa5bfd486d539e0b8cb24583",
+    "v002_indicators_identity": "3d1427872fc8d55e3cacc321f710a6a2b260d0a1d01259147b6ff3a422a6f852",
+    "v002_input_schema_identity": "a3fc7f17fb30eaf69ec00f2955f68f1b54dc3247edc54590706abee719ba3fac",
+    "v002_lifecycle_identity": "b61fa2557718cdf1dbebc0e91990bb27be3d880111bea424d967dd96253dfe12",
+    "v002_cost_model_identity": "ba239ed1b835d91be06a674433559c2b679c07fd37b9820f0c4fe7cf7ada4570",
+    "v002_registry_identity": "5a43302ca893bcb9323b0a0b473282abd36d0b4d0917322dfb5c817ca3bfd43a",
+    "v002_tournament_identity": "f011b03b6d4b4249e4c4d77b029cbb74145c7f7f53486e0af89d0433da395308",
+    "v002_evidence_identity": "36eb12d994052735aa084f56951db088e5b1ef46d4bde856e5eba4e355d43172",
+    "v002_unresolved_identity": "1c7e480fdf5a69a7ad4b7af6f78131181b140dbe30ef402c5bd5e5cdeb1bc0bf",
+    "v002_readiness_identity": "fb9799d8cda9a671a58408f0d540d7a6ab39fe868163a2ce105eb6f1218de03b",
+    "capital_governance_identity": "6defde5b21b8aac1a4a1b15c501621163dcb9c400f629abd29b257f7a51073cf",
+    "executor_protocol_identity": "92572119a8812c87e75587647ff26106f2157023f092ba5cc148863c5d053b4d",
+    "shared_indicator_implementation_identity": "807103addda1e011ec5b635916cdcb72f439e970ffe25f50c2ad4a3303e78eda",
+    "shared_lifecycle_implementation_identity": "b10c659118861f3818fc2b1f034a2700e055fdcc19bd51651969f660af94e384",
+    "executor_registry_identity": "01c0efa7b35707ddbc837609f99051cdc3db63064410de9d10e334d601787111",
+    "executor_bundle_identity": "9c03677ce4ea4e56256f6873c00a4cdc502e23b2780f36af6b3f2a0b3b45bf5d",
+    "executor_readiness_identity": "9d592af6d58fdf187078b59b41b780c418995dafa72079009e4fbebca62b014a",
+    "executor_identities": [
+      "38b823d7a0ab80817031f8617911fc5999204d430378ed389075db9399d63fe3",
+      "9affc9b5496498c3c1371674af8b7b0e83a4a5d68672e869827cbf35a2babacd",
+      "5e3b8f85ba8a0a369cc857b5968afc3b79a3ccdcbe9bb467200a53e80dc38977",
+      "96113276af8ab6804e93395d13638a7d3c9a3cffc8a5dc6c6f852c5735726ff3",
+      "4b14db53fc64877e9e265f007bc55acd3be6dc42936affaeb9b268aa5cd3ab66",
+      "f40119e023331be5326a5589f4b56a7624cfdf5e16d54f429b13d081435c75f8",
+      "96609dccbcc4d77c9b4609780825d7033e3edb22f29038a4653a574efd8bfb36",
+      "ff91238ec8c878bd528747af4420b6aeb7fb6c45b25fa937c835f44c40faef82",
+      "a1b67f9895c21be737c8281cfeb4c5dc2c5c7287ac89df47ba045f182bf0d901",
+      "664c980a1ae0e13cfda02b533b064ec42a706e21e57a456d13136f596099ef1d"
+    ],
+    "immutable_tag_name": "v0.1.1-research-baseline",
+    "immutable_tag_object": "746e147efd9bb09dedfdd4d2850f461e36d9f046",
+    "immutable_tagged_commit": "378317dba28d93792d2f0a3ab4302a5d0b6abf7c",
+    "lineage_policy": "prospective_clarification_only_prior_contracts_and_implementations_unchanged"
+  },
+  "schema_contract": {
+    "schema_version": "aml.professional-strategy-olympics.scoring-clarification-schema.v003",
+    "schema_identity": "c9b56222811d521da8b7516100a7067476b6d86868488ad8cc37b780b31fa042",
+    "required_root_fields": ["schema_version", "clarification_version", "prospective_as_of", "bundle_identity", "historical_lineage", "schema_contract", "scoring_clarification", "validation_manifest", "authorization"],
+    "identity_fields": ["schema_identity", "scoring_clarification_identity", "validation_identity", "bundle_identity"],
+    "canonical_serialization": "canonical_utf8_json_sorted_keys_compact_separators_trailing_lf_nonfinite_prohibited",
+    "exact_numeric_representation": "reduced_integer_numerator_and_positive_integer_denominator",
+    "comparison_text_representation": "canonical_utf8_bytes_no_locale_no_case_folding"
+  },
+  "scoring_clarification": {
+    "schema_version": "aml.professional-strategy-olympics.scoring-clarification.v003",
+    "scoring_clarification_identity": "666baa8a9ff365de9dd04ee4f95dd5a37f67e19f05738d29e7c9d0622999497c",
+    "status": "prospective_design_only_equations_frozen_no_empirical_scoring",
+    "source_bindings": {
+      "v001_tournament_identity": "10d41bf657759b5db5b5524a18158a480797ab9dcfcca59e7921672d31bb70aa",
+      "v002_tournament_identity": "f011b03b6d4b4249e4c4d77b029cbb74145c7f7f53486e0af89d0433da395308",
+      "event_formula_policy": "all_fifteen_v001_formulas_weights_directions_eligibility_undefined_policies_and_tie_fields_unchanged",
+      "substantive_performance_tie_break_additions": "prohibited"
+    },
+    "favorability_ordering": {
+      "primary_direction_source": "frozen_event_direction",
+      "order": "least_favorable_to_most_favorable",
+      "tie_fields_source": "frozen_event_tie_policy_in_declared_order",
+      "final_key": "immutable_strategy_identity_bytewise_utf8_lexicographic_ascending",
+      "rank_definition": "one_based_ordinal_position_in_completed_total_order",
+      "unique_rank_required": true,
+      "prohibited_rank_methods": ["average", "competition", "dense", "fractional", "maximum", "minimum", "shared_tied_position"]
+    },
+    "percentile": {
+      "eligible_cohort_size_symbol": "n",
+      "ordinal_rank_symbol": "rank",
+      "domain": "integer_n_greater_than_1_and_integer_rank_inclusive_1_through_n",
+      "formula": "(rank-1)/(n-1)",
+      "least_favorable_value": {"numerator": 0, "denominator": 1},
+      "most_favorable_value": {"numerator": 1, "denominator": 1},
+      "range": "inclusive_zero_to_one"
+    },
+    "event_score": {
+      "formula": "100*percentile",
+      "range": "inclusive_zero_to_100",
+      "authoritative_arithmetic": "exact_reduced_rational",
+      "canonical_storage": "integer_numerator_and_positive_integer_denominator",
+      "display_only_decimal": "12_places_round_half_even_never_used_for_ordering_or_aggregation",
+      "empirical_calculation_in_v003": "prohibited"
+    },
+    "lower_is_better": {
+      "rule": "reverse_primary_raw_value_order_before_ordinal_ranking_while_retaining_least_to_most_favorable_sort",
+      "stored_raw_value": "preserved_untransformed",
+      "prohibited_transformations": ["negation", "inversion", "normalization", "replacement"]
+    },
+    "tie_behavior": {
+      "raw_tie_resolution": "apply_existing_event_specific_tie_fields_exactly_in_declared_order",
+      "new_event_specific_fields": "prohibited",
+      "event_tie_fields": {
+        "net_expectancy": [{"field": "maximum_drawdown", "direction": "lower_is_better"}],
+        "downside_adjusted_return": [{"field": "net_expectancy", "direction": "higher_is_better"}],
+        "maximum_drawdown": [{"field": "net_expectancy", "direction": "higher_is_better"}],
+        "profit_factor": [{"field": "net_expectancy", "direction": "higher_is_better"}],
+        "payoff_ratio": [{"field": "hit_rate", "direction": "higher_is_better"}],
+        "hit_rate": [{"field": "payoff_ratio", "direction": "higher_is_better"}],
+        "tail_loss": [{"field": "maximum_drawdown", "direction": "lower_is_better"}],
+        "monthly_stability": [{"field": "active_months", "direction": "higher_is_better"}],
+        "regime_stability": [{"field": "median_regime_expectancy", "direction": "higher_is_better"}],
+        "validation_consistency": [{"field": "validation_net_expectancy", "direction": "higher_is_better"}],
+        "holdout_consistency": [{"field": "holdout_net_expectancy", "direction": "higher_is_better"}],
+        "capital_efficiency": [{"field": "capital_constrained_net_expectancy", "direction": "higher_is_better"}],
+        "trade_sufficiency": [{"field": "active_dates", "direction": "higher_is_better"}],
+        "execution_robustness": [{"field": "two_x_cost_expectancy", "direction": "higher_is_better"}],
+        "sensitivity_robustness": [{"field": "expectancy_range", "direction": "lower_is_better"}]
+      },
+      "identity_fallback": "canonical_immutable_strategy_identity",
+      "identity_comparison": "bytewise_utf8_lexicographic_ascending",
+      "result": "one_unique_ordinal_position_per_eligible_competitor"
+    },
+    "eligible_cohort_edges": {
+      "single_competitor": {
+        "percentile": {"numerator": 1, "denominator": 2},
+        "event_score": {"numerator": 50, "denominator": 1},
+        "interpretation": "neutral_not_comparative_superiority"
+      },
+      "empty_cohort": {
+        "ranked_competitors": 0,
+        "percentile": "not_calculated",
+        "comparative_event_score": "not_produced",
+        "synthetic_competitor": "prohibited",
+        "prior_no_eligible_and_zero_score_policy": "unchanged"
+      }
+    },
+    "ineligibility": {
+      "required_value_failures": ["missing", "nan", "positive_infinity", "negative_infinity", "otherwise_non_finite"],
+      "action": "event_ineligible_excluded_from_denominator_never_ranked",
+      "existing_ineligible_event_score": {"numerator": 0, "denominator": 1},
+      "coercion": "prohibited",
+      "reason_codes": {
+        "missing": "V003_EVENT_INELIGIBLE_MISSING_REQUIRED_VALUE",
+        "non_finite": "V003_EVENT_INELIGIBLE_NON_FINITE_REQUIRED_VALUE",
+        "duplicate_identity": "V003_INTEGRITY_DUPLICATE_STRATEGY_IDENTITY",
+        "invalid_identity": "V003_INTEGRITY_INVALID_STRATEGY_IDENTITY"
+      }
+    },
+    "discovery_only_overall_ties": {
+      "frozen_declared_sequence": ["validation_net_expectancy", "holdout_net_expectancy", "lower_maximum_drawdown", "lexicographic_strategy_identity"],
+      "unavailable_future_stage_rule": "skip_without_zero_null_sentinel_or_synthetic_substitution",
+      "participation_requirements": ["stage_formally_opened", "field_legitimately_calculated_for_every_competitor", "source_artifact_valid_and_available"],
+      "discovery_only_effective_sequence": ["lower_discovery_maximum_drawdown", "immutable_strategy_identity_bytewise_utf8_ascending"],
+      "new_performance_tie_break": "none"
+    },
+    "deterministic_ordering": {
+      "sort_algorithm_requirement": "stable_ascending",
+      "pre_sort_order": "canonical_registry_order",
+      "timestamps": "normalize_to_utc_before_comparison",
+      "text": "canonical_utf8_bytes",
+      "field_order": "explicit_declared_order",
+      "identity_finality": "immutable_strategy_identity_is_final_unique_key",
+      "prohibited_dependencies": ["locale", "case_folding", "python_hash_order", "dictionary_insertion_order", "filesystem_enumeration_order", "database_return_order", "thread_scheduling", "process_scheduling", "operating_system", "platform", "local_timezone", "machine_architecture", "incidental_input_order"]
+    },
+    "scope": {
+      "contract_only": true,
+      "empirical_data_accessed": false,
+      "tournament_runner_implemented": false,
+      "official_scores_created": false,
+      "rankings_created": false,
+      "medals_created": false,
+      "winners_created": false,
+      "validation_opened": false,
+      "holdout_opened": false,
+      "capital_activated": false
+    }
+  },
+  "validation_manifest": {
+    "schema_version": "aml.professional-strategy-olympics.scoring-clarification-validation.v003",
+    "validation_identity": "4119376a03c8896e97fb8431cd8b8823c39049c462fa880fd54cad58137775e2",
+    "scoring_clarification_identity": "666baa8a9ff365de9dd04ee4f95dd5a37f67e19f05738d29e7c9d0622999497c",
+    "schema_identity": "c9b56222811d521da8b7516100a7067476b6d86868488ad8cc37b780b31fa042",
+    "status": "design_clarification_complete_execution_not_authorized",
+    "required_checks": ["v003_internal_identities", "v001_identity_preservation", "v002_identity_preservation", "executor_identity_preservation", "capital_governance_identity_preservation", "immutable_tag_preservation", "synthetic_equation_tests", "hashseed_timezone_determinism", "negative_assurance_scan"],
+    "empirical_evidence_credit": "none",
+    "maximum_claim": "mathematical_scoring_ambiguities_prospectively_clarified",
+    "readiness_effect": "orchestration_may_be_implemented_only_after_separate_review_and_merge",
+    "official_run_authorized": false
+  },
+  "authorization": {
+    "orchestration_authorized": false,
+    "empirical_runner_authorized": false,
+    "discovery_authorized": false,
+    "tournament_scoring_authorized": false,
+    "validation_authorized": false,
+    "holdout_authorized": false,
+    "paper_authorized": false,
+    "live_authorized": false,
+    "capital_release_authorized": false,
+    "production_authorized": false
+  }
+}
