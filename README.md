@@ -11,6 +11,9 @@ frozen as described in
 The implementation and external-data prerequisites for the first discovery-only
 pilot are enumerated in
 [`docs/WINNER_ARCHETYPE_V002_READINESS_ROADMAP.md`](docs/WINNER_ARCHETYPE_V002_READINESS_ROADMAP.md).
+The deterministic conditional session plan, provider capability contract,
+decision matrix, and unsent outreach questionnaires are documented in
+[`docs/WINNER_ARCHETYPE_V002_PROVIDER_PACKAGE.md`](docs/WINNER_ARCHETYPE_V002_PROVIDER_PACKAGE.md).
 
 The fail-closed execution-readiness report for the frozen Winner Archetype V001
 study is in [docs/WINNER_ARCHETYPE_DISCOVERY_DECISION_GATE_V001.md](docs/WINNER_ARCHETYPE_DISCOVERY_DECISION_GATE_V001.md).
