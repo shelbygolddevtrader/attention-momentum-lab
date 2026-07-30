@@ -1,0 +1,340 @@
+{
+  "schema_version": "aml.winner-archetype.protocol.v002",
+  "protocol_version": "winner-archetype-protocol-v002",
+  "prospective_as_of": "2026-07-29T00:00:00+00:00",
+  "prior_protocol": {
+    "schema_version": "aml.winner-archetype.experiment.v001",
+    "experiment_identity": "f72e8f7f9b1e19dac707f941dc09ec30e19e4e2260ea57454f3ffc7fc19d520a",
+    "status": "frozen_immutable_not_reinterpreted"
+  },
+  "planning": {
+    "selection_start": "2024-06-03",
+    "initial_sessions": 60,
+    "extension_sessions": 20,
+    "maximum_sessions": 252,
+    "minimum_eligible_events": 100,
+    "hard_latest_date": "2025-06-04",
+    "warmup_sessions": 20,
+    "partition_basis_points": {
+      "discovery": 5000,
+      "validation": 2500,
+      "holdout": 2500
+    },
+    "partition_rule": "resolve_final_cohort_from_selection_only_inputs_then_freeze_chronological_50_25_25",
+    "outcome_access_before_partition_freeze": "prohibited"
+  },
+  "universe": {
+    "snapshot_frequency": "one_complete_point_in_time_snapshot_per_selection_session",
+    "snapshot_cutoff": "strictly_before_09:25:00_America/New_York",
+    "eligible_exchanges": [
+      "XASE",
+      "XNAS",
+      "XNYS"
+    ],
+    "eligible_security_types": [
+      "common_stock"
+    ],
+    "excluded_security_types": [
+      "adr",
+      "blank_check_or_precombination_spac",
+      "closed_end_fund",
+      "depositary_receipt",
+      "etf",
+      "etn",
+      "foreign_ordinary_share",
+      "limited_partnership",
+      "otc_security",
+      "preferred_share",
+      "right",
+      "spac_component",
+      "spac_unit",
+      "test_symbol",
+      "tracking_stock",
+      "unit",
+      "warrant",
+      "when_issued"
+    ],
+    "required_flags": {
+      "listing_status": "active_at_selection_timestamp",
+      "quoteable": true,
+      "sip_covered": true,
+      "tradable": true
+    },
+    "non_required_flags": [
+      "easy_to_borrow",
+      "fractionable",
+      "marginable",
+      "shortable"
+    ],
+    "provider_account_flag_rule": "current_account_flags_are_not_historical_evidence",
+    "ipo_direct_listing_rule": "eligible_only_from_first_complete_active_listing_snapshot_after_effective_listing",
+    "relisting_rule": "new_listing_interval_and_listing_id_required_stable_security_id_reused_only_with_authoritative_continuity",
+    "delisting_suspension_rule": "ineligible_at_or_after_effective_time_never_applied_before_first_known_time",
+    "merger_acquisition_rule": "predecessor_eligible_until_effective_termination_successor_requires_its_own_listing_interval",
+    "bankruptcy_liquidation_rule": "eligibility_follows_active_national_exchange_listing_not_future_case_outcome",
+    "exchange_transfer_rule": "continuous_security_id_new_listing_interval_and_source-proven_exchange",
+    "symbol_change_rule": "stable_security_and_listing_ids_preserved_when_authoritative_lineage_proves_continuity",
+    "multiple_share_class_rule": "each_listed_class_is_a_distinct_listing_and_may_share_an_issuer_id",
+    "duplicate_listing_rule": "one_constituent_per_listing_id_conflicts_block_snapshot",
+    "completeness_rule": "expected_count_and_every_constituent_identity_must_reconcile_to_authoritative_snapshot_coverage"
+  },
+  "security_identity": {
+    "stable_identifier_rule": "opaque_canonical_security_id_independent_of_symbol_plus_listing_id_and_optional_issuer_id",
+    "symbol_lineage_rule": "non_overlapping_effective_intervals_with_first_known_timestamp_source_version_revision_and_supersession",
+    "identifier_precedence": [
+      "authoritative_listing_security_master",
+      "authoritative_exchange_identifier",
+      "corroborating_provider_mapping"
+    ],
+    "conflict_rule": "unresolved_identifier_or_lineage_conflict_blocks_affected_snapshot_and_run",
+    "future_knowledge_rule": "records_first_known_after_selection_cannot_change_identity_status_or_symbol_at_selection",
+    "temporary_symbol_rule": "excluded_unless_security_type_is_common_stock_and_authoritative_lineage_proves_active_permanent_listing",
+    "recycled_ticker_rule": "different_security_or_listing_ids_required"
+  },
+  "calendar": {
+    "provider": "exchange_calendars",
+    "provider_version": "4.13.2",
+    "calendar_id": "XNYS",
+    "timezone": "America/New_York",
+    "premarket_start": "04:00:00",
+    "premarket_start_semantics": "inclusive",
+    "selection_cutoff": "09:25:00",
+    "selection_cutoff_semantics": "exclusive",
+    "regular_open": "scheduled_session_open",
+    "regular_open_semantics": "inclusive",
+    "regular_close_semantics": "exclusive",
+    "early_close_rule": "eligible_use_scheduled_close",
+    "outcome_end_rule": "last_left_labeled_minute_before_authoritative_scheduled_close",
+    "holiday_rule": "non_sessions_excluded",
+    "unscheduled_closure_rule": "exclude_when_authoritative_calendar_marks_no_session",
+    "delayed_open_rule": "exchange_wide_delay_requires_corrected_authoritative_schedule_security_specific_delay_is_market_status_evidence",
+    "exceptional_session_rule": "requires_complete_versioned_calendar_record_or_fails_closed",
+    "dst_rule": "construct_in_America/New_York_then_convert_to_UTC_using_IANA_zone_data",
+    "conflict_rule": "calendar_source_conflict_blocks_session_no_synthetic_fallback"
+  },
+  "market_data": {
+    "required_feed": "sip",
+    "required_datasets": [
+      "sip_quotes",
+      "sip_trades"
+    ],
+    "derived_dataset": "sip_minute_bars",
+    "premarket_coverage": "04:00:00_inclusive_to_09:25:00_exclusive_America/New_York",
+    "regular_coverage": "scheduled_open_inclusive_to_scheduled_close_exclusive",
+    "timestamp_precision": "nanosecond_when_source_supports_never_coarser_than_microsecond_for_ticks",
+    "ordering_rule": "exchange_timestamp_then_sequence_then_source_record_identity",
+    "trade_condition_rule": "versioned_CTA_UTP_eligible_sale_condition_allowlist",
+    "quote_condition_rule": "versioned_CTA_UTP_NBBO_eligible_quote_condition_allowlist",
+    "correction_cancellation_rule": "preserve_every_revision_apply_only_when_known_and_never_rewrite_prior_decision_vintage",
+    "out_of_sequence_rule": "preserve_source_order_and_normalize_by_declared_deterministic_order_late_arrivals_not_available_before_receipt",
+    "late_report_rule": "exclude_from_point_in_time_features_if_first_available_after_cutoff",
+    "odd_lot_rule": "include_trades_only_when_SIP_disseminated_and_condition_eligible_exclude_non_protected_odd_lot_quotes_from_NBBO",
+    "locked_market_rule": "valid_zero_spread_only_with_two-sided_eligible_quote_evidence",
+    "crossed_market_rule": "invalid_for_spread_until_resolved_unresolved_cutoff_cross_blocks_event",
+    "zero_invalid_price_rule": "reject_non_positive_or_non_finite_trade_quote_and_bar_prices",
+    "quote_size_rule": "bid_and_ask_sizes_required_with_source_units",
+    "exchange_tape_rule": "exchange_and_tape_identifiers_required_for_ticks",
+    "quote_max_age_seconds": 60,
+    "bar_rule": "derive_left_labeled_OHLCV_trade_count_and_VWAP_from_eligible_trades",
+    "raw_derived_rule": "raw_ticks_immutable_derived_bars_hash_linked_to_tick_manifests_and_rule_versions",
+    "adjustment_policy": "raw_intraday_unadjusted_historical_lookbacks_adjusted_only_by_actions_known_and_effective_at_decision",
+    "missing_data_rule": "every_expected_interval_is_observed_no_trade_proven_halt_market_closed_not_applicable_invalid_conflicting_corrected_or_unavailable",
+    "completeness_rule": "all_pages_sequences_conditions_corrections_and_expected_intervals_reconcile_no_forward_fill",
+    "feed_substitution_rule": "prohibited_no_IEX_delayed_indicative_or_vendor_consolidated_fallback"
+  },
+  "corporate_actions": {
+    "required_types": [
+      "acquisition",
+      "cash_dividend",
+      "distribution",
+      "exchange_transfer",
+      "identifier_change",
+      "liquidation",
+      "merger",
+      "name_change",
+      "reorganization",
+      "reverse_split",
+      "spin_off",
+      "split",
+      "stock_dividend"
+    ],
+    "required_timestamps": [
+      "announcement_timestamp",
+      "cancellation_timestamp",
+      "correction_timestamp",
+      "effective_timestamp",
+      "ex_date",
+      "first_known_at",
+      "payable_date",
+      "provider_publication_timestamp",
+      "record_date",
+      "retrieval_timestamp"
+    ],
+    "knowledge_time_rule": "only_records_first_known_at_or_before_decision_are_visible",
+    "adjustment_rule": "apply_only_action_terms_known_and_effective_at_decision_preserve_unadjusted_raw_values",
+    "negative_evidence_rule": "no_action_requires_complete_bounded_source_coverage_not_empty_results",
+    "revision_rule": "append_only_revisions_with_supersedes_hash_corrections_never_overwrite",
+    "conflict_rule": "unresolved_terms_identity_or_effective_time_blocks_security_session"
+  },
+  "halts": {
+    "required_types": [
+      "delayed_opening",
+      "luld_pause",
+      "market_wide_circuit_breaker",
+      "news_pending",
+      "operational_halt",
+      "quote_only",
+      "regulatory_halt",
+      "trading_suspension"
+    ],
+    "required_fields": [
+      "canonical_security_id",
+      "halt_timestamp",
+      "halt_type",
+      "first_known_at",
+      "resume_timestamp",
+      "source_code",
+      "source_record_identity"
+    ],
+    "authoritative_precedence": [
+      "listing_exchange_or_regulator",
+      "consolidated_SIP_status_feed",
+      "corroborating_market_data_provider"
+    ],
+    "absence_evidence_rule": "no_halt_requires_complete_authoritative_coverage_for_security_and_interval",
+    "revision_rule": "append_only_corrections_and_resume_updates_with_lineage",
+    "conflict_rule": "unresolved_halt_start_resume_type_or_coverage_conflict_blocks_event"
+  },
+  "catalysts": {
+    "required_categories": [
+      "analyst_action",
+      "bankruptcy",
+      "clinical_trial",
+      "corporate_announcement",
+      "earnings_release",
+      "earnings_result",
+      "fda_or_regulatory",
+      "guidance",
+      "legal_or_enforcement",
+      "management_change",
+      "material_contract",
+      "merger_or_acquisition",
+      "offering_atm",
+      "offering_private_placement",
+      "offering_registered_direct",
+      "product_announcement",
+      "rumor",
+      "sec_filing",
+      "shelf_registration",
+      "strategic_alternatives",
+      "unknown_or_unclassified"
+    ],
+    "required_timestamps": [
+      "correction_timestamp",
+      "filing_acceptance_timestamp",
+      "first_ingested_timestamp",
+      "original_publication_timestamp",
+      "provider_receipt_timestamp",
+      "retraction_timestamp",
+      "retrieval_timestamp",
+      "update_timestamp"
+    ],
+    "minimum_coverage": "complete_SEC_filing_source_plus_complete_broad_news_and_corporate_disclosure_source_for_every_security_selection_window",
+    "specialist_coverage_rule": "uncovered_required_category_is_unknown_and_blocks_complete_catalyst_feature",
+    "unknown_rule": "unknown_category_or_coverage_is_never_no_catalyst",
+    "duplicate_rule": "deterministic_story_cluster_by_source_identity_canonical_document_identity_and_versioned_exact_content_rules_no_fuzzy_outcome_informed_merge",
+    "syndication_rule": "preserve_each_raw_story_link_normalized_cluster_to_earliest_proven_point_in_time_publication",
+    "revision_rule": "updates_corrections_and_retractions_are_append_only_and_time-aware",
+    "credibility_roles": [
+      "authoritative_filing_or_issuer",
+      "licensed_primary_news",
+      "specialist_regulatory",
+      "corroborating_secondary",
+      "rumor_only"
+    ],
+    "category_confidence_rule": "versioned_non_fuzzy_category_with_source_and_rule_identity_low_confidence_remains_unknown"
+  },
+  "provenance": {
+    "required_fields": [
+      "completeness_state",
+      "correction_timestamp",
+      "coverage_end",
+      "coverage_start",
+      "feed_type",
+      "normalization_version",
+      "normalized_sha256",
+      "pagination_or_file_identity",
+      "parser_version",
+      "query_identity",
+      "raw_sha256",
+      "retrieval_timestamp",
+      "revision",
+      "source_name",
+      "source_role",
+      "source_version",
+      "supersedes_identity"
+    ],
+    "hash_algorithm": "sha256",
+    "canonical_serialization": "UTF-8_JSON_sorted_keys_compact_separators_trailing_newline_no_NaN_or_invalid_Unicode",
+    "raw_rule": "immutable_exact_provider_payload_or_file",
+    "normalized_rule": "immutable_deterministic_records_hash_linked_to_all_raw_inputs",
+    "ordering_rule": "stable_identifiers_timestamps_sequence_and_source_record_identity",
+    "experiment_binding_rule": "bind_protocol_calendar_session_universe_security_lineage_actions_ticks_bars_halts_catalysts_capabilities_entitlements_parsers_normalizers_and_all_input_manifests"
+  },
+  "completeness": {
+    "states": [
+      "complete",
+      "conflicting",
+      "corrected",
+      "coverage_unknown",
+      "entitlement_unverified",
+      "incomplete",
+      "invalid",
+      "not_applicable",
+      "superseded",
+      "unavailable"
+    ],
+    "blocking_states": [
+      "conflicting",
+      "coverage_unknown",
+      "entitlement_unverified",
+      "incomplete",
+      "invalid",
+      "superseded",
+      "unavailable"
+    ],
+    "silent_drop_rule": "prohibited_for_securities_sessions_records_pages_revisions_and_conflicts",
+    "missing_as_false_rule": "prohibited",
+    "unavailable_as_zero_rule": "prohibited",
+    "negative_evidence_rule": "requires_complete_bounded_coverage_manifest",
+    "conflict_rule": "required_unresolved_conflict_blocks_readiness",
+    "correction_rule": "corrected_record_is_usable_only_with_complete_append_only_lineage_and_non_blocking_current_revision"
+  },
+  "separation": {
+    "execution_phase": "discovery",
+    "protected_path_parts": [
+      "forward-validation",
+      "future-empirical-artifacts",
+      "holdout",
+      "operator",
+      "paper-forward",
+      "production",
+      "sealed",
+      "validation",
+      "validation-extension"
+    ],
+    "access_rule": "discovery_process_may_open_only_identity_bound_discovery_inputs_beneath_approved_root",
+    "path_rule": "reject_absolute_escape_traversal_symlink_and_protected_components_before_read",
+    "manifest_rule": "execution_phase_must_equal_discovery_and_V002_schema_required",
+    "import_rule": "V002_protocol_and_readiness_modules_must_not_import_production_operator_forward_validation_or_empirical_execution_modules",
+    "partition_freeze_rule": "bind_final_selection_only_session_plan_and_discovery_inputs_before_validation_or_holdout_access"
+  },
+  "compatibility": {
+    "v001_immutable": true,
+    "automatic_migration": false,
+    "v001_input_rule": "explicitly_reject_V001_schemas_as_V002_inputs",
+    "reinterpretation_rule": "prohibited",
+    "production_behavior": "unchanged",
+    "strategy_simulator_sizing_operator_dashboard_forward_validation": "out_of_scope_unchanged"
+  }
+}
