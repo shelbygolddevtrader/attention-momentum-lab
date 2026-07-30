@@ -86,3 +86,16 @@ class ExchangeCalendarsAdapter:
         return SessionSchedule(
             calendar_id, trading_date, open_ts, close_ts, minutes, timezone
         )
+
+    def non_session_reason(self, trading_date, calendar_id):
+        """Classify a provider-declared non-session without inventing a fallback."""
+        calendar = self._resolve(calendar_id)
+        label = pd.Timestamp(trading_date)
+        if calendar.is_session(label):
+            raise CalendarDependencyError(
+                f"{calendar_id} {trading_date} is a session, not an excluded date"
+            )
+        if trading_date.weekday() >= 5:
+            return "weekend"
+        ad_hoc = {pd.Timestamp(item).date() for item in calendar.adhoc_holidays}
+        return "ad_hoc_closure" if trading_date in ad_hoc else "holiday"
