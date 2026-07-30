@@ -32,6 +32,12 @@ It evaluates canonical in-memory fixtures, emits immutable proposal metadata,
 and remains blocked from empirical discovery, tournament scoring, providers,
 brokers, production, and capital.
 
+The design-only V003 scoring clarification is documented in
+[`docs/PROFESSIONAL_STRATEGY_OLYMPICS_SCORING_V003.md`](docs/PROFESSIONAL_STRATEGY_OLYMPICS_SCORING_V003.md).
+It prospectively freezes ordinal favorability rank, the exact percentile
+equation, cohort edge cases, and discovery-only tie reduction. It changes no
+V001 or V002 rule and does not implement or authorize tournament execution.
+
 Winner Archetype Protocol V002 is defined in
 [`docs/WINNER_ARCHETYPE_PROTOCOL_V002.md`](docs/WINNER_ARCHETYPE_PROTOCOL_V002.md).
 It prospectively binds the complete point-in-time universe, source capabilities,
