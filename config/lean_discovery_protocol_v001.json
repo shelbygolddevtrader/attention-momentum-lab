@@ -1,0 +1,187 @@
+{
+  "schema_version": "aml.lean-discovery.protocol.v001",
+  "protocol_version": "lean-discovery-protocol-v001",
+  "prospective_as_of": "2026-07-30T00:00:00+00:00",
+  "protocol_identity": "4e227c590e960c434e21c751692e32a8cc5dbd1b7e1843b993e35fec3a81538b",
+  "independence": {
+    "v002_protocol_identity": "11dc7d4af498dc61f166c6d5a4edc72d0038279cd9782d2584a54ac40348e580",
+    "v002_readiness_identity": "01fb43fca4cc138277c8e105cc2d071e918db826e62ce78d3b6767b010d8d1b6",
+    "v002_readiness_credit": "none",
+    "v002_mutation": "prohibited",
+    "result_scope": "preliminary_provider_bounded_not_V002_evidence"
+  },
+  "scientific_question": "Among securities selected using point-in-time premarket price and volume criteria, are there reproducible intraday outcome differences associated with predefined price, volume, liquidity, volatility, and opening-behavior features?",
+  "claim_ladder": [
+    {"level": 1, "label": "pipeline_operational", "maximum_statement": "The lean pipeline completed its synthetic and integrity checks."},
+    {"level": 2, "label": "dataset_internally_consistent", "maximum_statement": "The provider-bounded dataset passed its declared internal checks."},
+    {"level": 3, "label": "descriptive_pattern_observed", "maximum_statement": "A preliminary descriptive pattern was observed in discovery data."},
+    {"level": 4, "label": "internal_resampling_survived", "maximum_statement": "The preliminary discovery pattern survived the preregistered internal resampling checks."},
+    {"level": 5, "label": "untouched_validation_survived", "maximum_statement": "The frozen preliminary pattern survived one untouched validation partition within this provider-bounded dataset."},
+    {"level": 6, "label": "one_time_holdout_survived", "maximum_statement": "The frozen preliminary pattern survived the one-time provider-bounded holdout."},
+    {"level": 7, "label": "live_trading_unproven", "maximum_statement": "Live tradability and deployable profitability remain unproven."},
+    {"level": 8, "label": "production_requires_separate_evidence", "maximum_statement": "Production consideration requires V002-grade or equivalent evidence and paper-forward validation."}
+  ],
+  "calendar_and_cohort": {
+    "session_plan_identity": "167847cf198764f72b76c976a4993f7d8f4a4e262d4dc53018ec9317c7d6196c",
+    "selection_sessions_sha256": "ab8d89c20ab0d7af854f8025f2746a0879e3e9fdbd40e9e2b46f2942477d8dc2",
+    "candidate_session_count": 252,
+    "candidate_start": "2024-06-03",
+    "candidate_end": "2025-06-04",
+    "warmup_start": "2024-05-03",
+    "warmup_sessions": 20,
+    "initial_sessions": 60,
+    "extension_sessions": 20,
+    "maximum_sessions": 252,
+    "partition_basis_points": {"discovery": 5000, "validation": 2500, "holdout": 2500},
+    "selection_only_stop_rule": "use_the_first_60_80_100_120_140_160_180_200_220_240_or_252_session_horizon_with_at_least_120_total_60_discovery_30_validation_and_30_holdout_candidates",
+    "minimum_candidate_counts": {"total": 120, "discovery": 60, "validation": 30, "holdout": 30},
+    "outcome_access_before_freeze": "prohibited"
+  },
+  "universe": {
+    "construction": "one_Alpaca_asset_snapshot_retrieved_at_acquisition_time_active_US_common_stocks_on_XASE_XNAS_XNYS_with_SIP_bar_coverage",
+    "maximum_symbols": 10000,
+    "historical_point_in_time_claim": "not_available",
+    "survivorship_limitation": "retrieval_time_membership_can_omit_delisted_renamed_or_acquired_securities_and_can_include_securities_not_eligible_historically",
+    "fail_closed_rules": [
+      "exclude_ambiguous_security_type_or_exchange",
+      "exclude_symbol_without_stable_retrieval_manifest_identity",
+      "abort_if_snapshot_exceeds_10000_symbols",
+      "never_describe_empty_results_as_historical_non_membership"
+    ],
+    "conclusion_limit": "results_apply_only_to_the_retrieval_time_provider_universe_not_the_historical_US_equity_population"
+  },
+  "provider_scope": {
+    "planned_provider": "Alpaca",
+    "entitlement": "existing_user_reported_Algo_Trader_Plus_SIP_subscription_subject_to_preflight_verification",
+    "required": [
+      "historical_SIP_one_minute_bars_04:00_to_09:25_and_regular_session",
+      "historical_SIP_one_minute_SPY_benchmark_bars_for_identical_windows",
+      "retrieval_time_asset_metadata",
+      "split_and_reverse_split_records_for_every_bound_security_interval",
+      "stable_pagination_and_query_provenance",
+      "local_research_retention_permission"
+    ],
+    "not_required": ["news", "catalysts", "SEC_filings", "tick_level_trades", "tick_level_quotes"],
+    "known_not_proven": [
+      "historical_point_in_time_universe",
+      "authoritative_halt_absence",
+      "complete_corporate_action_revision_lineage",
+      "complete_delisting_and_symbol_lineage",
+      "tick_level_correction_and_cancellation_lineage"
+    ],
+    "alpaca_sufficiency": "conditionally_sufficient_for_a_bar_based_provider_bounded_pilot_only_after_entitlement_retention_pagination_premarket_and_split_preflight_checks_pass",
+    "upgrade_trigger": "any_failed_SIP_premarket_retention_pagination_or_split_preflight_blocks_the_pilot_and_requires_a_separately_approved_provider_review"
+  },
+  "candidate_selection": {
+    "selection_cutoff": "09:25:00_America/New_York_exclusive",
+    "direction": "sign_of_premarket_gap_zero_is_ineligible",
+    "rules": [
+      {"id": "absolute_premarket_gap", "definition": "absolute(last_eligible_09:24_bar_close/prior_regular_session_close-1)", "operator": ">=", "value": 0.04},
+      {"id": "cutoff_price", "definition": "last_eligible_premarket_bar_close_at_or_before_09:24", "operator": "between_inclusive", "value": [1.0, 100.0]},
+      {"id": "premarket_dollar_volume", "definition": "sum(bar_vwap_times_volume)_04:00_inclusive_to_09:25_exclusive", "operator": ">=", "value": 250000.0},
+      {"id": "premarket_relative_volume", "definition": "premarket_share_volume_divided_by_median_same_clock_window_volume_over_prior_20_bound_sessions", "operator": ">=", "value": 2.0},
+      {"id": "prior_liquidity", "definition": "median_regular_session_dollar_volume_over_prior_20_bound_sessions", "operator": ">=", "value": 5000000.0}
+    ],
+    "warmup": "20_prior_bound_sessions_with_at_least_15_complete_observations_for_each_baseline",
+    "corporate_action_rule": "exclude_any_window_with_unresolved_split_reverse_split_or_price_discontinuity_conflict",
+    "gap_rule": "exclude_missing_09:24_reference_or_prior_close_and_never_forward_fill",
+    "selection_only": true
+  },
+  "feature_registry": [
+    {"id": "distance_from_premarket_high", "observation_window": "04:00:00_to_09:45:00_America/New_York_end_exclusive", "cutoff": "09:45:00", "definition": "gap_direction_times(reference_price_at_09:45/premarket_high_before_09:25-1)", "missing_rule": "exclude_event_from_feature_analysis"},
+    {"id": "first_pullback_depth", "observation_window": "09:30:00_to_09:45:00_America/New_York_end_exclusive", "cutoff": "09:45:00", "definition": "gap_aligned_maximum_retracement_from_first_directional_extreme_using_left_labeled_bars", "missing_rule": "exclude_event_from_feature_analysis"},
+    {"id": "gap_aligned_opening_return", "observation_window": "09:30:00_to_09:45:00_America/New_York_end_exclusive", "cutoff": "09:45:00", "definition": "gap_direction_times(last_price_before_cutoff/first_price_at_or_after_open-1)", "missing_rule": "exclude_event_from_primary_analysis"},
+    {"id": "market_relative_return", "observation_window": "09:30:00_to_09:45:00_America/New_York_end_exclusive", "cutoff": "09:45:00", "definition": "gap_aligned_opening_return_minus_gap_direction_times_SPY_return_over_same_window", "missing_rule": "exclude_event_from_feature_analysis"},
+    {"id": "missing_minute_count", "observation_window": "04:00:00_to_09:45:00_America/New_York_end_exclusive", "cutoff": "09:45:00", "definition": "count_expected_left_labeled_minutes_without_a_bar_or_explicit_no_trade_state", "missing_rule": "exclude_event_when_count_exceeds_2_in_opening_window"},
+    {"id": "opening_realized_volatility", "observation_window": "09:30:00_to_09:45:00_America/New_York_end_exclusive", "cutoff": "09:45:00", "definition": "root_sum_squared_one_minute_log_returns_without_annualization", "missing_rule": "exclude_event_from_feature_analysis"},
+    {"id": "opening_volume_acceleration", "observation_window": "09:30:00_to_09:45:00_America/New_York_end_exclusive", "cutoff": "09:45:00", "definition": "mean_share_volume_09:40_to_09:45_divided_by_mean_share_volume_09:30_to_09:40", "missing_rule": "exclude_zero_denominator_or_incomplete_window"},
+    {"id": "opening_vwap_distance", "observation_window": "09:30:00_to_09:45:00_America/New_York_end_exclusive", "cutoff": "09:45:00", "definition": "gap_direction_times(last_price_before_cutoff/opening_window_vwap-1)", "missing_rule": "exclude_event_from_feature_analysis"},
+    {"id": "opening_window_dollar_volume", "observation_window": "09:30:00_to_09:45:00_America/New_York_end_exclusive", "cutoff": "09:45:00", "definition": "sum(bar_vwap_times_volume)", "missing_rule": "exclude_event_from_feature_analysis"},
+    {"id": "provider_halt_or_gap_indicator", "observation_window": "04:00:00_to_scheduled_close_end_exclusive", "cutoff": "scheduled_close", "definition": "explicit_provider_halt_when_available_or_unexplained_consecutive_missing_minute_run_flag_without_claiming_halt_absence", "missing_rule": "unknown_status_is_retained_and_excluded_in_halt_sensitive_analysis"}
+  ],
+  "outcome_registry": [
+    {"id": "close_to_reference_return", "observation_window": "09:45:00_to_scheduled_close_end_exclusive", "definition": "gap_direction_times(last_eligible_regular_price/reference_price-1)", "missing_rule": "exclude_if_close_or_reference_is_missing"},
+    {"id": "fixed_horizon_returns", "observation_window": "reference_time_to_15_minutes_60_minutes_and_scheduled_close", "definition": "gap_direction_times(horizon_price/reference_price-1)_using_first_eligible_price_at_or_after_each_horizon", "missing_rule": "each_missing_horizon_is_null_never_forward_filled"},
+    {"id": "maximum_adverse_excursion", "observation_window": "09:45:00_to_scheduled_close_end_exclusive", "definition": "largest_gap_direction_opposed_excursion_from_reference_price", "missing_rule": "exclude_incomplete_or_conflicting_path"},
+    {"id": "maximum_favorable_excursion", "observation_window": "09:45:00_to_scheduled_close_end_exclusive", "definition": "largest_gap_direction_aligned_excursion_from_reference_price", "missing_rule": "exclude_incomplete_or_conflicting_path"},
+    {"id": "reward_before_risk", "observation_window": "09:45:00_to_scheduled_close_end_exclusive", "definition": "first_touch_of_2_percent_directional_reward_or_1_percent_directional_risk", "missing_rule": "both_touched_in_same_minute_is_indeterminate_and_excluded_from_primary_binary_outcome"},
+    {"id": "time_to_reward_or_risk", "observation_window": "09:45:00_to_scheduled_close_end_exclusive", "definition": "elapsed_minutes_from_reference_to_first_unambiguous_reward_or_risk_touch", "missing_rule": "null_when_neither_or_same_bar_indeterminate"}
+  ],
+  "statistical_plan": {
+    "primary_hypothesis": "reward_before_risk_probability_differs_between_positive_and_nonpositive_gap_aligned_opening_return_groups",
+    "primary_exposure": "gap_aligned_opening_return_greater_than_zero",
+    "primary_outcome": "reward_before_risk_determinate_binary",
+    "primary_effects": ["risk_difference", "risk_ratio", "odds_ratio"],
+    "primary_alpha": 0.05,
+    "primary_interval": "95_percent_date_cluster_bootstrap_percentile_interval",
+    "secondary_family": [
+      "fixed_15_minute_return_by_primary_exposure",
+      "fixed_60_minute_return_by_primary_exposure",
+      "close_return_by_primary_exposure",
+      "reward_before_risk_by_premarket_gap_band",
+      "reward_before_risk_by_premarket_dollar_volume_band",
+      "reward_before_risk_by_cutoff_price_band",
+      "reward_before_risk_by_prior_liquidity_band",
+      "reward_before_risk_by_prior_day_volatility_band",
+      "reward_before_risk_by_opening_vwap_sign",
+      "reward_before_risk_by_opening_volume_acceleration_band",
+      "reward_before_risk_by_market_relative_return_sign"
+    ],
+    "multiple_testing": "Holm_familywise_alpha_0.05_for_eleven_secondary_hypotheses",
+    "resampling": {"seed": 20260730, "date_cluster_bootstrap_replicates": 5000, "ordinary_trade_bootstrap": "comparison_only_not_inference", "date_cluster_permutation_replicates": 10000},
+    "stratification": {"exact": ["gap_direction"], "bands": {"absolute_gap": [0.04, 0.07, 0.12, null], "cutoff_price": [1.0, 5.0, 20.0, 100.0], "premarket_dollar_volume": [250000.0, 1000000.0, 5000000.0, null]}},
+    "minimum_sample": {"total": 120, "discovery": 60, "validation": 30, "holdout": 30, "per_primary_exposure_group_per_partition": 20, "failure_result": "statistically_inconclusive_no_claim_escalation"},
+    "same_bar_sensitivity": ["exclude_indeterminate_primary", "assign_all_indeterminate_to_reward_upper_bound", "assign_all_indeterminate_to_risk_lower_bound"],
+    "other_sensitivities": ["exclude_explicit_or_suspected_halts", "complete_minutes_only", "exclude_split_conflicts", "winsorize_continuous_descriptive_features_at_discovery_1st_and_99th_percentiles"],
+    "archetype_rule": "discovery_may_define_at_most_three_compact_archetypes_which_must_be_identity_frozen_before_validation",
+    "phase_rule": "descriptive_discovery_then_hypothesis_freeze_then_untouched_validation_then_one_time_holdout",
+    "optimization_rule": "validation_and_holdout_outcomes_cannot_select_features_thresholds_bands_archetypes_or_parameters"
+  },
+  "missing_data": {
+    "general": "no_forward_fill_no_synthetic_evidence_no_empty_means_absent",
+    "candidate_fields": "missing_or_nonfinite_required_candidate_field_excludes_the_security_session",
+    "feature_fields": "feature_specific_exclusion_with_denominator_and_reason_counts",
+    "outcomes": "incomplete_path_excluded_from_path_dependent_outcomes_but_available_fixed_horizons_remain_labeled",
+    "halts": "absence_not_proven_unknown_retained_and_claims_limited",
+    "conflicts": "unresolved_duplicate_pagination_split_timestamp_or_feed_conflict_blocks_the_affected_security_session"
+  },
+  "isolation": {
+    "artifact_namespace": "artifacts/lean_discovery/v001",
+    "validation_outcome_access": "prohibited_during_discovery",
+    "holdout_outcome_access": "one_time_after_validation_freeze",
+    "v002_artifact_access": "read_only_identity_checks_only",
+    "production_import_direction": "production_modules_must_not_import_lean_research_modules",
+    "execution_capability": "no_live_no_paper_no_order_objects",
+    "run_binding": ["protocol_identity", "partition_identity", "provider_identity", "entitlement_identity", "source_manifest_identities", "code_commit", "seed"],
+    "determinism": "canonical_JSON_SHA256_sorted_records_fixed_seed_timezone_explicit"
+  },
+  "cost_plan": {
+    "status": "planning_estimate_not_provider_quote",
+    "initial_session_count": 60,
+    "warmup_session_count": 20,
+    "total_initial_acquisition_sessions": 80,
+    "expected_universe_symbols": 9000,
+    "hard_universe_cap": 10000,
+    "minutes_per_symbol_session": 715,
+    "expected_bar_records": 514800000,
+    "page_size_assumption": 10000,
+    "estimated_bar_page_calls": 51480,
+    "estimated_metadata_calendar_action_calls": 520,
+    "estimated_total_api_calls": 52000,
+    "estimated_transfer_bytes": 93000000000,
+    "estimated_compressed_raw_bytes": 20000000000,
+    "estimated_columnar_bytes": 13000000000,
+    "recommended_free_local_storage_bytes": 60000000000,
+    "expected_runtime": "6_to_16_hours_subject_to_actual_pagination_rate_limits_and_sparse_symbols",
+    "expected_exclusions": ["missing_20_session_baseline", "ambiguous_asset_type", "unresolved_split_or_price_discontinuity", "more_than_2_opening_missing_minutes", "missing_reference_price", "pagination_or_feed_conflict"],
+    "incremental_provider_cost_usd": 0,
+    "incremental_cost_condition": "zero_only_if_current_SIP_entitlement_permits_the_period_request_rate_and_local_research_retention",
+    "upgrade_conditions": ["historical_SIP_premarket_unavailable", "rate_or_pagination_prevents_complete_bounded_pull", "retention_not_permitted", "split_data_unavailable_or_inconsistent"],
+    "alternative_provider": "separate_human_approved_review_required_no_provider_selected_or_purchased_by_this_protocol"
+  },
+  "authorization": {
+    "human_authorization_required": true,
+    "live_or_paper_orders": "prohibited",
+    "pilot_authorized": false
+  }
+}
