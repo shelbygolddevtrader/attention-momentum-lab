@@ -20,6 +20,12 @@ readiness state are documented in
 No empirical data was opened and no pilot, paper, live, or capital activity is
 authorized.
 
+The prospectively completed, still design-only V002 contracts are documented in
+[`docs/PROFESSIONAL_STRATEGY_OLYMPICS_V002.md`](docs/PROFESSIONAL_STRATEGY_OLYMPICS_V002.md).
+V002 resolves V001 implementation ambiguities under new identities while
+preserving V001 as immutable history. It does not contain an empirical runner,
+results, scores, provider access, or execution authority.
+
 Winner Archetype Protocol V002 is defined in
 [`docs/WINNER_ARCHETYPE_PROTOCOL_V002.md`](docs/WINNER_ARCHETYPE_PROTOCOL_V002.md).
 It prospectively binds the complete point-in-time universe, source capabilities,
