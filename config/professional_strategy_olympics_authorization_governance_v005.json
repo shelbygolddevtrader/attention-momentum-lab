@@ -1,0 +1,197 @@
+{
+  "authorization_schema": {
+    "authorization_identity_rule": "sha256_canonical_json_of_all_fields_except_authorization_identity",
+    "canonical_json_rule": "utf8_sorted_keys_compact_separators_single_lf_no_nonfinite_numbers_no_duplicate_keys",
+    "immutable_fields": "all_fields",
+    "required_fields": [
+      "schema_version",
+      "authorization_identity",
+      "authorization_created_at",
+      "not_before",
+      "expires_at",
+      "authorization_status",
+      "authorized_source_commit",
+      "authorized_source_tree",
+      "v004_execution_publication_contract_identity",
+      "v004_execution_publication_implementation_identity",
+      "v005_governance_identity",
+      "authoritative_run_identity",
+      "canonical_fixture_identity",
+      "canonical_manifest_identity",
+      "projected_v001_manifest_identity",
+      "projected_v001_run_identity",
+      "execution_entry_point",
+      "execution_command_identity",
+      "execution_environment_manifest_identity",
+      "operator_instance_identity",
+      "consumption_store_identity",
+      "maximum_execution_count",
+      "human_approval_reference",
+      "independent_reviewer_identity",
+      "supersedes_authorization_identity",
+      "access_prohibitions"
+    ],
+    "schema_version": "aml.professional-strategy-olympics.single-use-authorization.v005",
+    "status_at_publication": "authorized_unused",
+    "unknown_fields": "reject"
+  },
+  "authorization_storage": {
+    "append_only_path_template": "governance/authorizations/professional_strategy_olympics/v005/{authorization_identity}/authorization.json",
+    "authorization_commit_role": "documentary_only_never_executable_source",
+    "correction_policy": "never_mutate_publish_new_identity_with_supersedes_reference_only_if_predecessor_expired_unused",
+    "existing_path_behavior": "fail_closed",
+    "published_bytes": "canonical_json_exactly_once",
+    "source_and_authorization_separation": "authorization_commit_must_be_descendant_of_but_distinct_from_authorized_source_commit"
+  },
+  "authorization_validity": {
+    "creation_time_source": "github_pull_request_createdAt_for_authorization_review_pr",
+    "duration_seconds": 259200,
+    "expiry_formula": "expires_at=authorization_created_at+259200_seconds",
+    "expiry_semantics": "valid_only_when_not_before<=trusted_execution_time<expires_at",
+    "expired_unused_policy": "may_be_superseded_once_by_new_identity_after_independent_review",
+    "fractional_seconds": "prohibited",
+    "leap_seconds": "prohibited",
+    "not_before_rule": "equals_authorization_created_at",
+    "timestamp_format": "YYYY-MM-DDTHH:MM:SSZ",
+    "timezone": "UTC_Z_only",
+    "trusted_execution_clock": {
+      "attestation_max_age_seconds_before_consumption": 300,
+      "capture": "separate_preflight_records_https_api.github.com_Date_header_response_headers_hash_and_capture_time",
+      "failure_policy": "missing_stale_malformed_or_non_https_attestation_blocks_consumption",
+      "network_boundary": "all_network_access_ends_after_attestation_and_before_authorization_validation_or_consumption",
+      "source": "github_https_server_Date_header"
+    }
+  },
+  "contract_identity": "e2df2d9405f5f4dbc4f5f17ac3712368f1894caa56e79f36c0eb67d06c0709ed",
+  "cryptographic_binding": {
+    "authorization_hash": "SHA-256",
+    "commit_format": "forty_lowercase_hex_git_object_id",
+    "environment_identity": "sha256_canonical_environment_manifest_including_python_binary_hash_version_and_installed_distribution_hashes",
+    "source_tree_binding": "authorized_source_commit_and_exact_git_tree_object_id",
+    "text_encoding": "UTF-8",
+    "weak_or_missing_identity": "reject"
+  },
+  "execution_command": {
+    "argv_template": [
+      ".venv/bin/python",
+      "scripts/run_professional_strategy_olympics_v005.py",
+      "--authorization",
+      "{authorization_path}",
+      "--source-root",
+      "{detached_source_root}",
+      "--consumption-root",
+      "{consumption_root}",
+      "--artifact-root",
+      "{artifact_root}",
+      "--clock-attestation",
+      "{clock_attestation_path}",
+      "--execute-once"
+    ],
+    "command_identity": "278f812e47cb0d290e9188fcdaf93c7eb4b01e60f70b503471e67b7d31f54a1a",
+    "entry_point": "scripts/run_professional_strategy_olympics_v005.py",
+    "environment": {
+      "LANG": "C",
+      "LC_ALL": "C",
+      "PYTHONHASHSEED": "0",
+      "TZ": "UTC"
+    },
+    "fallback_commands": "prohibited",
+    "shell_interpretation": "prohibited_exact_argv_exec_only",
+    "working_directory": "detached_source_root"
+  },
+  "execution_source_policy": {
+    "authorization_location": "outside_detached_source_root",
+    "checkout_mode": "detached_HEAD",
+    "commit_rule": "HEAD_equals_authorized_source_commit",
+    "origin_remote": "https://github.com/shelbygolddevtrader/attention-momentum-lab.git",
+    "reachability_rule": "authorized_source_commit_is_ancestor_of_origin_main_at_authorization_review",
+    "source_mutation": "prohibited_before_during_and_after_execution",
+    "sparse_checkout": "prohibited",
+    "submodule_policy": "no_submodules_permitted",
+    "tree_rule": "HEAD_tree_equals_authorized_source_tree",
+    "working_tree_rule": "git_status_porcelain_v1_untracked_files_all_is_empty"
+  },
+  "historical_lineage": {
+    "design_base_commit": "2f5390a844b9187b92da124a77173669f1b3f536",
+    "immutable_tag_name": "v0.1.1-research-baseline",
+    "immutable_tag_object": "746e147efd9bb09dedfdd4d2850f461e36d9f046",
+    "immutable_tagged_commit": "378317dba28d93792d2f0a3ab4302a5d0b6abf7c",
+    "v004_execution_publication_contract_identity": "0dd043154b5ee90cbfa049df6977aaa8c7ec2a0f585a8c7952c77314893e7053",
+    "v004_execution_publication_implementation_identity": "d711d18cfbdc5aeaa01975102acd07a7767c6874670fc445abb5100abe79f5c4"
+  },
+  "post_execution_archival": {
+    "archive_contents": [
+      "authorization.json",
+      "clock_attestation.json",
+      "environment_manifest.json",
+      "consumption.json",
+      "lineage_run_manifest.json",
+      "artifact_index.json",
+      "complete_v004_artifact_bundle"
+    ],
+    "archive_path_template": "artifacts/professional_strategy_olympics/v005/{authoritative_run_identity}",
+    "incomplete_run_policy": "retain_consumption_evidence_and_failure_record_never_restore_authorization",
+    "publication": "atomic_write_once_no_identical_republication",
+    "result_interpretation": "separate_future_milestone_only"
+  },
+  "prospective_as_of": "2026-07-31T00:00:00Z",
+  "replay_prevention": {
+    "authorization_reuse": "prohibited",
+    "consumed_run_reauthorization": "prohibited_for_same_authoritative_run_identity",
+    "consumption_order": "validate_then_atomically_claim_before_any_artifact_generation",
+    "consumption_store": "single_declared_operator_store_outside_source_and_artifact_roots",
+    "cross_operator_execution": "prohibited_by_operator_instance_identity",
+    "maximum_execution_count": 1,
+    "publication_collision": "fail_closed"
+  },
+  "review_procedure": {
+    "approval": "explicit_GitHub_APPROVED_review_on_exact_authorization_PR_head",
+    "author_reviewer_separation": "independent_reviewer_GitHub_login_must_differ_from_author",
+    "checks": [
+      "exact_authorized_source_commit_and_tree",
+      "all_bound_identities_recalculated",
+      "canonical_authorization_bytes",
+      "validity_window_equation",
+      "command_and_environment_identities",
+      "authorization_unused_and_run_unpublished",
+      "focused_and_full_tests",
+      "ruff_0_6_9",
+      "git_diff_check",
+      "immutable_tag_unchanged",
+      "no_protected_data_or_result_access"
+    ],
+    "head_change_after_approval": "approval_invalidated_new_independent_approval_required",
+    "human_approval_reference": "repository_pull_request_number_review_database_id_and_exact_approved_head",
+    "unresolved_threads": 0
+  },
+  "scope": {
+    "authorization_created": false,
+    "authorization_creation_capability_implemented": false,
+    "capital_activated": false,
+    "empirical_data_accessed": false,
+    "execution_capability_implemented": false,
+    "holdout_opened": false,
+    "official_results_created": false,
+    "official_run_authorized": false,
+    "official_run_executed": false,
+    "production_or_live_access": false,
+    "publication_capability_implemented": false,
+    "rankings_or_scores_created": false,
+    "validation_opened": false
+  },
+  "schema_version": "aml.professional-strategy-olympics.authorization-governance.v005",
+  "supersession_policy": {
+    "consumed_predecessor": "cannot_be_superseded_or_reauthorized",
+    "expired_unused_predecessor": "new_authorization_must_reference_predecessor_identity",
+    "multiple_active_authorizations_for_run": "prohibited",
+    "mutation": "prohibited",
+    "replacement_preserves_authorized_source_dataset_command_environment_and_run_identities": true
+  },
+  "validation_manifest": {
+    "authorization_artifact_present": false,
+    "implementation_milestone": "required_after_design_merge",
+    "status": "DESIGN_ONLY_V005_GOVERNANCE_FROZEN_AUTHORIZATION_NOT_CREATED",
+    "trial_artifacts_present": false
+  },
+  "version": "professional-strategy-olympics-authorization-governance-v005"
+}
