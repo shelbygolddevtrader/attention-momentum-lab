@@ -1,0 +1,112 @@
+{
+  "schema_version": "aml.professional-strategy-olympics.orchestrator.v001",
+  "orchestrator_version": "professional-strategy-olympics-orchestrator-v001",
+  "prospective_as_of": "2026-07-31T02:00:00Z",
+  "orchestrator_identity": "9e1af13518bc4c6588ce4faaf302e15182f9d42e5dd8c453fc6d27dd257b8d3e",
+  "lineage": {
+    "implementation_base_commit": "4285bcf4fea27a21647d6dd82ca4df639eef260f",
+    "v004_scoring_bundle_identity": "205c126be0d3f1af78899b69609a6ba86a0026ec6dd55729112da78eaa4f23bc",
+    "v004_raw_event_registry_identity": "094c778707f97ddd3841b55ada4e06c742e348f6886876017376e5aabbb38623",
+    "v004_worked_examples_identity": "82bd3caabbcdce670fc5eb5d52db757e157930f42e231e04b6c27127a42ea730",
+    "v003_scoring_bundle_identity": "7f1656ffbd4e577dd1b58019b67a50a48acf0be1d8a05646c8066758644eae81",
+    "v002_executor_bundle_identity": "9c03677ce4ea4e56256f6873c00a4cdc502e23b2780f36af6b3f2a0b3b45bf5d",
+    "v002_executor_registry_identity": "01c0efa7b35707ddbc837609f99051cdc3db63064410de9d10e334d601787111",
+    "immutable_tag_object": "746e147efd9bb09dedfdd4d2850f461e36d9f046",
+    "immutable_tagged_commit": "378317dba28d93792d2f0a3ab4302a5d0b6abf7c"
+  },
+  "input_contract": {
+    "schema_version": "aml.professional-strategy-olympics.synthetic-input-manifest.v001",
+    "synthetic_only": true,
+    "explicit_paths_only": true,
+    "network_access": false,
+    "absolute_paths_in_artifacts": false,
+    "unknown_fields": "reject",
+    "canonical_fraction": {"fields": ["numerator", "denominator"], "denominator": "strictly_positive", "reduced": true},
+    "executor_output_policy": "immutable completed-trade atoms only; no proposal regeneration, resizing, refilling, or timestamp mutation",
+    "opened_stages": ["discovery"]
+  },
+  "orchestration_stages": [
+    "verify_frozen_lineage",
+    "validate_explicit_synthetic_input_manifest",
+    "bind_strategy_and_executor_identities",
+    "validate_completed_trade_atoms",
+    "apply_v004_event_eligibility",
+    "calculate_v004_raw_events",
+    "apply_v003_event_ranking",
+    "aggregate_exact_weighted_scores",
+    "apply_v003_overall_ties",
+    "build_identity_bound_artifacts",
+    "publish_atomically_write_once"
+  ],
+  "artifact_bundle": {
+    "namespace": "artifacts/professional_strategy_olympics/orchestrator/v001",
+    "artifacts": [
+      "run_manifest.json",
+      "input_manifest.json",
+      "identity_manifest.json",
+      "raw_event_registry.json",
+      "eligibility_disqualification_ledger.json",
+      "event_score_ledger.json",
+      "aggregate_score_ledger.json",
+      "ranking_ledger.json",
+      "integrity_report.json",
+      "SUMMARY.md"
+    ],
+    "canonical_json": "UTF-8 sorted keys compact separators trailing LF",
+    "summary_source": "canonical artifacts only",
+    "publication": "temporary sibling directory then atomic rename",
+    "collision": "existing path with different bytes aborts; identical complete bundle is verification only",
+    "timestamps": "only frozen input timestamps; wall-clock timestamps prohibited",
+    "generated_artifacts_tracked": false
+  },
+  "failure_categories": [
+    "integrity_failure",
+    "proposal_rejection",
+    "trade_rejection",
+    "event_ineligibility",
+    "strategy_disqualification",
+    "successful_eligible_scoring"
+  ],
+  "authorization_contract": {
+    "schema_version": "aml.professional-strategy-olympics.synthetic-trial-authorization.v001",
+    "requires_cli_execute_flag": true,
+    "requires_identity_bound_authorization_artifact": true,
+    "requires_exact_orchestrator_identity": true,
+    "requires_exact_orchestrator_implementation_identity": true,
+    "requires_exact_scoring_bundle_identity": true,
+    "requires_exact_input_manifest_identity": true,
+    "requires_exact_run_identity": true,
+    "requires_human_approval_reference": true,
+    "casual_invocation_sufficient": false
+  },
+  "specification_vectors": {
+    "source_identity": "82bd3caabbcdce670fc5eb5d52db757e157930f42e231e04b6c27127a42ea730",
+    "count": 19,
+    "classification": "mathematical_specification_tests_not_trial_or_performance_results",
+    "execution_authority": false
+  },
+  "readiness": {
+    "status": "orchestrator_implementation_complete_trial_authorization_required",
+    "orchestrator_implemented": true,
+    "validation_only_available": true,
+    "trial_authorized": false,
+    "synthetic_trial_executed": false,
+    "historical_trial_authorized": false,
+    "historical_trial_executed": false,
+    "validation_opened": false,
+    "holdout_opened": false,
+    "performance_result_exists": false
+  },
+  "authorization": {
+    "trial_authorized": false,
+    "synthetic_trial_authorized": false,
+    "historical_trial_authorized": false,
+    "validation_authorized": false,
+    "holdout_authorized": false,
+    "forward_authorized": false,
+    "paper_authorized": false,
+    "live_authorized": false,
+    "production_authorized": false,
+    "capital_release_authorized": false
+  }
+}

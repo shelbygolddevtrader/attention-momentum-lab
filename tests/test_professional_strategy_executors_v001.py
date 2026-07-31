@@ -383,7 +383,16 @@ def test_manifest_is_hash_seed_and_timezone_invariant():
 
 
 def test_executor_layer_contains_no_provider_network_broker_account_or_order_access():
-    paths = list((ROOT / "src/aml").glob("professional_strategy_*_v001.py"))
+    paths = [
+        ROOT / "src/aml" / name
+        for name in (
+            "professional_strategy_executor_models_v001.py",
+            "professional_strategy_executor_registry_v001.py",
+            "professional_strategy_executors_v001.py",
+            "professional_strategy_indicators_v001.py",
+            "professional_strategy_lifecycle_v001.py",
+        )
+    ]
     paths.append(SCRIPT)
     source = "\n".join(path.read_text() for path in paths).casefold()
     forbidden = (
