@@ -1,0 +1,296 @@
+{
+  "schema_version": "aml.professional-strategy-olympics.final-scoring-bundle.v004",
+  "clarification_version": "professional-strategy-olympics-final-scoring-v004",
+  "prospective_as_of": "2026-07-30T23:59:59Z",
+  "bundle_identity": "205c126be0d3f1af78899b69609a6ba86a0026ec6dd55729112da78eaa4f23bc",
+  "predecessors": {
+    "design_base_commit": "ffd76b18d635f22777e26431979037f0965ef1fd",
+    "v001_protocol_identity": "8a7f4c2ca1c6b133e769992ef8315186de87b0f7f1baedf6d549536db6f72f3e",
+    "v001_registry_identity": "af1e44069fd5e226ad702469fdf10c7e0b1c49c803065e20c83588b22e17bbc0",
+    "v001_tournament_identity": "10d41bf657759b5db5b5524a18158a480797ab9dcfcca59e7921672d31bb70aa",
+    "v001_readiness_identity": "ebe1179fea526e4bad0c808609ff68320840d57d2172355227edfeccaf054602",
+    "v002_protocol_identity": "fb4bc0623dab857320b914ad7dcd787cead3e16aaa5bfd486d539e0b8cb24583",
+    "v002_registry_identity": "5a43302ca893bcb9323b0a0b473282abd36d0b4d0917322dfb5c817ca3bfd43a",
+    "v002_tournament_identity": "f011b03b6d4b4249e4c4d77b029cbb74145c7f7f53486e0af89d0433da395308",
+    "v002_input_schema_identity": "a3fc7f17fb30eaf69ec00f2955f68f1b54dc3247edc54590706abee719ba3fac",
+    "v002_indicators_identity": "3d1427872fc8d55e3cacc321f710a6a2b260d0a1d01259147b6ff3a422a6f852",
+    "v002_lifecycle_identity": "b61fa2557718cdf1dbebc0e91990bb27be3d880111bea424d967dd96253dfe12",
+    "v002_cost_model_identity": "ba239ed1b835d91be06a674433559c2b679c07fd37b9820f0c4fe7cf7ada4570",
+    "v002_readiness_identity": "fb9799d8cda9a671a58408f0d540d7a6ab39fe868163a2ce105eb6f1218de03b",
+    "executor_bundle_identity": "9c03677ce4ea4e56256f6873c00a4cdc502e23b2780f36af6b3f2a0b3b45bf5d",
+    "executor_registry_identity": "01c0efa7b35707ddbc837609f99051cdc3db63064410de9d10e334d601787111",
+    "v003_bundle_identity": "7f1656ffbd4e577dd1b58019b67a50a48acf0be1d8a05646c8066758644eae81",
+    "v003_schema_identity": "c9b56222811d521da8b7516100a7067476b6d86868488ad8cc37b780b31fa042",
+    "v003_clarification_identity": "666baa8a9ff365de9dd04ee4f95dd5a37f67e19f05738d29e7c9d0622999497c",
+    "v003_validation_identity": "4119376a03c8896e97fb8431cd8b8823c39049c462fa880fd54cad58137775e2",
+    "capital_governance_identity": "6defde5b21b8aac1a4a1b15c501621163dcb9c400f629abd29b257f7a51073cf",
+    "immutable_tag_object": "746e147efd9bb09dedfdd4d2850f461e36d9f046",
+    "immutable_tagged_commit": "378317dba28d93792d2f0a3ab4302a5d0b6abf7c"
+  },
+  "schema_contract": {
+    "schema_version": "aml.professional-strategy-olympics.final-scoring-schema.v004",
+    "schema_identity": "fedd27dd105a745491467b775f510bd7a32c3b569cd29680f540ca12cb650aa6",
+    "canonical_serialization": "UTF-8 JSON sorted keys compact separators trailing LF non-finite prohibited",
+    "identity_rule": "SHA-256 of canonical section excluding its identity field",
+    "required_event_count": 15,
+    "unknown_fields": "fail_closed"
+  },
+  "precision_policy": {
+    "schema_version": "aml.professional-strategy-olympics.precision-policy.v004",
+    "precision_identity": "9f2ed50cfbea78323bbde0b6dae7d849c6b691beda49418934296b5c01b53c58",
+    "authoritative_trade_atoms": {
+      "price_and_net_pnl": "V002 binary64 lifecycle result serialized to exactly 6 decimal USD places then parsed as signed integer microdollars",
+      "net_R": "V002 net_R serialized to exactly 12 decimal places then parsed as a reduced rational",
+      "quantity": "non-negative whole shares; fractional shares prohibited",
+      "timestamp": "timezone-aware instant normalized to integer Unix nanoseconds",
+      "commission": "exact rational microdollars until V002 6-decimal serialization boundary"
+    },
+    "scoring_arithmetic": "integers and reduced rational arithmetic only; binary floating point prohibited after canonical trade atoms",
+    "rounding_mode": "round-half-even only at the inherited V002 6-decimal USD and 12-decimal R serialization boundaries; no later intermediate rounding",
+    "decimal_display": "12-place round-half-even display only and never authoritative for order, score, or identity",
+    "signed_zero": "canonicalize every exact zero to numerator 0 denominator 1 and serialize without a negative sign",
+    "comparison_tolerance": "zero; compare exact integers, exact rationals, or the frozen algebraic downside comparator",
+    "hash_representation": "signed integer numerators and strictly positive integer denominators in canonical JSON"
+  },
+  "lifecycle_outcome_semantics": {
+    "schema_version": "aml.professional-strategy-olympics.lifecycle-outcome.v004",
+    "lifecycle_outcome_identity": "f0e2f67b1fcc463e469215e45f9310c2fb1cf0c2e8316149da7b623ed30c50db",
+    "entry": "signal timestamp equals exact next regular one-minute bar open; missing, halted, expired, nonpositive, or invalidated entry is rejected without delay or fabricated fill",
+    "entry_fill": "V002 raw next-bar open with frozen adverse entry friction; only one atomic whole-share fill is supported; partial fills are unsupported",
+    "same_bar": "after the bar-open gap checks, stop is evaluated before target whenever both are reachable in the same completed bar",
+    "gap_exit": "open through stop exits at min(open,stop); open through target exits at max(open,target); stop precedence remains conservative",
+    "timeout": "exit at close of the Nth complete holding bar beginning with the entry bar, or the frozen session liquidation bar, whichever occurs first",
+    "missing_minutes": "a non-halt missing required open-position minute is an integrity failure and aborts the entrant run; no synthetic bar or exit",
+    "halts": "no entry during a halt; an open position remains unmarked and applies stop, target, then timeout at the first executable post-resume open",
+    "corporate_actions": "use only V002 point-in-time normalized execution records; unknown, conflicting, intraday-effective, or broken lineage aborts the affected entrant run",
+    "duplicates": "one proposal identity may be evaluated once; duplicate identity is an entrant integrity failure; distinct proposals use frozen timestamp, strategy identity, symbol ordering",
+    "long_pnl": "quantity*(cost_adjusted_exit-cost_adjusted_entry)-entry_commission-exit_commission",
+    "short_pnl": "quantity*(cost_adjusted_entry-cost_adjusted_exit)-entry_commission-exit_commission; scored short trades remain prohibited without borrow and fee evidence",
+    "invalid_prices": "zero, negative, non-finite, unavailable, or untradeable required prices reject before fill or abort after fill according to the disqualification matrix",
+    "prices": "corporate-action-adjusted prices are authoritative; raw unadjusted prices never enter scoring",
+    "proposal_mutation": "prohibited after executor emission"
+  },
+  "portfolio_capital_semantics": {
+    "schema_version": "aml.professional-strategy-olympics.portfolio-capital.v004",
+    "portfolio_capital_identity": "3b88b780ba933db98701659df59f44e10b962ff1fff9b31762744cdda2ed28ff",
+    "isolation": "each entrant receives an independent 100000 USD initial ledger and cannot consume or alter another entrant's cash, capacity, loss state, inputs, or outcomes",
+    "rankings": {
+      "equal_risk": "every otherwise accepted trade uses frozen 250 USD risk before capacity constraints",
+      "capital_constrained": "the same entrant's proposals share its own cash, three-position limit, 50-percent gross exposure limit, and daily lockout"
+    },
+    "reservation": "reserve cost-adjusted entry notional plus entry commission atomically at fill",
+    "release": "release exit proceeds net of exit commission only at the completed exit timestamp; released cash may fund later proposals",
+    "proposal_order": "signal timestamp ascending, immutable strategy identity UTF-8 ascending, symbol UTF-8 ascending, proposal identity UTF-8 ascending",
+    "same_timestamp": "apply exits first, then daily-lockout state, then entries in proposal order",
+    "concurrency": "maximum three open positions per entrant",
+    "gross_exposure": "sum absolute cost-adjusted entry notionals of open positions; long and short exposure never net",
+    "duplicate_security": "a second position in the same security while one is open is rejected as concurrency_conflict_same_security",
+    "daily_lockout": "stop new entries when realized net P&L plus marked P&L at the latest complete bar is at or below -1 percent of initial capital; existing positions continue",
+    "cash": "exact microdollars; negative cash and theoretical leverage are prohibited",
+    "sizing": "floor 250 USD divided by cost-adjusted-entry minus rounded stop, then cap by available cash and 50-percent gross exposure; whole shares only",
+    "unused_capital": "does not enter any raw event except through absence of filled positions; capital efficiency counts deployed capital-time only",
+    "rejected_proposals": "record reason but consume no cash, capital-time, trade count, or P&L"
+  },
+  "capital_efficiency_semantics": {
+    "schema_version": "aml.professional-strategy-olympics.capital-efficiency.v004",
+    "capital_efficiency_identity": "11edd9762d8956e9c355e83eff6e33d768f030de35ef06c952b8fb414a1cd68a",
+    "purpose": "net discovery economic result per unit of the entrant's own gross deployed entry capital occupied through time",
+    "numerator": "sum canonical completed-trade net P&L microdollars for the entrant in the authorized discovery cohort",
+    "position_notional": "absolute actual filled whole-share quantity times canonical cost-adjusted entry price in microdollars; commissions, marks, exits, unrealized P&L, and other entrants are excluded",
+    "interval": "half-open [actual_entry_timestamp,exit_timestamp) in UTC-normalized integer nanoseconds",
+    "position_capital_time": "position_notional_microdollars * (exit_nanoseconds-entry_nanoseconds)",
+    "denominator": "exact sum of position capital-time across accepted, filled, valid, completed discovery positions",
+    "unit": "inverse nanoseconds after the common microdollar unit cancels",
+    "formula": "capital_efficiency = total_net_pnl_microdollars / capital_time_microdollar_nanoseconds reduced by gcd",
+    "concurrency": "overlapping position capital-time is additive; long and short absolute notionals never net",
+    "reuse": "sequential positions contribute separate intervals; released capital may be reused and is counted again only while redeployed",
+    "partial_fills": "unsupported by V002; V004 introduces no tranche or partial-fill behavior",
+    "partial_intervals": "exact nanoseconds are used without session or bar rounding",
+    "rejected_and_unfilled": "excluded from numerator, denominator, and completed-trade population",
+    "unused_cash": "excluded and not penalized",
+    "zero_denominator": "event-ineligible with V004_CAPITAL_EFFICIENCY_ZERO_DEPLOYED_TIME and existing zero event-score treatment; no raw zero or infinity",
+    "negative_and_zero_pnl": "negative numerator is eligible when denominator is positive; zero numerator canonicalizes to 0/1",
+    "ranking": "higher is better through unchanged V003 ordinal percentile scoring"
+  },
+  "cost_stress_semantics": {
+    "schema_version": "aml.professional-strategy-olympics.cost-stress.v004",
+    "cost_stress_identity": "4373ee78d835a57cb5c5e1e246d49757492c115bc323476fa106032568a2480c",
+    "scenarios": [
+      {"id": "base_1x", "multiplier_numerator": 1, "multiplier_denominator": 1},
+      {"id": "stress_1_5x", "multiplier_numerator": 3, "multiplier_denominator": 2},
+      {"id": "stress_2x", "multiplier_numerator": 2, "multiplier_denominator": 1}
+    ],
+    "components": "multiply V002 combined 10-basis-point adverse market friction, per-share commission, minimum commission, and any evidenced borrow fee by the scenario multiplier; price impact remains unsupported and zero",
+    "proposals": "reuse immutable baseline proposals, signal timestamps, raw entry opens, raw exit prices, stops, targets, and exit timestamps; regeneration and eligibility reevaluation are prohibited",
+    "sizing": "reuse baseline actual filled quantity and portfolio acceptance; do not resize, reallocate, or rerun daily/concurrency/exposure gates",
+    "entry_exit": "reprice the same raw entry and raw exit with stressed adverse friction; stops and targets remain frozen absolute prices and no exit may move to another bar",
+    "infeasible": "if stressed cost-adjusted entry is at or above the frozen target, or any required stressed fill is nonpositive/unavailable, the event is ineligible with V004_COST_STRESS_INFEASIBLE_FILL",
+    "borrow": "a scored short requires point-in-time borrow and fee evidence at baseline; absent evidence disqualifies it before stress; evidenced borrow fee is multiplied",
+    "scenario_expectancy": "mean exact stressed net_R across the same baseline completed-trade population",
+    "raw_formula": "minimum(base_1x_expectancy,stress_1_5x_expectancy,stress_2x_expectancy)",
+    "minimum_scenarios": 3,
+    "zero_trades": "event-ineligible with existing zero event-score treatment",
+    "baseline_disqualification": "entrant remains disqualified and is not stress-ranked",
+    "stress_only_failure": "event-ineligible with zero event score; not an entrant disqualification unless caused by integrity corruption",
+    "clipping": "none",
+    "tie": "higher exact 2x-cost expectancy, then immutable identity under unchanged V003"
+  },
+  "raw_event_registry": {
+    "schema_version": "aml.professional-strategy-olympics.raw-event-registry.v004",
+    "raw_event_registry_identity": "094c778707f97ddd3841b55ada4e06c742e348f6886876017376e5aabbb38623",
+    "common_rules": {
+      "eligible_population": "registered V002 benchmark entrants that are not disqualified and have all event-required valid inputs",
+      "invalid_event": "exclude from V003 event denominator and assign existing exact 0/1 event score with a deterministic reason",
+      "ordering": "UTC exit timestamp; trades sharing an exit timestamp are aggregated before path metrics; remaining records sort by entry timestamp, symbol UTF-8, proposal identity UTF-8",
+      "weighting": "each completed trade contributes equally unless an event explicitly groups by month, regime, split, or capital-time",
+      "non_finite": "event-ineligible; integrity-origin non-finite values abort or disqualify under the matrix",
+      "rounding": "precision policy applies; no event-specific hidden tolerance",
+      "tie_behavior": "unchanged V003 event tie fields followed by immutable strategy identity"
+    },
+    "events": [
+      {
+        "event_id": "net_expectancy", "name": "Net expectancy", "purpose": "average net risk-unit result", "unit": "R", "direction": "higher_is_better", "domain": "all exact rationals", "inputs": ["completed_trade_net_R"], "timestamp_semantics": "completed exits in the opened stage", "population": "all valid completed trades", "formula": "sum(net_R)/completed_trade_count", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible", "zero_denominator": "event-ineligible", "non_finite": "event-ineligible_or_integrity_failure", "minimum_observations": 30, "disqualification": "disqualified entrants excluded", "aggregation_level": "trade", "aggregation_order": "order-independent exact sum", "weight": 15, "winsorization": "none", "tie_fields": ["maximum_drawdown lower"], "stage_availability": "opened stage", "reference_example": "net_R [-1/2,1] -> 1/4"
+      },
+      {
+        "event_id": "downside_adjusted_return", "name": "Downside-adjusted return", "purpose": "mean return relative to lower partial second moment", "unit": "dimensionless algebraic", "direction": "higher_is_better", "domain": "finite real when downside second moment positive", "inputs": ["completed_trade_net_R"], "timestamp_semantics": "completed exits in the opened stage", "population": "all valid completed trades with at least one negative net_R", "formula": "mu/sqrt(q), mu=sum(net_R)/n, q=sum(min(net_R,0)^2)/n", "intermediate_rounding": "none", "final_rounding": "store exact mu and q; decimal display non-authoritative", "missing": "event-ineligible", "zero_denominator": "event-ineligible_no_downside_sample", "non_finite": "event-ineligible_or_integrity_failure", "minimum_observations": 30, "disqualification": "disqualified entrants excluded", "aggregation_level": "trade", "aggregation_order": "order-independent exact sums", "weight": 7, "winsorization": "none", "tie_fields": ["net_expectancy higher"], "stage_availability": "opened stage", "reference_example": "net_R [-1,1] -> mu=0,q=1/2,raw=0"
+      },
+      {
+        "event_id": "maximum_drawdown", "name": "Maximum drawdown", "purpose": "worst completed-exit equity decline", "unit": "R", "direction": "lower_is_better", "domain": "non-negative exact rational", "inputs": ["completed_trade_net_R", "exit_timestamp"], "timestamp_semantics": "UTC exit instants; same-instant results aggregated", "population": "all valid completed trades", "formula": "max_t(prior_peak_cumulative_R-cumulative_R_t), with initial cumulative_R and peak both 0", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible", "zero_denominator": "not applicable", "non_finite": "integrity failure", "minimum_observations": 30, "disqualification": "disqualified entrants excluded", "aggregation_level": "exit timestamp", "aggregation_order": "UTC ascending after same-instant aggregation", "weight": 10, "winsorization": "none", "tie_fields": ["net_expectancy higher"], "stage_availability": "opened stage", "reference_example": "timestamp sums [1,-3,1] -> drawdown 3"
+      },
+      {
+        "event_id": "profit_factor", "name": "Profit factor", "purpose": "gross winning P&L per gross losing P&L", "unit": "dimensionless", "direction": "higher_is_better", "domain": "positive exact rational", "inputs": ["completed_trade_net_pnl_microdollars"], "timestamp_semantics": "completed exits in opened stage", "population": "all valid completed trades with at least one win and one loss", "formula": "sum(positive_pnl)/abs(sum(negative_pnl))", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible", "zero_denominator": "event-ineligible_no_losses_or_no_wins", "non_finite": "integrity failure", "minimum_observations": 30, "disqualification": "disqualified entrants excluded", "aggregation_level": "trade", "aggregation_order": "order-independent integer sums", "weight": 5, "winsorization": "event score naturally bounded by V003; raw metric not clipped", "tie_fields": ["net_expectancy higher"], "stage_availability": "opened stage", "reference_example": "pnl [200,-100] -> 2"
+      },
+      {
+        "event_id": "payoff_ratio", "name": "Payoff ratio", "purpose": "average win per absolute average loss", "unit": "dimensionless", "direction": "higher_is_better", "domain": "positive exact rational", "inputs": ["completed_trade_net_pnl_microdollars"], "timestamp_semantics": "completed exits in opened stage", "population": "winning and losing valid completed trades", "formula": "(sum(wins)/win_count)/(abs(sum(losses))/loss_count)", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible", "zero_denominator": "event-ineligible_no_losses_or_no_wins", "non_finite": "integrity failure", "minimum_observations": 30, "disqualification": "disqualified entrants excluded", "aggregation_level": "trade", "aggregation_order": "order-independent integer sums", "weight": 4, "winsorization": "none", "tie_fields": ["hit_rate higher"], "stage_availability": "opened stage", "reference_example": "wins [200,100],losses [-100] -> 3/2"
+      },
+      {
+        "event_id": "hit_rate", "name": "Hit rate", "purpose": "fraction of completed trades with strictly positive net P&L", "unit": "proportion", "direction": "higher_is_better", "domain": "[0,1] exact rational", "inputs": ["completed_trade_net_pnl_microdollars"], "timestamp_semantics": "completed exits in opened stage", "population": "all valid completed trades; zero P&L is not a win", "formula": "positive_net_pnl_trade_count/completed_trade_count", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible", "zero_denominator": "event-ineligible", "non_finite": "integrity failure", "minimum_observations": 30, "disqualification": "disqualified entrants excluded", "aggregation_level": "trade", "aggregation_order": "order-independent counts", "weight": 3, "winsorization": "none", "tie_fields": ["payoff_ratio higher"], "stage_availability": "opened stage", "reference_example": "pnl [1,0,-1] -> 1/3"
+      },
+      {
+        "event_id": "tail_loss", "name": "Tail-loss control", "purpose": "negative average of the worst five-percent trade outcomes", "unit": "R", "direction": "higher_is_better", "domain": "all exact rationals", "inputs": ["completed_trade_net_R"], "timestamp_semantics": "completed exits in opened stage", "population": "all valid completed trades", "formula": "k=ceil(n/20); sort net_R ascending; raw=-sum(first k)/k", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible", "zero_denominator": "event-ineligible", "non_finite": "integrity failure", "minimum_observations": 40, "disqualification": "disqualified entrants excluded", "aggregation_level": "trade", "aggregation_order": "net_R ascending then proposal identity for equal values", "weight": 7, "winsorization": "none", "tie_fields": ["maximum_drawdown lower"], "stage_availability": "opened stage", "reference_example": "40 trades worst -2 -> raw 2"
+      },
+      {
+        "event_id": "monthly_stability", "name": "Monthly stability", "purpose": "typical monthly expectancy penalized by dispersion", "unit": "R", "direction": "higher_is_better", "domain": "all exact rationals", "inputs": ["completed_trade_net_R", "exit_timestamp"], "timestamp_semantics": "America/New_York calendar month of exit timestamp", "population": "active months with at least five valid completed trades", "formula": "median(month_expectancy)-median(abs(month_expectancy-median(month_expectancy))); even median is arithmetic mean of two central exact values", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible", "zero_denominator": "event-ineligible", "non_finite": "integrity failure", "minimum_observations": 30, "disqualification": "requires at least three qualifying months", "aggregation_level": "month then equal-weight months", "aggregation_order": "month YYYY-MM ascending; median value ordering exact", "weight": 6, "winsorization": "none", "tie_fields": ["active_months higher"], "stage_availability": "opened stage", "reference_example": "monthly [0,1,2,3] -> median 3/2,MAD 1,raw 1/2"
+      },
+      {
+        "event_id": "regime_stability", "name": "Regime stability", "purpose": "worst expectancy across prospectively frozen regimes", "unit": "R", "direction": "higher_is_better", "domain": "all exact rationals", "inputs": ["completed_trade_net_R", "pre_outcome_regime_label", "regime_manifest_identity"], "timestamp_semantics": "label fixed for session before its regular open and bound by manifest", "population": "regimes with at least ten valid completed trades", "formula": "minimum(regime_expectancy), regime_expectancy=sum(net_R)/regime_trade_count", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible_missing_regime_manifest_or_label", "zero_denominator": "event-ineligible", "non_finite": "integrity failure", "minimum_observations": 30, "disqualification": "overlapping, outcome-derived, changed, or post-open labels abort tournament", "aggregation_level": "regime then minimum", "aggregation_order": "regime label UTF-8 ascending before exact minimum", "weight": 6, "winsorization": "none", "tie_fields": ["median_regime_expectancy higher"], "stage_availability": "discovery only after a separately frozen pre-outcome regime manifest with at least two qualifying regimes", "reference_example": "regime expectations [1/5,-1/10] -> -1/10"
+      },
+      {
+        "event_id": "validation_consistency", "name": "Validation consistency", "purpose": "penalize discovery-validation expectancy divergence", "unit": "R", "direction": "higher_is_better", "domain": "all exact rationals", "inputs": ["discovery_net_expectancy", "validation_net_expectancy", "stage_artifact_identities"], "timestamp_semantics": "validation used only after formally opened and completed", "population": "unchanged entrants qualifying in discovery and untouched validation", "formula": "min(discovery,validation)-abs(discovery-validation)", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible_before_validation", "zero_denominator": "not applicable", "non_finite": "integrity failure", "minimum_observations": 60, "disqualification": "identity or stage contamination disqualifies", "aggregation_level": "stage", "aggregation_order": "discovery then validation", "weight": 10, "winsorization": "none", "tie_fields": ["validation_net_expectancy higher"], "stage_availability": "validation opened", "reference_example": "discovery 1/5,validation 1/10 -> 0"
+      },
+      {
+        "event_id": "holdout_consistency", "name": "One-time holdout consistency", "purpose": "penalize three-stage expectancy divergence", "unit": "R", "direction": "higher_is_better", "domain": "all exact rationals", "inputs": ["discovery_net_expectancy", "validation_net_expectancy", "holdout_net_expectancy", "stage_artifact_identities"], "timestamp_semantics": "holdout used only after one-time authorized opening and completion", "population": "unchanged entrants qualifying in all three stages", "formula": "min(d,v,h)-max(abs(d-v),abs(d-h),abs(v-h))", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible_before_holdout", "zero_denominator": "not applicable", "non_finite": "integrity failure", "minimum_observations": 90, "disqualification": "identity, repeated holdout, or stage contamination disqualifies", "aggregation_level": "stage", "aggregation_order": "discovery,validation,holdout", "weight": 12, "winsorization": "none", "tie_fields": ["holdout_net_expectancy higher"], "stage_availability": "one-time holdout opened", "reference_example": "[1/5,1/10,3/20] -> 0"
+      },
+      {
+        "event_id": "capital_efficiency", "name": "Capital efficiency", "purpose": "net result per deployed capital-time", "unit": "inverse nanoseconds", "direction": "higher_is_better", "domain": "all exact rationals with positive denominator", "inputs": ["completed_trade_net_pnl_microdollars", "filled_quantity", "cost_adjusted_entry_microdollars", "entry_nanoseconds", "exit_nanoseconds"], "timestamp_semantics": "half-open UTC intervals", "population": "accepted, filled, valid, completed discovery positions attributed to entrant", "formula": "sum(net_pnl_microdollars)/sum(abs(quantity)*entry_microdollars*(exit_ns-entry_ns))", "intermediate_rounding": "none after canonical atoms", "final_rounding": "reduced fraction", "missing": "event-ineligible_or_integrity_failure", "zero_denominator": "event-ineligible", "non_finite": "integrity failure", "minimum_observations": 30, "disqualification": "ledger mismatch disqualifies", "aggregation_level": "position", "aggregation_order": "order-independent integer sums", "weight": 4, "winsorization": "none", "tie_fields": ["capital_constrained_net_expectancy higher"], "stage_availability": "discovery capital-constrained ledger", "reference_example": "100 microdollar pnl over 1000 microdollar-ns -> 1/10 ns^-1"
+      },
+      {
+        "event_id": "trade_sufficiency", "name": "Trade sufficiency", "purpose": "descriptive evidence-count saturation", "unit": "points before V003", "direction": "higher_is_better", "domain": "[0,100] exact rational", "inputs": ["completed_trade_count"], "timestamp_semantics": "completed exits in opened stage", "population": "valid completed trades", "formula": "100*min(1,completed_trade_count/100)", "intermediate_rounding": "none", "final_rounding": "integer for counts 0..100", "missing": "zero count produces raw 0 but remains event-ineligible under V001 zero-trade rule", "zero_denominator": "not applicable", "non_finite": "integrity failure", "minimum_observations": 1, "disqualification": "disqualified entrants excluded", "aggregation_level": "entrant count", "aggregation_order": "not applicable", "weight": 3, "winsorization": "formula capped at 100", "tie_fields": ["active_dates higher"], "stage_availability": "opened stage", "reference_example": "25 trades -> 25"
+      },
+      {
+        "event_id": "execution_robustness", "name": "Execution robustness", "purpose": "worst expectancy under frozen transaction-cost stresses", "unit": "R", "direction": "higher_is_better", "domain": "all exact rationals", "inputs": ["baseline_completed_trades", "frozen_proposals", "V002_cost_atoms"], "timestamp_semantics": "same baseline entry and exit instants in every scenario", "population": "same baseline valid completed-trade population in all three scenarios", "formula": "min(expectancy_base_1x,expectancy_stress_1_5x,expectancy_stress_2x)", "intermediate_rounding": "none after canonical atoms", "final_rounding": "reduced fraction", "missing": "event-ineligible_if_any_scenario_missing_or_infeasible", "zero_denominator": "event-ineligible_zero_trades", "non_finite": "integrity failure", "minimum_observations": 30, "disqualification": "baseline-disqualified entrant excluded", "aggregation_level": "scenario then minimum", "aggregation_order": "base_1x,stress_1_5x,stress_2x", "weight": 4, "winsorization": "none", "tie_fields": ["two_x_cost_expectancy higher"], "stage_availability": "opened stage with reconciled baseline outcomes", "reference_example": "scenario expectations [1/5,1/10,-1/20] -> -1/20"
+      },
+      {
+        "event_id": "sensitivity_robustness", "name": "Parameter sensitivity robustness", "purpose": "worst expectancy across preregistered variants", "unit": "R", "direction": "higher_is_better", "domain": "all exact rationals", "inputs": ["canonical_expectancy", "declared_variant_expectancies", "variant_identities"], "timestamp_semantics": "identical opened-stage partitions", "population": "canonical contract and every prospectively declared variant", "formula": "minimum(all declared expectancy values); canonical-only contracts use canonical expectancy and range 0", "intermediate_rounding": "none", "final_rounding": "none", "missing": "event-ineligible_if_any_declared_variant_missing", "zero_denominator": "not applicable", "non_finite": "integrity failure", "minimum_observations": 30, "disqualification": "post-outcome variant mutation disqualifies", "aggregation_level": "variant then minimum", "aggregation_order": "canonical first then variant identity UTF-8 ascending", "weight": 4, "winsorization": "none", "tie_fields": ["expectancy_range lower"], "stage_availability": "opened stage; current V002 variants empty", "reference_example": "canonical 1/10 only -> 1/10,range 0"
+      }
+    ]
+  },
+  "disqualification_matrix": {
+    "schema_version": "aml.professional-strategy-olympics.disqualification-matrix.v004",
+    "disqualification_identity": "aea0a9decdcf1f5555e9eaa30b0c1ddba7f736ea88836ffbe79448265ad08ccd",
+    "precedence": ["tournament_abort", "entrant_disqualification", "event_failure", "trade_rejection", "proposal_rejection"],
+    "rules": [
+      {"condition": "invalid_proposal_or_pre_entry_invalidation", "action": "proposal_rejection", "reason": "record deterministic rejection; no capital or outcome"},
+      {"condition": "unavailable_required_input_before_proposal", "action": "proposal_rejection", "reason": "ordinary unavailable path only when provenance and negative coverage are valid"},
+      {"condition": "impossible_or_infeasible_baseline_fill", "action": "trade_rejection", "reason": "no fabricated fill; preserve proposal and rejection"},
+      {"condition": "cost_stress_only_infeasible_fill", "action": "event_failure", "reason": "execution robustness ineligible with zero event score"},
+      {"condition": "missing_required_event_due_to_minimum_sample_or_unopened_stage", "action": "event_failure", "reason": "event-ineligible with frozen zero score, not disqualification"},
+      {"condition": "non_finite_metric_from_valid_empty_or_undefined_population", "action": "event_failure", "reason": "event-ineligible; never rank infinity or NaN"},
+      {"condition": "schema_violation_or_non_finite_source_value", "action": "entrant_disqualification", "reason": "integrity defect is not performance"},
+      {"condition": "nondeterministic_executor_output", "action": "entrant_disqualification", "reason": "preserve failed run and executor evidence"},
+      {"condition": "lookahead_or_prohibited_data_access", "action": "entrant_disqualification", "reason": "future information invalidates entrant evidence"},
+      {"condition": "capital_risk_or_negative_cash_breach", "action": "entrant_disqualification", "reason": "allocator integrity failure"},
+      {"condition": "invalid_post_fill_price_or_missing_nonhalt_open_position_bar", "action": "entrant_disqualification", "reason": "outcome cannot be fabricated"},
+      {"condition": "entrant_identity_mismatch_or_unauthorized_strategy_mutation", "action": "entrant_disqualification", "reason": "changed strategy cannot inherit entry"},
+      {"condition": "manifest_mismatch_or_unreconciled_entrant_ledger", "action": "entrant_disqualification", "reason": "preserve immutable failed artifacts"},
+      {"condition": "duplicate_proposal_identity", "action": "entrant_disqualification", "reason": "ambiguous execution lineage"},
+      {"condition": "output_collision_with_different_bytes", "action": "tournament_abort", "reason": "write-once identity conflict"},
+      {"condition": "common_input_manifest_calendar_partition_or_stage_mismatch", "action": "tournament_abort", "reason": "shared comparison basis invalid"},
+      {"condition": "missing_common_required_input_or_ambiguous_halt_corporate_action", "action": "tournament_abort", "reason": "common dataset cannot support fair comparison"},
+      {"condition": "unauthorized_validation_holdout_forward_or_production_access", "action": "tournament_abort", "reason": "sealed boundary crossed"},
+      {"condition": "partial_publication_or_completion_manifest_failure", "action": "tournament_abort", "reason": "run remains failed and unpublished; no cleanup or partial result use"}
+    ],
+    "placement": "disqualified entrants are listed after all nondisqualified entrants with no event ranks, no medals, zero advancement credit, and reason codes sorted UTF-8; identity orders multiple disqualified entrants",
+    "integrity_rule": "integrity violations never become ordinary low scores"
+  },
+  "worked_examples": {
+    "schema_version": "aml.professional-strategy-olympics.worked-examples.v004",
+    "worked_examples_identity": "82bd3caabbcdce670fc5eb5d52db757e157930f42e231e04b6c27127a42ea730",
+    "claim": "synthetic_design_vectors_only_not_results",
+    "examples": [
+      {"id": "two_completed_entrants", "inputs": "A net_R [1,-1/2], B [1/4,1/4]", "intermediate": "both expectancy 1/4; A drawdown 1/2, B drawdown 0", "raw_events": "net_expectancy tie 1/4", "ranks": "V003 drawdown tie field makes A least favorable then B", "final_result": "B receives higher net-expectancy event score; no profitability claim"},
+      {"id": "same_bar_stop_target", "inputs": "long bar low below stop and high above target after non-gap open", "intermediate": "stop evaluated first", "raw_events": "trade uses stop exit and resulting net_R", "ranks": "not independently ranked", "final_result": "conservative stop outcome"},
+      {"id": "sequential_reuse", "inputs": "100 shares at 10 USD for 60 seconds then 100 shares at 10 USD for 30 seconds", "intermediate": "capital-time 1000*90 USD-seconds", "raw_events": "sum net P&L divided by summed intervals", "ranks": "higher exact fraction favored", "final_result": "released capital is counted again only while redeployed"},
+      {"id": "overlapping_capital", "inputs": "1000 USD open 60 seconds plus 500 USD open during final 30 seconds", "intermediate": "60000+15000 USD-seconds", "raw_events": "denominator 75000 USD-seconds", "ranks": "higher exact efficiency favored", "final_result": "overlap additive without netting"},
+      {"id": "no_trade", "inputs": "proposals all rejected", "intermediate": "zero completed trades and zero capital-time", "raw_events": "trade events ineligible", "ranks": "excluded from eligible denominators; zero event scores", "final_result": "reported no-trade entrant, not fabricated worst raw value"},
+      {"id": "infeasible_entry", "inputs": "stressed entry reaches frozen target", "intermediate": "baseline trade unchanged; stress fill infeasible", "raw_events": "execution robustness ineligible", "ranks": "excluded from event cohort with zero event score", "final_result": "entrant remains otherwise eligible unless integrity caused failure"},
+      {"id": "cost_degradation", "inputs": "scenario expectancy [1/5,1/20,-1/10]", "intermediate": "minimum -1/10", "raw_events": "execution robustness -1/10", "ranks": "higher exact raw value favored", "final_result": "baseline winner receives no favorable regeneration"},
+      {"id": "capital_efficiency_tradeoff", "inputs": "A profit 100 over 100000 capital-time; B profit 60 over 10000", "intermediate": "A 1/1000; B 3/500", "raw_events": "B higher despite lower profit", "ranks": "A least favorable then B", "final_result": "event rewards lower occupied capital-time, not absolute profit"},
+      {"id": "tied_raw_event", "inputs": "equal net expectancy with drawdowns 2 and 1", "intermediate": "apply frozen lower-drawdown tie field", "raw_events": "raw tie", "ranks": "drawdown 2 least favorable then drawdown 1", "final_result": "unique ordinal ranks under V003"},
+      {"id": "tied_final_score", "inputs": "equal weighted score and discovery drawdown", "intermediate": "validation and holdout unopened and skipped", "raw_events": "equal final weighted score", "ranks": "immutable identity UTF-8 ascending resolves total order", "final_result": "identity tie-break is not performance evidence"},
+      {"id": "disqualified_entrant", "inputs": "executor output differs under identical inputs", "intermediate": "nondeterminism integrity rule", "raw_events": "no official event ranks", "ranks": "listed after nondisqualified entrants by identity", "final_result": "entrant disqualified and failed evidence preserved"},
+      {"id": "missing_common_input", "inputs": "common calendar manifest missing", "intermediate": "fair comparison basis unavailable", "raw_events": "none", "ranks": "none", "final_result": "entire tournament aborts before scoring"},
+      {"id": "partial_publication", "inputs": "one artifact exists without valid completion manifest", "intermediate": "write-once preflight detects incomplete run", "raw_events": "unpublished", "ranks": "unpublished", "final_result": "tournament aborts; partial files retained and never treated as results"},
+      {"id": "partial_deployment", "inputs": "risk sizing requests 100 shares but available-cash cap fills 40", "intermediate": "notional and capital-time use 40 actual shares", "raw_events": "no capital attributed to rejected 60-share remainder", "ranks": "higher exact efficiency favored", "final_result": "V002 atomic fill is the reduced whole-share quantity"},
+      {"id": "fully_deployed_capital", "inputs": "quantity 10000, entry 10000000 microdollars, entry_ns 0, exit_ns 60000000000, net_pnl 1000000 microdollars", "intermediate": "notional 100000000000 microdollars; capital-time 6000000000000000000000 microdollar-ns", "raw_events": "capital_efficiency 1/6000000000000000 inverse-ns", "ranks": "higher exact fraction favored", "final_result": "the full 100000 USD deployment contributes only during its exact 60-second interval"},
+      {"id": "cost_stable", "inputs": "scenario net_R totals base 3/5, 1.5x 3/5, 2x 3/5 over 3 identical trades", "intermediate": "scenario expectancies 1/5,1/5,1/5", "raw_events": "execution_robustness 1/5", "ranks": "higher exact fraction favored", "final_result": "identical cost outcomes retain the common expectancy without bonus"},
+      {"id": "cost_gradual", "inputs": "scenario expectancy base 1/4, 1.5x 1/8, 2x 0", "intermediate": "exact minimum is 0", "raw_events": "execution_robustness 0/1", "ranks": "higher exact fraction favored", "final_result": "gradual degradation is represented by the worst frozen scenario"},
+      {"id": "cost_positive_to_negative", "inputs": "scenario expectancy base 1/10, 1.5x 0, 2x -1/10", "intermediate": "exact minimum is -1/10", "raw_events": "execution_robustness -1/10", "ranks": "higher exact fraction favored", "final_result": "positive baseline does not hide negative stressed expectancy"},
+      {"id": "cost_zero_baseline_trades", "inputs": "baseline completed-trade population empty", "intermediate": "all scenario denominators zero", "raw_events": "execution_robustness ineligible with exact event score 0/1", "ranks": "excluded from eligible event denominator", "final_result": "no scenario outcome or profitability is fabricated"}
+    ]
+  },
+  "readiness": {
+    "schema_version": "aml.professional-strategy-olympics.final-scoring-readiness.v004",
+    "readiness_identity": "59d94ca38ac81bdf1c1bf7591ce5aed7b3781027d6c06022a54410a99cc4390e",
+    "status": "scoring_mathematics_frozen_orchestrator_may_begin_after_merge",
+    "scoring_mathematics_fully_frozen": true,
+    "raw_event_semantics_complete": true,
+    "tournament_runner_implemented": false,
+    "official_run_authorized": false,
+    "historical_run_authorized": false,
+    "synthetic_trial_authorized": false,
+    "tournament_scoring_executed": false,
+    "empirical_data_accessed": false,
+    "validation_opened": false,
+    "holdout_opened": false,
+    "performance_claim": false,
+    "next_milestone": "implement_versioned_orchestrator_against_exact_V004_bundle_then_pass_exact-head_CI_and_obtain_separate_synthetic-trial_authorization"
+  },
+  "validation_manifest": {
+    "schema_version": "aml.professional-strategy-olympics.final-scoring-validation.v004",
+    "validation_identity": "9024485548fc0a249f22e9e1a17be5d0cf5e7a61e87942777a00ae391f5d9026",
+    "required_sections": ["precision_policy", "lifecycle_outcome_semantics", "portfolio_capital_semantics", "capital_efficiency_semantics", "cost_stress_semantics", "raw_event_registry", "disqualification_matrix", "worked_examples", "readiness"],
+    "required_event_ids": ["net_expectancy", "downside_adjusted_return", "maximum_drawdown", "profit_factor", "payoff_ratio", "hit_rate", "tail_loss", "monthly_stability", "regime_stability", "validation_consistency", "holdout_consistency", "capital_efficiency", "trade_sufficiency", "execution_robustness", "sensitivity_robustness"],
+    "required_example_count": 19,
+    "identity_regeneration_required": true,
+    "prior_identity_preservation_required": true,
+    "runner_prohibited": true,
+    "official_results_prohibited": true,
+    "status": "design_complete_execution_blocked"
+  },
+  "authorization": {
+    "orchestration_authorized": false,
+    "empirical_runner_authorized": false,
+    "synthetic_trial_authorized": false,
+    "historical_run_authorized": false,
+    "discovery_authorized": false,
+    "tournament_scoring_authorized": false,
+    "official_run_authorized": false,
+    "validation_authorized": false,
+    "holdout_authorized": false,
+    "paper_authorized": false,
+    "live_authorized": false,
+    "capital_release_authorized": false,
+    "production_authorized": false
+  }
+}
