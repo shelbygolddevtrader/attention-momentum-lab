@@ -1,0 +1,29 @@
+{
+  "adapter_contract_identity": "aed4de197ba09ac87fe41af52e299ca9f7319c613ef5182a2f442009a1013816",
+  "authorization_creation_permitted": false,
+  "authorization_schema": "aml.professional-strategy-olympics.lineage-bound-synthetic-trial-authorization.v003",
+  "classification": "prospective_execution_authorization_contract_not_authorization_not_trial",
+  "contract_identity": "6ebc042a7205ef7fe51262bdf51d6d2088c12f9977708c8c822027c8407858de",
+  "frozen_bindings": {
+    "canonical_fixture_identity": "7093c039bb2bb06ed63fad08238e6ac6594db2747f9b975822c1f7dc9d30ddb7",
+    "canonical_manifest_identity": "fc16aed963b8c6aac0b0e01affea29148cb4d396d8dfa3e5398d68671e4788b0",
+    "executor_registry_identity": "01c0efa7b35707ddbc837609f99051cdc3db63064410de9d10e334d601787111",
+    "lifecycle_identity": "b10c659118861f3818fc2b1f034a2700e055fdcc19bd51651969f660af94e384",
+    "merged_source_commit": "bfc06262e48cbcb5611f205f5aea2b4d7ac34493",
+    "simulator_registry_identity": "732fc6d982b031f0e6f428bb9e52e7c53e90a374fc883ec376504044fe7fea00",
+    "v001_implementation_identity": "fe4bda0a9f8ad68fd099847ba2cbaed2a006a0cf832b07e03d39a3dd96a600b0",
+    "v001_orchestrator_identity": "9e1af13518bc4c6588ce4faaf302e15182f9d42e5dd8c453fc6d27dd257b8d3e",
+    "v002_adapter_identity": "b656c07e0208479b85227b1d0b0e06f0e8f4ba5637bbb276ed045faf1bfce6d1",
+    "v002_contract_identity": "c9f6c8c3d02ba78c460c16230a6163fa0272b9464f60172c2bcae21fe0fbd3bb",
+    "v003_adapter_contract_identity": "baeb58120f458299b2d81e8381836d3c2ea00c21f28b47da703cb07a5e536261",
+    "v003_adapter_implementation_identity": "492fb738bf9617baff28974599dba2c019dbe23aa65fdb2570cf5c9304d2aada",
+    "v003_contract_identity": "4b33f5a806f4fb71e65dfe571b230c32e0fea7efbad5698b4f57af9e4276371f",
+    "v004_scoring_identity": "205c126be0d3f1af78899b69609a6ba86a0026ec6dd55729112da78eaa4f23bc"
+  },
+  "maximum_execution_count": 1,
+  "permitted_operation": "execute_inaugural_canonical_synthetic_olympics_once",
+  "publication_permitted": false,
+  "schema": "aml.professional-strategy-olympics.execution-authorization-contract.v003",
+  "trial_execution_permitted": false,
+  "version": "professional-strategy-olympics-execution-authorization-contract-v003"
+}
