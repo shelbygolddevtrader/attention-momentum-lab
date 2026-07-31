@@ -1,0 +1,180 @@
+{
+  "authorization": {
+    "can_authorize_trial": false,
+    "can_execute_trial": false,
+    "can_publish_results": false
+  },
+  "canonical_entrant_count": 10,
+  "canonical_ordering": "utf8-bytewise-entrant-binding-then-trade-exit-entry-symbol-proposal-v001",
+  "classification": "prospective_contract_not_trial_not_performance_result",
+  "contract_identity": "c9f6c8c3d02ba78c460c16230a6163fa0272b9464f60172c2bcae21fe0fbd3bb",
+  "enumerations": {
+    "direction": [
+      "long",
+      "short"
+    ],
+    "disqualification_reason": [
+      "capital_risk_or_negative_cash_breach",
+      "duplicate_proposal_identity",
+      "entrant_identity_mismatch_or_unauthorized_strategy_mutation",
+      "invalid_post_fill_price_or_missing_nonhalt_open_position_bar",
+      "lookahead_or_prohibited_data_access",
+      "manifest_mismatch_or_unreconciled_entrant_ledger",
+      "nondeterministic_executor_output",
+      "schema_violation_or_non_finite_source_value"
+    ],
+    "entrant_status": [
+      "active",
+      "disqualified",
+      "ineligible",
+      "integrity_failure"
+    ],
+    "execution_classification": [
+      "completed_synthetic_trade"
+    ],
+    "exit_reason": [
+      "invalidation",
+      "session_end",
+      "stop",
+      "target",
+      "timeout"
+    ],
+    "manifest_classification": [
+      "canonical_synthetic_trial_input_not_authorized",
+      "test_mathematical_specification_vector_not_trial_result"
+    ],
+    "sensitivity_classification": [
+      "canonical",
+      "sensitivity_variant"
+    ],
+    "stage_classification": [
+      "stage_unopened"
+    ]
+  },
+  "exact_arithmetic": {
+    "floating_point_permitted": false,
+    "integers": "microdollars_and_nanoseconds",
+    "rationals": "reduced_numerator_denominator"
+  },
+  "frozen_bindings": {
+    "executor_registry_identity": "01c0efa7b35707ddbc837609f99051cdc3db63064410de9d10e334d601787111",
+    "lifecycle_identity": "b10c659118861f3818fc2b1f034a2700e055fdcc19bd51651969f660af94e384",
+    "simulator_registry_identity": "732fc6d982b031f0e6f428bb9e52e7c53e90a374fc883ec376504044fe7fea00",
+    "source_commit_identity": "43c9410670cc1c5179f43094a7fa1e2dd92e945a",
+    "v001_orchestrator_contract_identity": "9e1af13518bc4c6588ce4faaf302e15182f9d42e5dd8c453fc6d27dd257b8d3e",
+    "v001_orchestrator_implementation_identity": "fe4bda0a9f8ad68fd099847ba2cbaed2a006a0cf832b07e03d39a3dd96a600b0",
+    "v002_adapter_contract_identity": "4506a3c917161da771fbdd1fa5ab742903e32982421607ac38789effcf10efc5",
+    "v004_scoring_bundle_identity": "205c126be0d3f1af78899b69609a6ba86a0026ec6dd55729112da78eaa4f23bc"
+  },
+  "identity_policy": {
+    "algorithm": "sha256",
+    "path_bound": false,
+    "serialization": "repository_canonical_json_utf8",
+    "timezone_bound": false,
+    "wall_clock_bound": false
+  },
+  "manifest_schema": "aml.professional-strategy-olympics.synthetic-input-manifest.v002",
+  "manifest_version": "professional-strategy-olympics-synthetic-input-manifest-v002",
+  "prospective_as_of": "2026-07-30T00:00:00Z",
+  "required_fields": {
+    "cost": [
+      "borrow_cost_microdollars",
+      "entry_commission_microdollars",
+      "entry_friction_basis_points",
+      "exit_commission_microdollars",
+      "exit_friction_basis_points",
+      "other_costs_microdollars",
+      "price_impact_cost_microdollars",
+      "source_identity"
+    ],
+    "entrant": [
+      "active_dates",
+      "disqualification_reasons",
+      "entrant_id",
+      "entrant_identity",
+      "executor_identity",
+      "holdout_classification",
+      "ineligibility_reasons",
+      "integrity_failures",
+      "lifecycle_identity",
+      "sensitivity_expectation_set",
+      "simulator_identity",
+      "status",
+      "strategy_identity",
+      "trade_count",
+      "trades",
+      "validation_classification"
+    ],
+    "lifecycle": [
+      "evidence_identity",
+      "invalidation_reached",
+      "same_bar_stop_and_target",
+      "session_end_reached",
+      "stop_reached",
+      "target_reached",
+      "timeout_reached"
+    ],
+    "root": [
+      "access_prohibitions",
+      "classification",
+      "entrant_count",
+      "entrants",
+      "executor_registry_identity",
+      "fixture_identity",
+      "lifecycle_identity",
+      "manifest_identity",
+      "opened_stages",
+      "ordering_version",
+      "schema_name",
+      "schema_version",
+      "simulator_registry_identity",
+      "source_commit_identity",
+      "synthetic_only",
+      "v001_orchestrator_contract_identity",
+      "v001_orchestrator_implementation_identity",
+      "v002_adapter_contract_identity",
+      "v002_adapter_implementation_identity",
+      "v004_scoring_bundle_identity"
+    ],
+    "trade": [
+      "actual_entry_timestamp_nanoseconds",
+      "actual_quantity",
+      "adjusted_entry_microdollars",
+      "adjusted_exit_microdollars",
+      "capital_efficiency_denominator_microdollar_nanoseconds",
+      "capital_efficiency_numerator_microdollars",
+      "confidence",
+      "cost_stress_source",
+      "direction",
+      "elapsed_holding_nanoseconds",
+      "entry_commission_microdollars",
+      "entry_delay_nanoseconds",
+      "execution_classification",
+      "exit_commission_microdollars",
+      "exit_reason",
+      "exit_timestamp_nanoseconds",
+      "gross_pnl_microdollars",
+      "holdout_classification",
+      "initial_risk_microdollars",
+      "intended_entry_timestamp_nanoseconds",
+      "lifecycle_evidence",
+      "month_new_york",
+      "net_R",
+      "net_pnl_microdollars",
+      "other_costs_microdollars",
+      "proposal_identity",
+      "proposal_timestamp_nanoseconds",
+      "raw_entry_microdollars",
+      "raw_exit_microdollars",
+      "regime_label",
+      "sensitivity_classification",
+      "stop_microdollars",
+      "symbol",
+      "target_microdollars",
+      "trade_identity",
+      "validation_classification"
+    ]
+  },
+  "schema": "aml.professional-strategy-olympics.input-manifest-contract.v002",
+  "version": "professional-strategy-olympics-input-manifest-contract-v002"
+}
