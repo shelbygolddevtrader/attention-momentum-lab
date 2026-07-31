@@ -1,0 +1,12 @@
+{
+  "authorization_creation_permitted": false,
+  "classification": "prospective_execution_publication_contract_not_authorization_not_trial",
+  "contract_identity": "0dd043154b5ee90cbfa049df6977aaa8c7ec2a0f585a8c7952c77314893e7053",
+  "execution_without_external_authorization_permitted": false,
+  "maximum_execution_count": 1,
+  "publication_without_external_authorization_permitted": false,
+  "schema": "aml.professional-strategy-olympics.execution-publication-contract.v004",
+  "source_commit_binding": "exact_checked_out_commit",
+  "version": "professional-strategy-olympics-execution-publication-contract-v004",
+  "write_once_publication": true
+}
