@@ -4,6 +4,8 @@ The authorization-gated [Professional Strategy Benchmark Olympics Orchestrator V
 
 The design-only [Professional Strategy Benchmark Olympics Final Scoring V004](docs/PROFESSIONAL_STRATEGY_OLYMPICS_FINAL_SCORING_V004.md) freezes the final event, precision, capital-efficiency, cost-stress, lifecycle, and disqualification semantics. It authorizes no tournament execution or result.
 
+The merged [Authorization Governance V005](docs/PROFESSIONAL_STRATEGY_OLYMPICS_AUTHORIZATION_GOVERNANCE_V005.md) freezes the typed authorization lifecycle but remains a pure, non-executing validator. The additive, design-only [Operator Interface V006](docs/PROFESSIONAL_STRATEGY_OLYMPICS_OPERATOR_INTERFACE_V006.md) now freezes the missing authorization-package, external-trust, V005-to-V004 projection, ordering, and failure boundaries behind the unchanged V005 command. No authorization, operator, or Olympics result exists.
+
 The independent Lean Discovery Protocol V001 is specified in
 [`docs/LEAN_DISCOVERY_PROTOCOL_V001.md`](docs/LEAN_DISCOVERY_PROTOCOL_V001.md).
 It is a provider-bounded, preliminary price-and-volume research design with its
