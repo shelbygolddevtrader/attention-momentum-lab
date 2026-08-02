@@ -1,254 +1,214 @@
-# Professional Strategy Benchmark Olympics V005 authorization governance
+# Professional Strategy Benchmark Olympics V005 Authorization Governance
 
-Status: `DESIGN_ONLY_V005_CORRECTED_AUTHORIZATION_NOT_CREATED`
+Status: `DESIGN_ONLY_V005_CORRECTED_LIFECYCLE_AUTHORIZATION_NOT_CREATED`
 
-This prospective V005 contract is the final design layer between the frozen V004 publication protocol and a future, separately reviewed implementation. It validates only canonical contract data and synthetic evidence. It creates no authorization, consumes no authorization, performs no filesystem arbitration, contacts no clock service, executes no Olympics entry point, and accesses no protected input.
+This milestone freezes a pure, synthetic, fail-closed authorization-governance contract. It does not create an authorization, implement an authorization consumer, execute the Olympics, access protected data, or publish results.
 
-The machine source is `config/professional_strategy_olympics_authorization_governance_v005.json`. If this document and that contract ever differ, validation must fail and a new prospective correction is required; prose is not an alternate source of rules.
+The authoritative machine contract is `config/professional_strategy_olympics_authorization_governance_v005.json`. This document explains that contract; it is not an alternate policy source. The validator rejects any machine lifecycle that differs from its independently declared expected matrix.
 
-## 1. Frozen identities and lineage
+## Frozen identities
 
-- V005 governance domain: `aml.olympics.v005.governance`
-- V005 governance identity: `8ad8b4b4f9864a89167d73a38a99bc38a4629a4c02d09f8bb280502407811cd8`
-- Governance projection byte count: `62455`
-- Command domain: `aml.olympics.v005.command`
-- Command identity: `ff2c355895182af38127b9a863373fc00f7a0563d9922e782cbf0e8da9431fdb`
-- Command projection byte count: `535`
-- Design base: `2f5390a844b9187b92da124a77173669f1b3f536`
+- Governance identity: `9408e2b9dcb4e14534f4f7699ea26fe0846f4a2d3f2ad416ea11758a34f2223a`
+- Governance projection: `104143` canonical bytes
+- Complete contract: `104230` canonical bytes
+- Execution-command identity: `ff2c355895182af38127b9a863373fc00f7a0563d9922e782cbf0e8da9431fdb`
+- Execution-command projection: `535` canonical bytes
 - V004 contract: `0dd043154b5ee90cbfa049df6977aaa8c7ec2a0f585a8c7952c77314893e7053`
 - V004 implementation: `d711d18cfbdc5aeaa01975102acd07a7767c6874670fc445abb5100abe79f5c4`
+- Design base: `2f5390a844b9187b92da124a77173669f1b3f536`
 - Immutable baseline tag object: `746e147efd9bb09dedfdd4d2850f461e36d9f046`
-- Immutable tagged commit: `378317dba28d93792d2f0a3ab4302a5d0b6abf7c`
+- Immutable baseline tagged commit: `378317dba28d93792d2f0a3ab4302a5d0b6abf7c`
 
-## 2. Scope and trust boundary
+Identity is `SHA-256(UTF8(domain) || 0x00 || canonical_projection_bytes)`. Canonical JSON uses sorted keys, compact separators, ASCII Unicode escapes, integers only, NFC strings, and exactly one trailing LF. Duplicate keys, floats, non-finite values, invalid Unicode, Boolean-as-integer substitutions, BOMs, unknown fields, noncanonical bytes, excessive depth, and oversized inputs reject.
 
-V005 defends against schema drift, cross-type identity substitution, noncanonical bytes, local-clock substitution, cached or proxied Date evidence, role collision, authorization replay, conflicting consumption or supersession, filesystem and path substitution, uncertain durability, archive overwrite, success/failure ambiguity, and documentary Git object forgery.
+## Scope and trust boundary
 
-It assumes SHA-256 and Git SHA-1 object calculations are collision resistant, the future consumer runs on one uncompromised macOS host and kernel, the APFS implementation reports truthful system-call evidence, and the authenticated GitHub origin is not compromised. The pure validator checks typed synthetic evidence; it does not claim to have performed the future system calls.
+V005 has 37 immutable typed artifact schemas and 27 transitions. Every lifecycle transition is evaluated from a closed typed bundle. A bundle has one transition envelope, one root event, an exact typed prior reference, an artifact-bound durability package, an assigned stable-account actor, and a unique documentary clock package.
 
-## 3. Exact canonical JSON
+The validator is intentionally pure. It validates canonical bytes, identities, typed references, deterministic equations, and internally consistent synthetic evidence. It performs no network access, TLS handshake, filesystem mutation, Git checkout, authorization creation, authorization consumption, subprocess execution, or Olympics execution.
 
-Every stored and identity-bearing JSON artifact uses one representation:
+Two facts require independent external attestations in a future implementation:
 
-- UTF-8 bytes containing JSON whose non-ASCII characters are emitted with Python-compatible lowercase `\uXXXX` escapes;
-- astral characters are lowercase UTF-16 surrogate pairs;
-- input strings and keys must already be NFC;
-- object keys sort by Unicode code point;
-- separators are exactly comma and colon, with no whitespace;
-- forward slash is not escaped;
-- U+2028 and U+2029 are escaped;
-- integers are allowed, but floats, booleans-as-integers, NaN, and infinities reject;
-- duplicate keys, BOM, invalid UTF-8, lone surrogates, and nesting deeper than 40 reject;
-- maximum input is 2,000,000 bytes;
-- exactly one final LF is required.
+1. Real repository provenance requires a typed repository-context attestation. Portable Git objects prove content and ancestry, not the repository in which they were observed.
+2. Real-world time and transport authenticity require a typed clock-verifier attestation. Caller-provided HTTP headers and Boolean transport claims cannot independently authenticate TLS origin or current time.
 
-Validation parses with duplicate-key detection, validates the value domain, canonically reserializes it, and requires byte-for-byte equality. CRLF, indentation, alternate spacing, alternate Unicode escaping, missing LF, and extra LF reject even when they would parse to the same value.
+V005 validates those attestation records structurally and binds them cryptographically to the documentary package. It does not claim to reproduce their external trust decisions.
 
-Artifact identity is:
+## Artifact inventory
 
-`SHA256(UTF8(domain) || NUL || canonical_json(record excluding exactly its self-identity field))`
+The original 31 schemas remain, with generic prior-record references removed. Six schemas complete the evidence graph:
 
-Governance excludes only `contract_identity`; command excludes only `command_identity`. No other governed field is excluded.
+- `typed_reference`: freezes target type, schema version, domain, identity field, represented state, and exact target identity.
+- `canonical_payload`: binds an artifact identity to its exact canonical bytes and SHA-256 digest.
+- `durability_evidence`: binds artifact, bytes, target path, parent, filesystem evidence, transition key, and exact ordered durability trace.
+- `repository_context`: records provider, immutable repository and owner numeric IDs, node IDs, canonical name, object format, retrieval evidence, and the external-attestation trust scope.
+- `clock_verifier_attestation`: binds request, response, verifier account/version, host, transport evidence, verified Date, replay nonce, and explicit external-verifier scope.
+- `transition_envelope`: binds transition, source/destination, role, acting stable account, root artifact, typed prior, supporting references, role assignment, and durability evidence.
 
-## 4. Complete artifact inventory
+No `identity:prior_record` or `identity:canonical_bytes` escape hatch exists. External V001–V004 objects remain explicitly declared compatibility edges and are not silently treated as V005 artifacts.
 
-The contract defines 31 unique artifact domains. Unknown fields reject at every nesting level; every nullable field is present as JSON null.
+## Exact lifecycle
 
-| # | Artifact | Purpose |
-|---:|---|---|
-| 1 | `stable_account` | Stable GitHub numeric human-account identity |
-| 2 | `display_metadata` | Mutable login snapshot, separate from security identity |
-| 3 | `role_assignment` | Stable-account role allocation and separation |
-| 4 | `clock_request` | Nonced direct-origin request contract |
-| 5 | `clock_evidence` | Raw response headers and direct-TLS/cache/proxy evidence |
-| 6 | `clock_attestation` | Exact event-projection and timestamp binding |
-| 7 | `access_prohibition` | Bounded offline/protected-resource observation |
-| 8 | `filesystem_evidence` | Typed macOS/APFS/path/durability facts |
-| 9 | `environment_manifest` | Frozen runtime environment |
-| 10 | `source_checkout` | Detached clean authorized source and tree |
-| 11 | `consumption_store` | Single-host decision, claim, and supersession namespaces |
-| 12 | `proposal` | Prospective authorization proposal |
-| 13 | `human_approval` | Independent exact-proposal approval |
-| 14 | `authorization` | Single-use authorization contract |
-| 15 | `activation` | Successful preflight state |
-| 16 | `authorization_decision` | Exclusive predecessor decision: consume or supersede |
-| 17 | `consumption_claim` | Durable consumption evidence |
-| 18 | `build_start` | Protected-input build start evidence |
-| 19 | `run_start` | Runner start evidence |
-| 20 | `result_manifest` | Successful result projection |
-| 21 | `failure` | Failure record and detail identity |
-| 22 | `lifecycle_terminal` | Mutually exclusive success or failure terminal |
-| 23 | `archive_pending` | Archive transaction start |
-| 24 | `archive_manifest` | Exact success or failure archive projection |
-| 25 | `completion_marker` | Durable archive completion evidence |
-| 26 | `supersession` | Durable predecessor-to-successor edge |
-| 27 | `rejection` | Proposal or preflight rejection |
-| 28 | `expiration` | Trusted-time expiry evidence |
-| 29 | `indeterminate` | Uncertain durability without success/failure assertion |
-| 30 | `recovery` | Narrow identical-byte or missing-archive-byte recovery authority |
-| 31 | `documentary_binding` | Recomputed raw Git object proof binding |
+`terminal=true` means no further transition is permitted. The only terminal states are `archived`, `expired`, `rejected`, and `superseded`. A run success or failure still requires archival. An indeterminate state is nonterminal because only an explicit typed recovery route may leave it.
 
-The artifact-type registry is authoritative. Every V005 reference resolves to a supplied artifact of the exact registered type, schema, version, domain, and self-identity. Reuse of one identity as incompatible types, unresolved references, unexpected artifact types, V003/V004 substitutions, and orphan types reject. Narrow earlier-version compatibility exists only for the two exact V004 literals and declared external V004 input identity classes.
+| # | Transition | Source → destination | Actor | Typed prior | Root record | Validity | Terminal |
+|---:|---|---|---|---|---|---|:---:|
+| 1 | `proposal_approved` | proposed → approved | authorization author | proposal | human approval | n/a | no |
+| 2 | `authorization_activated` | approved → active_unconsumed | operator | human approval | activation | valid | no |
+| 3 | `consumption_decision_won` | active_unconsumed → claiming | operator | activation | authorization decision | valid | no |
+| 4 | `consumption_claim_durable` | claiming → consumed | operator | authorization decision | consumption claim | valid | no |
+| 5 | `build_started` | consumed → build_started | operator | consumption claim | build start | valid | no |
+| 6 | `run_started` | build_started → run_started | operator | build start | run start | valid | no |
+| 7 | `run_succeeded` | run_started → run_succeeded | operator | run start | lifecycle terminal | valid | no |
+| 8 | `run_failed` | run_started → run_failed | operator | run start | lifecycle terminal | valid | no |
+| 9 | `build_failed` | build_started → run_failed | operator | build start | lifecycle terminal | valid | no |
+| 10 | `success_archive_started` | run_succeeded → archive_pending | archive custodian | lifecycle terminal | archive pending | valid | no |
+| 11 | `failure_archive_started` | run_failed → archive_pending | archive custodian | lifecycle terminal | archive pending | valid | no |
+| 12 | `archive_completed` | archive_pending → archived | archive custodian | archive pending | completion marker | valid | yes |
+| 13 | `supersession_decision_won` | active_unconsumed → superseding | superseding author | activation | authorization decision | valid | no |
+| 14 | `supersession_durable` | superseding → superseded | superseding author | authorization decision | supersession | valid | yes |
+| 15 | `authorization_expired` | active_unconsumed → expired | system | activation | expiration | exact expiry | yes |
+| 16 | `proposal_rejected` | proposed → rejected | reviewer | proposal | rejection | n/a | yes |
+| 17 | `preflight_rejected` | approved → rejected | operator | human approval | rejection | valid | yes |
+| 18 | `claim_indeterminate` | claiming → indeterminate | system | authorization decision | indeterminate | valid | no |
+| 19 | `build_indeterminate` | consumed → indeterminate | system | consumption claim | indeterminate | valid | no |
+| 20 | `run_indeterminate` | run_started → indeterminate | system | run start | indeterminate | valid | no |
+| 21 | `archive_indeterminate` | archive_pending → indeterminate | system | archive pending | indeterminate | valid | no |
+| 22 | `claim_recovered` | indeterminate → consumed | operator | indeterminate | recovery | valid | no |
+| 23 | `build_recovered` | indeterminate → build_started | operator | indeterminate | recovery | valid | no |
+| 24 | `run_success_recovered` | indeterminate → run_succeeded | operator | indeterminate | recovery | valid | no |
+| 25 | `run_failure_recovered` | indeterminate → run_failed | operator | indeterminate | recovery | valid | no |
+| 26 | `archive_recovered` | indeterminate → archive_pending | archive custodian | indeterminate | recovery | valid | no |
+| 27 | `archive_completion_recovered` | indeterminate → archived | archive custodian | indeterminate | recovery | valid | yes |
 
-## 5. Stable accounts and role separation
+Each machine transition also freezes the exact required artifact types, any conditional success/failure set, forbidden competitors, timestamp equation, identity equations, atomicity, durability, retry, idempotency, recovery route, and actor.
 
-`stable_account` hashes only provider, account kind, and GitHub numeric user ID. Login and display name reside in `display_metadata`; renaming changes display metadata but never role equality or authorization validity. Equal numeric user IDs are equal accounts regardless of login. Different numeric IDs remain different even if a login string matches.
+## Authorization validity and timestamp order
 
-The complete pair matrix remains 16 pairs. The authorization author, reviewer, and operator differ; source/governance authors differ from reviewer and operator; archive custodian differs from operator; a superseding author differs from the predecessor operator. The explicitly documented `may_match` pairs remain permitted. Unlisted role relationships reject.
+Authorization lifetime is exactly 259200 seconds and half-open:
 
-## 6. Direct-origin trusted clock and timestamp equations
+`issued_at <= operation_timestamp < expires_at`
 
-Clock evidence requires a synthetic record of a future direct authenticated TLS exchange with exactly:
+Every authorization-dependent transition applies that equation at its own root-event timestamp. Expiration alone requires `operation_timestamp == expires_at`. Proposal approval and proposal rejection do not require an authorization.
 
-- `HEAD https://api.github.com:443/rate_limit`;
-- verified TLS peer and certificate for exact `api.github.com`;
-- HTTP/1.1 status 200;
-- no redirect;
-- no configured or used proxy;
-- no `Age`, `Via`, `Warning`, `X-Cache`, `X-Cache-Hits`, `CF-Cache-Status`, other cache-hit, or intermediary evidence;
-- exactly one IMF-fixdate `Date` header in GMT;
-- ASCII response headers with CRLF framing and one terminal CRLFCRLF;
-- a unique 256-bit request nonce and request identity, with exact raw request bytes retaining the nonce, no-cache directives, host, API version, target, and CRLF framing;
-- response elapsed time at most 5000 milliseconds.
+Every root timestamp must be greater than or equal to the timestamp of its typed prior record. Equality is permitted because the trusted Date representation has one-second resolution. The graph therefore enforces:
 
-A raw Date header alone is insufficient. The clock request, raw response header block, transport facts, and normalized attestation are separate typed artifacts.
+`proposal <= approval <= issuance <= activation <= decision <= claim <= build <= run <= terminal <= archive_pending <= archive_manifest <= completion`
 
-Every timestamp-bearing lifecycle artifact has its own attestation. Its timestamp text must equal the attestation’s canonical `YYYY-MM-DDTHH:MM:SSZ` text exactly, with zero tolerance. The attestation also binds the event type, timestamp field, and the event projection excluding only self-identity, timestamp, and attestation identity. Reuse across lifecycle artifacts rejects.
+Supersession begins after activation. Rejection follows its proposal or approval. Expiration follows activation and occurs exactly at expiry. Indeterminate records follow the uncertain predecessor. Recovery follows the exact indeterminate record. Backward timestamps reject even when every individual clock record is internally self-consistent.
 
-This covers proposal, approval, issuance, activation, consumption decision and claim, build start, run start, terminal, archive start/publication/completion, supersession, rejection, expiration, indeterminate, and recovery. Authorization expiry equals issuance plus exactly 259200 seconds, and validity is half-open: `issued_at <= trusted_time < expires_at`.
+## Typed prior and closed-bundle model
 
-## 7. Complete lifecycle transition bundles
+Every transition envelope references one `typed_reference`. That reference declares and proves:
 
-String-only state membership is not validation. Every transition receives an exact typed bundle, validates all schemas and references, rejects forbidden competitors, validates the new artifact, validates every included lifecycle clock, and enforces transition-specific success/failure, decision, expiry, and identity rules.
+- target artifact type;
+- target schema version;
+- identity domain;
+- identity-field name;
+- exact target identity;
+- exact source state represented.
 
-| # | Transition | From → to | Actor | New durable record |
-|---:|---|---|---|---|
-| 1 | `proposal_approved` | proposed → approved | authorization author | human approval |
-| 2 | `authorization_activated` | approved → active unused | operator | activation |
-| 3 | `consumption_decision_won` | active unused → claiming | operator | consume decision |
-| 4 | `consumption_claim_durable` | claiming → consumed | operator | claim |
-| 5 | `build_started` | consumed → build started | operator | build start |
-| 6 | `run_started` | build started → run started | operator | run start |
-| 7 | `run_succeeded` | run started → run succeeded | operator | success terminal |
-| 8 | `run_failed` | run started → run failed | operator | failure terminal |
-| 9 | `build_failed` | build started → run failed | operator | failure terminal |
-| 10 | `success_archive_started` | run succeeded → archive pending | archive custodian | archive pending |
-| 11 | `failure_archive_started` | run failed → archive pending | archive custodian | archive pending |
-| 12 | `archive_completed` | archive pending → archived | archive custodian | completion marker |
-| 13 | `supersession_decision_won` | active unused → superseding | superseding author | supersede decision |
-| 14 | `supersession_durable` | superseding → superseded | superseding author | supersession edge |
-| 15 | `authorization_expired` | active unused → expired | system | expiration |
-| 16 | `proposal_rejected` | proposed → rejected | reviewer | rejection |
-| 17 | `preflight_rejected` | approved → rejected | operator | rejection |
-| 18 | `claim_indeterminate` | claiming → indeterminate | system | indeterminate record |
-| 19 | `run_indeterminate` | run started → indeterminate | system | indeterminate record |
-| 20 | `archive_indeterminate` | archive pending → indeterminate | system | indeterminate record |
+The validator resolves all internal references recursively. Dynamic references in typed references, canonical payloads, durability records, and transition envelopes receive the same type checks as static schema references. Every supplied internal record must be referenced by another record or be the single transition envelope root. Extra stable accounts, clock records, role assignments, prior candidates, results, terminals, recoveries, byte-identical duplicates, and conflicting duplicates reject.
 
-Each machine transition freezes exact source, destination, actor, required artifacts, conditional success/failure evidence, forbidden competing artifacts, atomicity, durability, crash boundaries, retry, idempotency, recovery, and terminal status. The atomicity pattern is exclusive create, complete canonical write, `F_FULLFSYNC`, close, and parent-directory fsync. Before atomicity, the same identity may retry. After exclusive creation but before proven durability, state is indeterminate and only typed recovery may proceed. After durability, only identical-byte reconciliation is idempotent. Rollback and identity substitution are never allowed.
+## Actor identity and role separation
 
-## 8. Consumption and supersession arbitration
+The caller’s role string is never sufficient. The transition envelope names the acting stable-account identity; the role assignment maps the declared role to that identity; the root event independently names the same actor; and the stable-account artifact resolves to an immutable GitHub numeric user ID.
 
-The predecessor decision slot is:
+Display login metadata is never used for identity or separation. The complete frozen role matrix is validated for every transition. Operator, reviewer, authorization author, governance author, source author, archive custodian, system actor, previous operator, and superseding author constraints therefore apply throughout the lifecycle, including supersession and recovery.
 
-`authorization-decisions/{predecessor_authorization_identity}.json`
+## Documentary Git and repository context
 
-That one exclusive immutable record is either `consume` or `supersede`, never both. Consumption and supersession race only for that predecessor-owned path. The winner is the first exact decision reaching file `F_FULLFSYNC`, successful close, and parent-directory fsync. An existing conflicting record loses and rejects. An uncertain write becomes indeterminate; it is never deleted, replaced, or treated as a new opportunity.
+The raw Git proof recomputes authorization and documentary-binding blobs, every tree step, commit A, and commit B. Commit A has exactly one parent—the authorized source commit—and contains the authorization at exactly:
 
-After a consume decision, the matching claim is written under:
+`authorizations/{authorization_identity}/authorization.json`
 
-`consumption-claims/{predecessor_authorization_identity}.json`
+Commit B has exactly one parent—commit A—and contains the documentary binding at its frozen path. Alternate authorization identity, alternate path, mode, object type, tree, parent, or bytes reject.
 
-After a supersede decision, the matching edge is written under:
+The documentary binding and authorization must name the same repository-context identity. Raw Git objects establish content and ancestry only. The typed external repository-context attestation supplies provider and immutable repository/owner identifiers. V005 does not claim that raw objects alone prove GitHub repository origin.
 
-`supersessions/{predecessor_authorization_identity}.json`
+## Clock-verifier model
 
-The successor later uses its own independent decision slot:
+Each timestamp-bearing artifact has a unique request, response, external verifier attestation, and event attestation. The raw documentary HTTP response uses exact ASCII CRLF framing, status 200, and a strict Date-only header allowlist. `Age`, `Via`, `Warning`, `X-Cache`, `X-Proxy-Cache`, and every other unrecognized response header therefore reject.
 
-`authorization-decisions/{successor_authorization_identity}.json`
+The external verifier attestation records the verified host, transport-evidence identity, certificate/TLS result, proxy/redirect/cache results, Date, verifier version/account, and replay nonce. The pure validator binds those claims and does not independently authenticate them. A future external verifier must maintain the replay registry and establish real TLS and current-time facts. An event without that typed verifier attestation rejects.
 
-Therefore a predecessor supersession marker cannot block successor consumption. Consumption and supersession cannot both validly succeed because the predecessor owns exactly one exclusive decision. A successor must preserve run, fixture, manifests, dataset, command, V004, source commit, and source tree bindings; obtains new approval and time evidence; names exactly one predecessor; and is the unique outgoing edge chosen by the predecessor decision.
+## Transition-specific APFS durability
 
-Only `active_unconsumed` can be superseded. Expired, rejected, claiming, consumed, already superseded, stale, missing, forked, duplicate, and cyclic predecessors reject. Chains allow one incoming and one outgoing edge and are walked for cycles. Multiple successor proposals are harmless: only the successor named in the durable predecessor decision may publish.
+Every transition root has one `durability_evidence` record and one exact `canonical_payload`. The validator binds:
 
-### Arbitration race matrix
+- target artifact type and identity;
+- exact canonical bytes and SHA-256;
+- exact rendered schema path and parent directory;
+- filesystem-evidence identity;
+- deterministic transition key;
+- exclusive-create result;
+- file `F_FULLFSYNC` result;
+- close result;
+- directory fsync result;
+- immutable final state.
+
+The exact ordered trace is:
+
+1. `open_root_no_follow`
+2. `verify_mount_device_owner_mode`
+3. `exclusive_create`
+4. `write_complete`
+5. `f_fullfsync_file`
+6. `close_file`
+7. `fsync_directory`
+
+Filesystem evidence must describe local APFS on macOS, a trusted descriptor-relative root, correct UID/GID/modes, no symlinks, no cross-device traversal, one hard link, and no ACL, xattrs, flags, network mount, disk image, overlay, synthetic, or removable backing. Generic durability strings cannot authorize a transition.
+
+## Supersession
+
+The predecessor decision slot is exclusive and can contain exactly one durable consume or supersede decision. Complete supersession validation requires the predecessor authorization, activation evidence, decision, successor, supersession record, accounts, and role assignment. It rejects any supplied claim, expiration, rejection, terminal, indeterminate, or earlier supersession evidence.
+
+The predecessor must be active, unconsumed, unexpired, unrejected, nonterminal, determinate, and not already superseded at the decision time. The successor must name exactly that predecessor and preserve run, fixture, manifest, dataset, command, V004, source commit, and source tree identities. The superseding author must differ from the previous operator by immutable numeric account ID. Forks, duplicate incoming edges, cycles, stale records, missing links, and conflicting decisions reject.
+
+## Reachable recovery
+
+Recovery is no longer prose-only. Six explicit transitions resolve claim, build, run-success, run-failure, archive-pending, and archive-completion uncertainty. A recovery artifact references the exact indeterminate artifact, a typed recovered artifact, existing and intended canonical payload identities, recovery actor, outcome, and unique clock evidence.
+
+Recovery may reconcile identical intended bytes or add only explicitly permitted missing archive bytes. It cannot delete, truncate, replace, change identity, assert an outcome unsupported by typed evidence, bypass expiry, or skip durability. Recovery itself is a durable transition root and is subject to the same actor, clock, monotonicity, validity, path, payload, and APFS checks.
+
+## Archive state machine
+
+Canonical destination: `archives/{run_identity}`
+
+Canonical staging path: `archives/staging/{archive_pending_identity}`
+
+The archive manifest binds the pending record, terminal, authorization, run, outcome projection, expected file identities, destination, and staging path. The completion marker binds the same authorization, run, archive identity, and terminal state. Pending time must not exceed manifest time; manifest time must not exceed completion time.
+
+The pure archive classifier returns exactly one of:
+
+- `publication_permitted`
+- `recovery_permitted`
+- `already_complete_and_valid`
+- `indeterminate`
+- `invalid_conflicting`
 
 | Condition | Result |
 |---|---|
-| Neither exclusive create reached | Retry while still valid |
-| Consume decision durable first | Consumption wins; supersession rejects |
-| Supersede decision durable first | Supersession wins; consumption rejects |
-| Both claimed durable | Integrity failure; impossible under valid exclusive create |
-| Crash before exclusive create | No state change; retry same identity |
-| Crash after create, before durability | Indeterminate; recovery only |
-| Crash after durable decision, before follow-up | Reconcile exact decision and complete its matching follow-up |
-| Duplicate identical retry | Verify same bytes and durability only |
-| Conflicting retry | Reject |
-| Multiple successors | Only durable decision’s successor may publish |
-| Successor consumes later | Uses successor-owned decision path; predecessor path is irrelevant |
+| Destination absent and no files, manifest, marker, or durability claims | publication permitted |
+| Existing incomplete matching destination with explicit recovery authority | recovery permitted |
+| Destination, required files, manifest, marker, bytes, identities, and durability all match | already complete and valid |
+| Evidence incomplete but not contradictory | indeterminate |
+| Destination absent with files/manifest/marker/durability assertions | invalid/conflicting |
+| Marker without manifest or required files | invalid/conflicting |
+| Marker names another archive | invalid/conflicting |
+| Unexpected files or conflicting bytes | invalid/conflicting |
+| First publication into an existing destination | invalid/conflicting |
+| Recovery without an existing partial destination | invalid/conflicting |
 
-## 9. Terminal and archive exclusivity
+An archived state is valid only after a matching durable completion marker.
 
-A successful terminal has state `run_succeeded`, one non-null result manifest, one or more exact result identities, null failure identity, null failure details, and no failure artifact. A failed terminal has state `run_failed`, one non-null resolved failure identity and details, null result manifest, an empty result list, and no result artifact.
-
-Archive state and all result/failure projections must equal the terminal exactly. A completion marker binds the archive, run, authorization, and terminal state. Every invalid cross-product rejects. Indeterminate records assert neither success nor failure and contain only known durable identities, uncertain operation, and recovery restrictions.
-
-## 10. Pure raw Git documentary proof
-
-The validator trusts no caller-supplied object ID without recomputation. The review bundle supplies:
-
-- exact canonical authorization bytes;
-- raw tree objects for every component of the authorization path;
-- raw commit A bytes;
-- exact canonical documentary-binding bytes;
-- raw tree objects for every component of the binding path;
-- raw commit B bytes and its expected object ID.
-
-The validator reconstructs Git object framing and computes SHA-1 blob, tree, commit A, and commit B IDs. Every tree step verifies raw bytes, mode (`40000` for trees, `100644` for files), component name, type, and child ID. Commit A must have exactly one parent—the authorized source commit—and its tree must contain the exact authorization blob. Commit B must have exactly one parent—commit A—and its tree must contain the exact binding blob.
-
-Commit B’s ID is deliberately not a field inside the binding that commit B contains. It is supplied in the external review proof and checked against raw commit B, avoiding a new self-reference. The binding freezes repository identity, SHA-1 object format, path, authorization blob/tree/commit A, and authorized source parent. Wrong repository, object format, path, mode, content, parent count, object byte, final LF, or one-byte mutation rejects. Only the earlier authorized source commit is executable; documentary commits A and B never execute.
-
-## 11. APFS path and durability evidence
-
-The future consumer supports one macOS host and local APFS only. The typed filesystem record attests APFS subtype, local/nonremovable/non-network/non-overlay/non-FUSE/non-disk-image mount, device and mount IDs, exact owner UID/group GID, directory mode 0700, file mode 0600, umask 0077, no ACLs, xattrs, file flags, symlinks, cross-device traversal, or hard links (`st_nlink == 1`). Case-sensitive and case-insensitive APFS are accepted only as attested, and case-colliding paths reject.
-
-Root acquisition begins from a trusted preopened parent and uses descriptor-relative `openat` with `O_DIRECTORY|O_NOFOLLOW`. Every intermediate directory is opened and verified by descriptor. Leaves use `O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW`. Realpath strings are never authority.
-
-Files require `F_FULLFSYNC`, successful close, then directory fsync. Directories require fsync; parent publication requires parent fsync. Unsupported `F_FULLFSYNC`, any error, device change, reordered trace, or missing durability event becomes indeterminate. The V005 validator verifies only typed synthetic syscall/fault traces and implements none of these operations.
-
-## 12. Archive publication and recovery
-
-Archive operation has three explicit modes:
-
-1. `first_publication`: destination must not exist; staging and every file are exclusive.
-2. `authorized_recovery`: destination is incomplete and an immutable recovery record grants only missing-byte completion.
-3. `verify_complete`: destination and durable marker already exist; validation is read-only and idempotent.
-
-Files are written to a unique staging directory, fully synced and closed, the staging directory is synced, and exclusive rename publishes the destination. Manifest bytes are written and synced, followed by the completion marker, destination fsync, and parent fsync. Readers accept only a durable marker plus a complete exact manifest and byte hashes.
-
-Recovery may add only missing bytes equal to the frozen intended canonical bytes. Existing identical bytes are reused; conflicting bytes, replacement, truncation, unexpected files, unauthorized recovery, or marker-with-incomplete-archive reject. A durable archive missing only its marker can receive that marker through authorized recovery. A complete archive with marker is verification-only.
-
-### Archive crash matrix
-
-| Crash state | Allowed action |
-|---|---|
-| Before destination exists | Retry first publication |
-| Partial staging | Authorized exact-byte recovery or reject |
-| Destination exists without marker | Authorized recovery or indeterminate |
-| Complete durable archive without marker | Authorized recovery may add marker |
-| Marker exists but content incomplete/conflicting | Indeterminate and reject |
-| Complete content and durable marker | Verify only; no write |
-
-## 13. Failure handling and future implementation boundary
-
-Malformed, missing, unresolved, cross-version, stale, contradictory, nondurable, unsupported, or uncertain evidence fails closed. Uncertainty never authorizes execution and never makes an authorization reusable. Recovery is an immutable record with a distinct attestation and narrow action; it cannot delete or replace bytes.
-
-A later implementation milestone must implement the consumer exactly as frozen and undergo independent adversarial review before any authorization is created. That later code must perform the real GitHub direct-origin evidence capture, Git review evidence capture, detached-checkout inspection, APFS system calls, decision arbitration, lifecycle writes, and archive transaction. None exists in this PR.
-
-## 14. Validation commands
+## Verification commands
 
 ```bash
-PYTHONPATH=src .venv/bin/python scripts/validate_professional_strategy_olympics_authorization_governance_v005.py --root .
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_professional_strategy_olympics_authorization_governance_v005.py
+PYTHONPATH=src .venv/bin/python -m pytest
+.venv/bin/python -m ruff check src tests scripts
+git diff --check origin/main...HEAD
 ```
 
-The report must state 31 artifact schemas, 20 transitions, no authorization, no execution capability, no official authorization, and no official execution.
+The validator CLI reports only immutable design metadata. It cannot create or consume an authorization and cannot execute the Olympics.
