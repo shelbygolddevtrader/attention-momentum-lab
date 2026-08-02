@@ -22,7 +22,7 @@ from typing import Mapping, Sequence
 CONTRACT_PATH = "config/professional_strategy_olympics_authorization_governance_v005.json"
 SCHEMA = "aml.professional-strategy-olympics.authorization-governance.v005"
 VERSION = "professional-strategy-olympics-authorization-governance-v005"
-CONTRACT_IDENTITY = "9408e2b9dcb4e14534f4f7699ea26fe0846f4a2d3f2ad416ea11758a34f2223a"
+CONTRACT_IDENTITY = "dc976e8946c362aae7a5a72664560d8c4c3f54e7e01ab77fd93f537fc25433b0"
 COMMAND_IDENTITY = "ff2c355895182af38127b9a863373fc00f7a0563d9922e782cbf0e8da9431fdb"
 DESIGN_BASE_COMMIT = "2f5390a844b9187b92da124a77173669f1b3f536"
 V004_CONTRACT_IDENTITY = "0dd043154b5ee90cbfa049df6977aaa8c7ec2a0f585a8c7952c77314893e7053"
@@ -65,6 +65,22 @@ EXPECTED_TRANSITIONS = {
     "run_failure_recovered": ("indeterminate", "run_failed", "operator", False, "indeterminate", "recovery", "issued_at<=operation<expires_at"),
     "archive_recovered": ("indeterminate", "archive_pending", "archive_custodian", False, "indeterminate", "recovery", "issued_at<=operation<expires_at"),
     "archive_completion_recovered": ("indeterminate", "archived", "archive_custodian", True, "indeterminate", "recovery", "issued_at<=operation<expires_at"),
+}
+
+EXPECTED_MATRIX_IDENTITIES = {
+    "archive": "5d2c2d5597c44f53e1f0f1d27d2bbb64dfa4e1ce7a015b456035247d1726d637",
+    "artifact_schemas": "e7e2eac9d0348f6da63b4085598bfc04f4e0464932b1137f364392c176f7fb40",
+    "clock": "e48649517c53df8b2f69f3a2b24be788a17c1b004233ad470a798afc8cff467c",
+    "documentary": "5fae07c1b68bca4cf00915ca5946f3f14f77b4e8e3e8eb05621f0b8fefbdc93a",
+    "durability": "fc4c4f00bbaa5a58b247b54c64fc98bd2f68f2c5aef0f4fa09fa79ab8e0c2c71",
+    "recovery": "4780ebef88056da7bb97664cc076c945fccfd16bc3c5bd49a6cbc22125073195",
+    "roles": "a1f562a141290288f631fba4177021efe7c1dff3ef8f6fcd9f4cc04eb3dc0b44",
+    "state_graph": "d7774c33121fdcc1ffb2f1730b5dfbbc5e77aabcf73c205bc746d1046659ae14",
+    "supersession": "10a107794cf3d50bc7178b92081752025ebbca3f4a462583399aabeb1acb4d0d",
+    "timestamps": "9e5f544775f631d318831fbc50ed29b5ba28ef9a7e7f2945ca83e14b29dd8d43",
+    "transitions": "59012538915d853a8cb4e0b0d9635d438756a435304eb660efb33aa6ff2e027c",
+    "typed_references": "c06763afa9e4eedc6aec206ca06036d15a18b395f839fae764d7919ba99f7b8f",
+    "validity": "03ae25003ee5a42aa3f61b4f60a5bdc4b26257be8561f9e363129a7baa585517",
 }
 
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -282,6 +298,14 @@ def _validate_primitive(name: str, value: object, contract: Mapping[str, object]
     elif name == "env_assignment":
         if type(value) is not str or "=" not in value or len(value.encode()) > 256:
             _reject("invalid environment assignment")
+        try:
+            value.encode("ascii", errors="strict")
+        except UnicodeError as exc:
+            raise OlympicsAuthorizationGovernanceV005Error(
+                "environment assignment must be ASCII"
+            ) from exc
+        if any(character in value for character in "\x00\r\n"):
+            _reject("environment assignment contains a control separator")
         _validate_primitive("env_name", value.split("=", 1)[0])
     elif name == "field_name":
         if type(value) is not str or not FIELD_RE.fullmatch(value):
@@ -308,6 +332,9 @@ def _validate_primitive(name: str, value: object, contract: Mapping[str, object]
     elif name == "state_name":
         if type(value) is not str or not STATE_NAME_RE.fullmatch(value):
             _reject("invalid state name")
+    elif name == "boolean":
+        if type(value) is not bool:
+            _reject("invalid Boolean")
     else:
         _reject(f"unknown primitive {name}")
 
@@ -455,13 +482,19 @@ def validate_clock_bundle(
         _reject("clock response headers violate the strict Date-only allowlist")
     if evidence["redirect_count"] != 0 or evidence["response_elapsed_milliseconds"] > 5000:
         _reject("documentary clock response bounds failed")
-    stamp = parse_imf_fixdate(evidence["response_date_as_received"]).strftime("%Y-%m-%dT%H:%M:%SZ")
+    response_time = parse_imf_fixdate(evidence["response_date_as_received"])
+    stamp = response_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+    verified_at = parse_canonical_timestamp(verifier["verified_at"])
     if (
         verifier["verified_date"] != evidence["response_date_as_received"]
-        or verifier["verified_at"] != stamp
+        or not response_time
+        <= verified_at
+        <= response_time
+        + timedelta(seconds=int(contract["clock_protocol"]["maximum_attestation_age_seconds"]))
+        or verifier["replay_nonce"] != request["request_nonce"]
         or attestation["canonical_utc_timestamp"] != stamp
     ):
-        _reject("clock normalization mismatch")
+        _reject("clock normalization, freshness, or replay binding mismatch")
     if event is not None:
         if event_type is None or timestamp_field is None:
             _reject("event clock binding arguments missing")
@@ -503,7 +536,9 @@ def validate_role_assignment(record: Mapping[str, object], accounts: Mapping[str
         right_id = accounts[right_identity]["github_user_id"]
         if relation == "must_differ" and left_id == right_id:
             _reject("role separation violation")
-        if relation not in {"must_differ", "may_match"}:
+        if relation == "must_match" and left_id != right_id:
+            _reject("role identity-equality violation")
+        if relation not in {"must_differ", "must_match", "may_match"}:
             _reject("unknown role relation")
 
 
@@ -556,54 +591,109 @@ def validate_typed_bundle(artifacts: Mapping[str, Sequence[Mapping[str, object]]
     if supplied_types != set(required_types) or supplied_types & set(forbidden_types):
         _reject("bundle has missing, orphaned, or forbidden artifact types")
     external = set(contract["compatibility_edges"]["external_types"])
-    referenced: set[str] = set()
-    for artifact_type, records in artifacts.items():
-        fields = contract["artifact_schemas"][artifact_type]["fields"]
-        for record in records:
-            for field, rule in fields.items():
-                targets: list[tuple[str, object]] = []
-                if str(rule).startswith("identity:"):
-                    targets = [(str(rule).split(":", 1)[1], record[field])]
-                elif str(rule).startswith("nullable_identity:") and record[field] is not None:
-                    targets = [(str(rule).split(":", 1)[1], record[field])]
-                elif str(rule).startswith("array_identity:"):
-                    target = str(rule).split(":")[1]
-                    targets = [(target, item) for item in record[field]]
-                for target, identity in targets:
-                    if target in external or target in {"self", "command", "governance", "event_projection"}:
-                        continue
-                    resolved = registry.get(str(identity))
-                    if resolved is None or resolved[0] != target:
-                        _reject(f"unresolved or cross-type artifact reference: {artifact_type}.{field}->{target}")
-                    referenced.add(str(identity))
-
-            dynamic_target: tuple[str, str] | None = None
-            if artifact_type == "typed_reference":
-                dynamic_target = (str(record["target_artifact_type"]), str(record["target_identity"]))
-            elif artifact_type == "canonical_payload":
-                dynamic_target = (str(record["artifact_type"]), str(record["artifact_identity"]))
-            elif artifact_type == "durability_evidence":
-                dynamic_target = (str(record["target_artifact_type"]), str(record["target_artifact_identity"]))
-            elif artifact_type == "transition_envelope":
-                dynamic_target = (str(record["root_artifact_type"]), str(record["root_artifact_identity"]))
-            if dynamic_target is not None:
-                target_type, identity = dynamic_target
-                resolved = registry.get(identity)
-                if resolved is None or resolved[0] != target_type:
-                    _reject(f"unresolved dynamic reference from {artifact_type} to {target_type}")
-                referenced.add(identity)
-
     envelopes = artifacts.get("transition_envelope", ())
-    roots = {
-        artifact_self_identity(record, "transition_envelope", contract)
-        for record in envelopes
-    }
-    permitted_unreferenced = roots
-    all_identities = set(registry)
-    orphaned = all_identities - referenced - permitted_unreferenced
+    if len(envelopes) != 1:
+        _reject("bundle requires exactly one transition-envelope graph root")
+
+    def references(
+        artifact_type: str,
+        record: Mapping[str, object],
+    ) -> list[tuple[str, str]]:
+        result: list[tuple[str, str]] = []
+        fields = contract["artifact_schemas"][artifact_type]["fields"]
+        for field, rule_value in fields.items():
+            rule = str(rule_value)
+            targets: list[tuple[str, object]] = []
+            if rule.startswith("identity:"):
+                targets = [(rule.split(":", 1)[1], record[field])]
+            elif rule.startswith("nullable_identity:") and record[field] is not None:
+                targets = [(rule.split(":", 1)[1], record[field])]
+            elif rule.startswith("array_identity:"):
+                target = rule.split(":")[1]
+                targets = [(target, item) for item in record[field]]
+            for target, identity in targets:
+                if target not in external and target not in {
+                    "self",
+                    "command",
+                    "governance",
+                    "event_projection",
+                }:
+                    result.append((target, str(identity)))
+
+        dynamic_target: tuple[str, str] | None = None
+        if artifact_type == "typed_reference":
+            dynamic_target = (
+                str(record["target_artifact_type"]),
+                str(record["target_identity"]),
+            )
+        elif artifact_type == "canonical_payload":
+            dynamic_target = (
+                str(record["artifact_type"]),
+                str(record["artifact_identity"]),
+            )
+        elif artifact_type == "durability_evidence":
+            dynamic_target = (
+                str(record["target_artifact_type"]),
+                str(record["target_artifact_identity"]),
+            )
+        elif artifact_type == "transition_envelope":
+            dynamic_target = (
+                str(record["root_artifact_type"]),
+                str(record["root_artifact_identity"]),
+            )
+        if dynamic_target is not None:
+            result.append(dynamic_target)
+        return result
+
+    root_identity = artifact_self_identity(
+        envelopes[0], "transition_envelope", contract
+    )
+    pending = [root_identity]
+    reachable: set[str] = set()
+    while pending:
+        identity = pending.pop()
+        if identity in reachable:
+            continue
+        resolved = registry.get(identity)
+        if resolved is None:
+            _reject("evidence graph contains an unresolved identity")
+        reachable.add(identity)
+        artifact_type, record = resolved
+        for target_type, target_identity in references(artifact_type, record):
+            target = registry.get(target_identity)
+            if target is None or target[0] != target_type:
+                _reject(
+                    f"unresolved or cross-type artifact reference: "
+                    f"{artifact_type}->{target_type}"
+                )
+            pending.append(target_identity)
+
+    orphaned = set(registry) - reachable
     if orphaned:
         _reject("bundle contains orphaned or ambiguous records")
     return registry
+
+
+def _represented_state(
+    artifact_type: str,
+    record: Mapping[str, object],
+) -> str | None:
+    implicit = {
+        "proposal": "proposed",
+        "human_approval": "approved",
+        "indeterminate": "indeterminate",
+        "completion_marker": "archived",
+    }
+    if artifact_type in implicit:
+        return implicit[artifact_type]
+    if artifact_type == "authorization_decision":
+        return "claiming" if record["decision_kind"] == "consume" else "superseding"
+    if artifact_type == "lifecycle_terminal":
+        return str(record["terminal_state"])
+    for field in ("lifecycle_state", "archive_state"):
+        if field in record:
+            return str(record[field])
+    return None
 
 
 def validate_typed_reference(
@@ -627,6 +717,8 @@ def validate_typed_reference(
     resolved = registry.get(str(reference["target_identity"]))
     if resolved is None or resolved[0] != expected_type:
         _reject("typed prior reference is unresolved")
+    if expected_state is not None and _represented_state(expected_type, resolved[1]) != expected_state:
+        _reject("typed prior state differs from the resolved artifact state")
     return resolved[1]
 
 
@@ -644,6 +736,7 @@ TIMESTAMP_FIELDS = {
     "archive_pending": "archive_started_at", "archive_manifest": "archive_timestamp", "completion_marker": "completed_at",
     "supersession": "supersession_timestamp", "rejection": "rejected_at", "expiration": "expired_at",
     "indeterminate": "recorded_at", "recovery": "recovered_at",
+    "archive_observation": "observed_at",
 }
 
 
@@ -712,7 +805,7 @@ def validate_transition_bundle(
             expected_type=str(reference["target_artifact_type"]),
             expected_state=None,
         )
-    expected_supporting = ["documentary_binding"] if spec["documentary_binding_required"] else []
+    expected_supporting = list(spec["required_supporting_reference_types"])
     if sorted(supporting_types) != expected_supporting:
         _reject("transition supporting evidence differs from the frozen inventory")
     if "prior_reference_identity" in event and event["prior_reference_identity"] != envelope["prior_reference_identity"]:
@@ -720,9 +813,13 @@ def validate_transition_bundle(
 
     used_attestations: set[str] = set()
     used_verifiers: set[str] = set()
+    used_request_ids: set[str] = set()
+    used_evidence: set[str] = set()
+    used_nonces: set[str] = set()
+    role_assignment = _one(artifacts, "role_assignment")
     for event_type, timestamp_field in TIMESTAMP_FIELDS.items():
-        for event in artifacts.get(event_type, ()):
-            attestation_identity = str(event["clock_attestation_identity"])
+        for timestamped_event in artifacts.get(event_type, ()):
+            attestation_identity = str(timestamped_event["clock_attestation_identity"])
             if attestation_identity in used_attestations:
                 _reject("clock attestation reuse is prohibited")
             used_attestations.add(attestation_identity)
@@ -732,18 +829,32 @@ def validate_transition_bundle(
             attestation = resolved[1]
             request = registry[str(attestation["request_identity"])][1]
             evidence = registry[str(attestation["evidence_identity"])][1]
+            request_identity = str(request["clock_request_identity"])
+            evidence_identity = str(evidence["clock_evidence_identity"])
+            request_nonce = str(request["request_nonce"])
+            if (
+                request_identity in used_request_ids
+                or evidence_identity in used_evidence
+                or request_nonce in used_nonces
+            ):
+                _reject("clock request, evidence, and nonce reuse is prohibited")
+            used_request_ids.add(request_identity)
+            used_evidence.add(evidence_identity)
+            used_nonces.add(request_nonce)
             verifier_identity = str(attestation["verifier_attestation_identity"])
             if verifier_identity in used_verifiers:
                 _reject("clock verifier attestation reuse is prohibited")
             used_verifiers.add(verifier_identity)
             verifier = registry[verifier_identity][1]
+            if verifier["verifier_account_identity"] != role_assignment["system_identity"]:
+                _reject("clock verifier is not the assigned external-verifier account")
             validate_clock_bundle(
                 request,
                 evidence,
                 verifier,
                 attestation,
                 contract,
-                event=event,
+                event=timestamped_event,
                 event_type=event_type,
                 timestamp_field=timestamp_field,
             )
@@ -752,6 +863,8 @@ def validate_transition_bundle(
             _reject("authorization is invalid at issuance")
     _validate_transition_actor(envelope, event, artifacts, contract)
     _validate_transition_time_and_validity(spec, event, new_type, prior, artifacts)
+    _validate_complete_lifecycle_history(artifacts, registry, contract)
+    _validate_complete_actor_history(artifacts)
     _validate_transition_durability(envelope, event, new_type, artifacts, contract)
     _validate_foundational_equations(transition_id, artifacts, contract)
     if spec["documentary_binding_required"]:
@@ -790,6 +903,7 @@ ACTOR_FIELDS = {
     "rejection": "actor_identity",
     "indeterminate": "actor_identity",
     "recovery": "recovery_actor_identity",
+    "archive_observation": "observer_identity",
 }
 
 
@@ -864,6 +978,264 @@ def _validate_transition_time_and_validity(
         _reject("unknown authorization-validity equation")
 
 
+def _validate_complete_lifecycle_history(
+    artifacts: Mapping[str, Sequence[Mapping[str, object]]],
+    registry: Mapping[str, tuple[str, Mapping[str, object]]],
+    contract: Mapping[str, object],
+) -> None:
+    for reference in artifacts.get("typed_reference", ()):
+        validate_typed_reference(
+            reference,
+            registry,
+            contract,
+            expected_type=str(reference["target_artifact_type"]),
+            expected_state=(
+                None
+                if reference["target_state"] is None
+                else str(reference["target_state"])
+            ),
+        )
+
+    for artifact_type, timestamp_field in TIMESTAMP_FIELDS.items():
+        for record in artifacts.get(artifact_type, ()):
+            prior_identity = record.get("prior_reference_identity")
+            if prior_identity is None:
+                continue
+            resolved_reference = registry.get(str(prior_identity))
+            if resolved_reference is None or resolved_reference[0] != "typed_reference":
+                _reject("lifecycle record has an unresolved typed prior")
+            target = registry.get(str(resolved_reference[1]["target_identity"]))
+            if target is None:
+                _reject("lifecycle typed prior target is absent")
+            target_type, target_record = target
+            expected_prior_types: set[str]
+            if artifact_type == "activation":
+                expected_prior_types = {"human_approval"}
+            elif artifact_type == "consumption_claim":
+                expected_prior_types = {"authorization_decision"}
+            elif artifact_type == "build_start":
+                expected_prior_types = {"consumption_claim"}
+            elif artifact_type == "run_start":
+                expected_prior_types = {"build_start"}
+            elif artifact_type == "lifecycle_terminal":
+                expected_prior_types = (
+                    {"run_start"}
+                    if record["terminal_state"] == "run_succeeded"
+                    else {"run_start", "build_start"}
+                )
+            elif artifact_type == "archive_pending":
+                expected_prior_types = {"lifecycle_terminal"}
+            elif artifact_type == "expiration":
+                expected_prior_types = {"activation"}
+            elif artifact_type == "rejection":
+                expected_prior_types = (
+                    {"proposal"}
+                    if record["authorization_identity"] is None
+                    else {"human_approval"}
+                )
+            elif artifact_type == "indeterminate":
+                expected_prior_types = {
+                    "claim": {"authorization_decision"},
+                    "build": {"consumption_claim"},
+                    "run": {"run_start"},
+                    "archive": {"archive_pending"},
+                }[str(record["uncertain_operation"])]
+            else:
+                _reject("unexpected lifecycle record with a typed prior")
+            if target_type not in expected_prior_types:
+                _reject("lifecycle record uses the wrong typed predecessor")
+            target_identity = artifact_self_identity(target_record, target_type, contract)
+            linked_identity = {
+                "consumption_claim": record.get("decision_identity"),
+                "build_start": record.get("claim_identity"),
+                "run_start": record.get("build_start_identity"),
+                "archive_pending": record.get("terminal_identity"),
+            }.get(artifact_type)
+            if linked_identity is not None and linked_identity != target_identity:
+                _reject("lifecycle typed predecessor differs from the event link")
+            if target_type not in TIMESTAMP_FIELDS:
+                _reject("lifecycle typed prior is not timestamp-bearing")
+            if parse_canonical_timestamp(record[timestamp_field]) < parse_canonical_timestamp(
+                target_record[TIMESTAMP_FIELDS[target_type]]
+            ):
+                _reject("complete lifecycle history moves backward")
+
+    def require_order(
+        earlier_type: str,
+        earlier: Mapping[str, object],
+        later_type: str,
+        later: Mapping[str, object],
+    ) -> None:
+        if parse_canonical_timestamp(earlier[TIMESTAMP_FIELDS[earlier_type]]) > parse_canonical_timestamp(
+            later[TIMESTAMP_FIELDS[later_type]]
+        ):
+            _reject(f"{later_type} predates {earlier_type}")
+
+    proposals = {
+        str(item["proposal_identity"]): item for item in artifacts.get("proposal", ())
+    }
+    approvals = {
+        str(item["approval_identity"]): item
+        for item in artifacts.get("human_approval", ())
+    }
+    authorizations = {
+        str(item["authorization_identity"]): item
+        for item in artifacts.get("authorization", ())
+    }
+    activations = {
+        str(item["activation_identity"]): item
+        for item in artifacts.get("activation", ())
+    }
+    decisions = {
+        str(item["decision_identity"]): item
+        for item in artifacts.get("authorization_decision", ())
+    }
+    pending_records = {
+        str(item["archive_pending_identity"]): item
+        for item in artifacts.get("archive_pending", ())
+    }
+    archives = {
+        str(item["archive_identity"]): item
+        for item in artifacts.get("archive_manifest", ())
+    }
+    indeterminate_records = {
+        str(item["indeterminate_identity"]): item
+        for item in artifacts.get("indeterminate", ())
+    }
+
+    for approval in approvals.values():
+        proposal = proposals.get(str(approval["proposal_identity"]))
+        if proposal is None:
+            _reject("approval proposal is absent")
+        require_order("proposal", proposal, "human_approval", approval)
+    for authorization in authorizations.values():
+        approval = approvals.get(str(authorization["approval_identity"]))
+        if approval is None:
+            _reject("authorization approval is absent")
+        require_order("human_approval", approval, "authorization", authorization)
+    for decision in decisions.values():
+        activation = activations.get(str(decision["activation_identity"]))
+        if activation is None:
+            _reject("decision activation is absent")
+        require_order("activation", activation, "authorization_decision", decision)
+    for archive in archives.values():
+        pending = pending_records.get(str(archive["archive_pending_identity"]))
+        if pending is None:
+            _reject("archive pending record is absent")
+        require_order("archive_pending", pending, "archive_manifest", archive)
+    for completion in artifacts.get("completion_marker", ()):
+        archive = archives.get(str(completion["archive_identity"]))
+        if archive is None:
+            _reject("completion archive manifest is absent")
+        require_order("archive_manifest", archive, "completion_marker", completion)
+    for supersession in artifacts.get("supersession", ()):
+        decision = decisions.get(str(supersession["decision_identity"]))
+        if decision is None:
+            _reject("supersession decision is absent")
+        require_order("authorization_decision", decision, "supersession", supersession)
+    for recovery in artifacts.get("recovery", ()):
+        indeterminate = indeterminate_records.get(
+            str(recovery["prior_indeterminate_identity"])
+        )
+        if indeterminate is None:
+            _reject("recovery indeterminate record is absent")
+        require_order("indeterminate", indeterminate, "recovery", recovery)
+
+    for artifact_type, timestamp_field in TIMESTAMP_FIELDS.items():
+        if artifact_type in {"proposal", "human_approval", "authorization"}:
+            continue
+        for record in artifacts.get(artifact_type, ()):
+            authorization_identity = record.get(
+                "authorization_identity",
+                record.get("predecessor_authorization_identity"),
+            )
+            if authorization_identity is None:
+                continue
+            authorization = authorizations.get(str(authorization_identity))
+            if authorization is None:
+                _reject("dependent history authorization is absent")
+            operation = str(record[timestamp_field])
+            if artifact_type == "expiration":
+                if operation != authorization["expires_at"]:
+                    _reject("historical expiration is not at the exact boundary")
+            elif not authorization_is_valid_at(authorization, operation):
+                _reject("historical operation occurred outside authorization validity")
+
+
+def _validate_complete_actor_history(
+    artifacts: Mapping[str, Sequence[Mapping[str, object]]],
+) -> None:
+    assignment = _one(artifacts, "role_assignment")
+    accounts = {
+        str(item["stable_account_identity"]): item
+        for item in artifacts.get("stable_account", ())
+    }
+
+    def require(record: Mapping[str, object], field: str, role: str) -> None:
+        actor = record[field]
+        if actor not in accounts or actor != assignment[f"{role}_identity"]:
+            _reject("historical event actor is not bound to its assigned stable account")
+
+    for record in artifacts.get("proposal", ()):
+        expected = (
+            "superseding_authorization_author"
+            if record["authorization_author_identity"]
+            == assignment["superseding_authorization_author_identity"]
+            else "authorization_author"
+        )
+        require(record, "authorization_author_identity", expected)
+    for record in artifacts.get("human_approval", ()):
+        expected = (
+            "superseding_authorization_author"
+            if record["author_identity"]
+            == assignment["superseding_authorization_author_identity"]
+            else "authorization_author"
+        )
+        require(record, "author_identity", expected)
+        require(record, "reviewer_identity", "reviewer")
+    fixed = {
+        "activation": ("operator_identity", "operator"),
+        "consumption_claim": ("operator_identity", "operator"),
+        "build_start": ("operator_identity", "operator"),
+        "run_start": ("operator_identity", "operator"),
+        "lifecycle_terminal": ("operator_identity", "operator"),
+        "archive_pending": ("operator_identity", "archive_custodian"),
+        "archive_observation": ("observer_identity", "archive_custodian"),
+        "completion_marker": ("actor_identity", "archive_custodian"),
+        "supersession": (
+            "superseding_author_identity",
+            "superseding_authorization_author",
+        ),
+        "expiration": ("actor_identity", "system"),
+        "indeterminate": ("actor_identity", "system"),
+    }
+    for artifact_type, (field, role) in fixed.items():
+        for record in artifacts.get(artifact_type, ()):
+            require(record, field, role)
+    for decision in artifacts.get("authorization_decision", ()):
+        require(
+            decision,
+            "actor_identity",
+            "operator"
+            if decision["decision_kind"] == "consume"
+            else "superseding_authorization_author",
+        )
+    for rejection in artifacts.get("rejection", ()):
+        require(
+            rejection,
+            "actor_identity",
+            "reviewer" if rejection["authorization_identity"] is None else "operator",
+        )
+    for recovery in artifacts.get("recovery", ()):
+        require(
+            recovery,
+            "recovery_actor_identity",
+            "archive_custodian"
+            if recovery["recovery_outcome"] in {"archive_pending", "archived"}
+            else "operator",
+        )
+
+
 def _render_artifact_path(
     artifact_type: str,
     record: Mapping[str, object],
@@ -927,6 +1299,17 @@ def _validate_transition_durability(
     )
     if not all(equations):
         _reject("transition durability is not bound to exact artifact, bytes, path, and trace")
+    stores = artifacts.get("consumption_store", ())
+    if stores:
+        store = _one(artifacts, "consumption_store")
+        if (
+            store["filesystem_evidence_identity"]
+            != filesystem["filesystem_evidence_identity"]
+            or store["canonical_root"] != filesystem["mount_point"]
+            or store["owner_uid"] != filesystem["owner_uid"]
+            or store["group_gid"] != filesystem["group_gid"]
+        ):
+            _reject("filesystem evidence differs from the frozen consumption store")
 
 
 def _validate_foundational_equations(
@@ -947,27 +1330,114 @@ def _validate_foundational_equations(
             for record in records:
                 if "authorization_identity" in record and record["authorization_identity"] != expected:
                     _reject("cross-artifact authorization identity mismatch")
-    run_ids = {
-        str(record["run_identity"])
-        for records in artifacts.values()
-        for record in records
-        if "run_identity" in record
+    authorization_map = {
+        str(item["authorization_identity"]): item for item in authorizations
     }
-    if len(run_ids) > 1:
-        _reject("cross-artifact run identity mismatch")
-    if authorizations:
-        primary = authorizations[0]
+    proposal_map = {
+        str(item["proposal_identity"]): item for item in artifacts.get("proposal", ())
+    }
+    approval_map = {
+        str(item["approval_identity"]): item
+        for item in artifacts.get("human_approval", ())
+    }
+    checkout_map = {
+        str(item["source_checkout_identity"]): item
+        for item in artifacts.get("source_checkout", ())
+    }
+    assignment = _one(artifacts, "role_assignment")
+    supersession_predecessor = None
+    if supersession:
+        supersession_predecessor = _one(artifacts, "authorization_decision")[
+            "authorization_identity"
+        ]
+    overlap = (
+        "authoritative_run_identity",
+        "authorized_source_commit",
+        "authorized_source_tree",
+        "dataset_manifest_identity",
+        "execution_command_identity",
+        "v004_contract_identity",
+        "v004_implementation_identity",
+    )
+    for authorization in authorizations:
+        proposal = proposal_map.get(str(authorization["proposal_identity"]))
+        approval = approval_map.get(str(authorization["approval_identity"]))
+        checkout = checkout_map.get(str(authorization["source_checkout_identity"]))
+        if proposal is None or approval is None or checkout is None:
+            _reject("authorization proposal, approval, or source checkout is absent")
+        expected_author = (
+            assignment["authorization_author_identity"]
+            if not supersession
+            or authorization["authorization_identity"] == supersession_predecessor
+            else assignment["superseding_authorization_author_identity"]
+        )
+        equations = (
+            approval["proposal_identity"] == proposal["proposal_identity"],
+            approval["author_identity"] == proposal["authorization_author_identity"],
+            authorization["authorization_author_identity"]
+            == proposal["authorization_author_identity"]
+            == approval["author_identity"]
+            == expected_author,
+            authorization["reviewer_identity"]
+            == approval["reviewer_identity"]
+            == assignment["reviewer_identity"],
+            authorization["operator_identity"] == assignment["operator_identity"],
+            authorization["role_assignment_identity"]
+            == assignment["role_assignment_identity"],
+            authorization["authorized_source_commit"] == checkout["source_commit"],
+            authorization["authorized_source_tree"] == checkout["source_tree"],
+            authorization["v005_governance_identity"] == contract["contract_identity"],
+            authorization["execution_command_identity"]
+            == contract["execution_command"]["command_identity"],
+            authorization["execution_argv"] == contract["execution_command"]["argv"],
+        )
+        if not all(equations) or any(
+            authorization[field] != proposal[field] for field in overlap
+        ):
+            _reject("authorization foundational proposal, approval, role, or source binding mismatch")
+
+    if not supersession and authorization_map:
+        expected_authorization = next(iter(authorization_map.values()))
+        expected_run = expected_authorization["authoritative_run_identity"]
+        for records in artifacts.values():
+            for record in records:
+                if "run_identity" in record and record["run_identity"] != expected_run:
+                    _reject("lifecycle run identity differs from the authorized run")
         for claim in artifacts.get("consumption_claim", ()):
-            if claim["source_commit"] != primary["authorized_source_commit"] or claim["source_tree"] != primary["authorized_source_tree"]:
+            if (
+                claim["source_commit"]
+                != expected_authorization["authorized_source_commit"]
+                or claim["source_tree"]
+                != expected_authorization["authorized_source_tree"]
+            ):
                 _reject("consumption source differs from authorized source")
-        for proposal in artifacts.get("proposal", ()):
-            if proposal["execution_command_identity"] != primary["execution_command_identity"]:
-                _reject("proposal and authorization command identities differ")
-        if primary["v005_governance_identity"] != contract["contract_identity"]:
-            _reject("authorization governance identity mismatch")
+
+    for rejection in artifacts.get("rejection", ()):
+        proposal = proposal_map.get(str(rejection["proposal_identity"]))
+        if proposal is None:
+            _reject("rejection names an unrelated proposal")
 
 
 def _validate_transition_semantics(transition_id: str, artifacts: Mapping[str, Sequence[Mapping[str, object]]], contract: Mapping[str, object]) -> None:
+    expected_terminal = {
+        "run_succeeded": "run_succeeded",
+        "run_failed": "run_failed",
+        "build_failed": "run_failed",
+    }
+    if transition_id in expected_terminal:
+        if _one(artifacts, "lifecycle_terminal")["terminal_state"] != expected_terminal[transition_id]:
+            _reject("terminal outcome differs from the frozen transition")
+
+    expected_indeterminate = {
+        "claim_indeterminate": "claim",
+        "build_indeterminate": "build",
+        "run_indeterminate": "run",
+        "archive_indeterminate": "archive",
+    }
+    if transition_id in expected_indeterminate:
+        if _one(artifacts, "indeterminate")["uncertain_operation"] != expected_indeterminate[transition_id]:
+            _reject("indeterminate operation differs from the frozen transition")
+
     if "authorization_decision" in artifacts:
         decision = _one(artifacts, "authorization_decision")
         activation = _one(artifacts, "activation")
@@ -1020,13 +1490,35 @@ def _validate_transition_semantics(transition_id: str, artifacts: Mapping[str, S
     if transition_id == "proposal_rejected":
         rejection = _one(artifacts, "rejection")
         proposal = _one(artifacts, "proposal")
-        if rejection["authorization_identity"] is not None:
+        if (
+            rejection["authorization_identity"] is not None
+            or rejection["proposal_identity"] != proposal["proposal_identity"]
+        ):
             _reject("proposal rejection prior-state binding mismatch")
     if transition_id == "preflight_rejected":
         rejection = _one(artifacts, "rejection")
         authorization = _one(artifacts, "authorization")
-        if rejection["authorization_identity"] != authorization["authorization_identity"]:
+        proposal = _one(artifacts, "proposal")
+        if (
+            rejection["authorization_identity"] != authorization["authorization_identity"]
+            or rejection["proposal_identity"] != proposal["proposal_identity"]
+        ):
             _reject("preflight rejection prior-state binding mismatch")
+    if transition_id in {"success_archive_started", "failure_archive_started"}:
+        pending = _one(artifacts, "archive_pending")
+        terminal = _one(artifacts, "lifecycle_terminal")
+        expected_terminal_state = (
+            "run_succeeded"
+            if transition_id == "success_archive_started"
+            else "run_failed"
+        )
+        if (
+            terminal["terminal_state"] != expected_terminal_state
+            or pending["terminal_identity"] != terminal["terminal_identity"]
+            or pending["destination_relative_path"]
+            != f"archives/{terminal['run_identity']}"
+        ):
+            _reject("archive start outcome, terminal, or destination mismatch")
     if transition_id == "archive_completed":
         pending = _one(artifacts, "archive_pending")
         archive = _one(artifacts, "archive_manifest")
@@ -1051,23 +1543,67 @@ def _validate_transition_semantics(transition_id: str, artifacts: Mapping[str, S
             _one(artifacts, "failure") if "failure" in artifacts else None,
             contract,
         )
+    if transition_id in {"supersession_decision_won", "supersession_durable"}:
+        decision = _one(artifacts, "authorization_decision")
+        authorization_map = {
+            str(item["authorization_identity"]): item
+            for item in artifacts["authorization"]
+        }
+        predecessor = authorization_map.get(str(decision["authorization_identity"]))
+        successor = authorization_map.get(str(decision["successor_authorization_identity"]))
+        activation_map = {
+            str(item["authorization_identity"]): item
+            for item in artifacts["activation"]
+        }
+        role_assignment = _one(artifacts, "role_assignment")
+        account_map = {
+            str(item["stable_account_identity"]): item
+            for item in artifacts["stable_account"]
+        }
+        previous_operator = role_assignment["previous_operator_identity"]
+        if (
+            predecessor is None
+            or successor is None
+            or activation_map.get(str(predecessor["authorization_identity"])) is None
+            or successor["previous_authorization_identity"]
+            != predecessor["authorization_identity"]
+            or successor["authorization_author_identity"]
+            != role_assignment["superseding_authorization_author_identity"]
+            or previous_operator is None
+            or previous_operator != predecessor["operator_identity"]
+            or account_map[previous_operator]["github_user_id"]
+            == account_map[decision["actor_identity"]]["github_user_id"]
+            or account_map[predecessor["authorization_author_identity"]]["github_user_id"]
+            == account_map[successor["authorization_author_identity"]]["github_user_id"]
+        ):
+            _reject("supersession candidate lifecycle or role separation failed")
+        decision_time = str(decision["decision_timestamp"])
+        if (
+            not authorization_is_valid_at(predecessor, decision_time)
+            or not authorization_is_valid_at(successor, decision_time)
+            or parse_canonical_timestamp(successor["issued_at"])
+            > parse_canonical_timestamp(decision_time)
+        ):
+            _reject("supersession candidate authorization is not valid at decision")
+        preserved = (
+            "authoritative_run_identity",
+            "canonical_fixture_identity",
+            "canonical_manifest_identity",
+            "dataset_manifest_identity",
+            "execution_command_identity",
+            "v004_contract_identity",
+            "v004_implementation_identity",
+            "authorized_source_commit",
+            "authorized_source_tree",
+        )
+        if any(predecessor[field] != successor[field] for field in preserved):
+            _reject("supersession candidate changed preserved identity")
+
     if transition_id == "supersession_durable":
         decision = _one(artifacts, "authorization_decision")
         supersession = _one(artifacts, "supersession")
         if supersession["decision_identity"] != decision["decision_identity"] or supersession["predecessor_authorization_identity"] != decision["authorization_identity"] or supersession["successor_authorization_identity"] != decision["successor_authorization_identity"]:
             _reject("supersession record does not match durable decision")
-        authorization_map = {
-            str(item["authorization_identity"]): item
-            for item in artifacts["authorization"]
-        }
-        activation_map = {
-            str(item["authorization_identity"]): item
-            for item in artifacts["activation"]
-        }
-        account_map = {
-            str(item["stable_account_identity"]): item
-            for item in artifacts["stable_account"]
-        }
         validate_supersession_chain(
             [supersession],
             [decision],
@@ -1084,7 +1620,7 @@ def _validate_transition_semantics(transition_id: str, artifacts: Mapping[str, S
                     "indeterminate",
                 )
             },
-            role_assignment=_one(artifacts, "role_assignment"),
+            role_assignment=role_assignment,
             accounts=account_map,
         )
     if transition_id.endswith("_recovered"):
@@ -1092,6 +1628,65 @@ def _validate_transition_semantics(transition_id: str, artifacts: Mapping[str, S
         indeterminate = _one(artifacts, "indeterminate")
         if recovery["prior_indeterminate_identity"] != indeterminate["indeterminate_identity"]:
             _reject("recovery does not reference the exact indeterminate record")
+        expected_recovery = {
+            "claim_recovered": ("claim", "claim_durable", "consumption_claim", "consumed"),
+            "build_recovered": ("build", "build_durable", "build_start", "build_started"),
+            "run_success_recovered": ("run", "run_succeeded", "lifecycle_terminal", "run_succeeded"),
+            "run_failure_recovered": ("run", "run_failed", "lifecycle_terminal", "run_failed"),
+            "archive_recovered": ("archive", "archive_pending", "archive_manifest", None),
+            "archive_completion_recovered": ("archive", "archived", "completion_marker", "archived"),
+        }[transition_id]
+        operation, outcome, recovered_type, recovered_state = expected_recovery
+        if (
+            indeterminate["uncertain_operation"] != operation
+            or recovery["indeterminate_identity"] != indeterminate["indeterminate_identity"]
+            or recovery["recovery_outcome"] != outcome
+            or recovery["unexpected_paths"]
+        ):
+            _reject("recovery operation, outcome, or path inventory mismatch")
+        references = {
+            item["typed_reference_identity"]: item
+            for item in artifacts.get("typed_reference", ())
+        }
+        recovered_reference = references.get(recovery["recovered_reference_identity"])
+        if (
+            recovered_reference is None
+            or recovered_reference["target_artifact_type"] != recovered_type
+            or recovered_reference["target_state"] != recovered_state
+        ):
+            _reject("recovery target reference differs from the frozen outcome")
+        targets = {
+            artifact_self_identity(item, recovered_type, contract): item
+            for item in artifacts.get(recovered_type, ())
+        }
+        target = targets.get(recovered_reference["target_identity"])
+        if target is None:
+            _reject("recovery target artifact is absent")
+        payloads = {
+            item["canonical_payload_identity"]: item
+            for item in artifacts.get("canonical_payload", ())
+        }
+        existing_payload = payloads.get(recovery["existing_payload_identity"])
+        intended_payload = payloads.get(recovery["intended_payload_identity"])
+        if existing_payload is None or intended_payload is None:
+            _reject("recovery payload evidence is absent")
+        intended_bytes = _decode_base64(intended_payload["canonical_bytes_base64"])
+        if (
+            intended_payload["artifact_type"] != recovered_type
+            or intended_payload["artifact_identity"] != recovered_reference["target_identity"]
+            or intended_bytes != canonical_bytes(target)
+            or intended_payload["canonical_bytes_sha256"]
+            != hashlib.sha256(intended_bytes).hexdigest()
+        ):
+            _reject("recovery intended payload differs from the recovered artifact")
+        if recovery["recovery_action"] == "verify_identical_durable_bytes":
+            if recovery["existing_payload_identity"] != recovery["intended_payload_identity"]:
+                _reject("identical-byte recovery payloads differ")
+        elif recovery["recovery_action"] == "complete_missing_archive_bytes":
+            if transition_id not in {"archive_recovered", "archive_completion_recovered"}:
+                _reject("missing-byte recovery is restricted to archive transitions")
+        else:
+            _reject("unknown recovery action")
     if transition_id in {"archive_recovered", "archive_completion_recovered"}:
         pending = _one(artifacts, "archive_pending")
         archive = _one(artifacts, "archive_manifest")
@@ -1117,6 +1712,42 @@ def _validate_transition_semantics(transition_id: str, artifacts: Mapping[str, S
                 _one(artifacts, "failure") if "failure" in artifacts else None,
                 contract,
             )
+    archive_observation_outcomes = {
+        "success_archive_started": "publication_permitted",
+        "failure_archive_started": "publication_permitted",
+        "archive_completed": "already_complete_and_valid",
+        "archive_indeterminate": "indeterminate",
+        "archive_recovered": "recovery_permitted",
+        "archive_completion_recovered": "already_complete_and_valid",
+    }
+    if transition_id in archive_observation_outcomes:
+        validate_archive_observation(
+            _one(artifacts, "archive_observation"),
+            _one(artifacts, "archive_pending"),
+            _one(artifacts, "lifecycle_terminal"),
+            contract,
+            expected_outcome=archive_observation_outcomes[transition_id],
+            archive=(
+                _one(artifacts, "archive_manifest")
+                if "archive_manifest" in artifacts
+                else None
+            ),
+            completion=(
+                _one(artifacts, "completion_marker")
+                if "completion_marker" in artifacts
+                else None
+            ),
+            result_manifest=(
+                _one(artifacts, "result_manifest")
+                if "result_manifest" in artifacts
+                else None
+            ),
+            failure=(
+                _one(artifacts, "failure") if "failure" in artifacts else None
+            ),
+            role_assignment=_one(artifacts, "role_assignment"),
+            filesystem=_one(artifacts, "filesystem_evidence"),
+        )
 
 
 def validate_terminal_bundle(terminal: Mapping[str, object], result_manifest: Mapping[str, object] | None, failure: Mapping[str, object] | None, contract: Mapping[str, object]) -> None:
@@ -1174,6 +1805,90 @@ def validate_archive_bundle(archive: Mapping[str, object], terminal: Mapping[str
     )
     if archive["expected_file_identities"] != expected_files:
         _reject("archive expected-file inventory differs from terminal outcome")
+
+
+def validate_archive_observation(
+    observation: Mapping[str, object],
+    pending: Mapping[str, object],
+    terminal: Mapping[str, object],
+    contract: Mapping[str, object],
+    *,
+    expected_outcome: str,
+    archive: Mapping[str, object] | None,
+    completion: Mapping[str, object] | None,
+    result_manifest: Mapping[str, object] | None,
+    failure: Mapping[str, object] | None,
+    role_assignment: Mapping[str, object],
+    filesystem: Mapping[str, object],
+) -> None:
+    validate_artifact(observation, "archive_observation", contract)
+    validate_artifact(pending, "archive_pending", contract)
+    validate_terminal_bundle(terminal, result_manifest, failure, contract)
+    if archive is not None:
+        validate_artifact(archive, "archive_manifest", contract)
+    if completion is not None:
+        validate_artifact(completion, "completion_marker", contract)
+    expected_files = sorted(
+        [str(terminal["terminal_identity"])]
+        + (
+            [str(failure["failure_identity"])]
+            if failure is not None
+            else [str(result_manifest["result_manifest_identity"])]
+        )
+        + (
+            []
+            if result_manifest is None
+            else [str(item) for item in result_manifest["result_identities"]]
+        )
+    )
+    expected_destination = f"archives/{terminal['run_identity']}"
+    expected_staging = f"archives/staging/{pending['archive_pending_identity']}"
+    equations = (
+        observation["authorization_identity"] == terminal["authorization_identity"],
+        observation["run_identity"] == terminal["run_identity"],
+        observation["archive_pending_identity"] == pending["archive_pending_identity"],
+        observation["archive_identity"]
+        == (None if archive is None else archive["archive_identity"]),
+        observation["completion_marker_identity"]
+        == (None if completion is None else completion["completion_marker_identity"]),
+        observation["destination_relative_path"]
+        == pending["destination_relative_path"]
+        == expected_destination,
+        observation["staging_relative_path"] == expected_staging,
+        observation["expected_file_identities"] == expected_files,
+        observation["unexpected_files"]
+        == bool(observation["unexpected_file_identities"]),
+        observation["required_files_present"]
+        == (observation["observed_file_identities"] == expected_files),
+        observation["observer_identity"]
+        == role_assignment["archive_custodian_identity"],
+        observation["filesystem_evidence_identity"]
+        == filesystem["filesystem_evidence_identity"],
+    )
+    if not all(equations):
+        _reject("archive observation identity, path, inventory, actor, or filesystem mismatch")
+    evidence = {
+        field: observation[field]
+        for field in (
+            "destination_exists",
+            "manifest_exists",
+            "marker_exists",
+            "required_files_present",
+            "all_intended_bytes_match",
+            "unexpected_files",
+            "recovery_authorized",
+            "all_file_fullfsyncs",
+            "directory_fsyncs",
+            "parent_fsync",
+            "marker_fullfsync",
+            "marker_archive_identity_matches",
+        )
+    }
+    actual_outcome = synthetic_archive_outcome(
+        str(observation["publication_mode"]), evidence
+    )
+    if actual_outcome != expected_outcome:
+        _reject("archive observation differs from the required state-machine outcome")
 
 
 def validate_supersession_chain(
@@ -1240,6 +1955,12 @@ def validate_supersession_chain(
             _reject("supersession author and previous operator must differ")
         if successor_record["previous_authorization_identity"] != predecessor:
             _reject("successor predecessor link mismatch")
+        if record["approval_identity"] != successor_record["approval_identity"]:
+            _reject("supersession does not name the successor approval")
+        if parse_canonical_timestamp(record["supersession_timestamp"]) < parse_canonical_timestamp(
+            decision["decision_timestamp"]
+        ):
+            _reject("supersession publication predates its decision")
         preserved = ("authoritative_run_identity", "canonical_fixture_identity", "canonical_manifest_identity", "dataset_manifest_identity", "execution_command_identity", "v004_contract_identity", "v004_implementation_identity", "authorized_source_commit", "authorized_source_tree")
         if any(predecessor_record[field] != successor_record[field] for field in preserved):
             _reject("supersession changed preserved identity")
@@ -1271,14 +1992,8 @@ def synthetic_arbitration_outcome(*, consume_decision_durable: bool, supersede_d
 
 def validate_filesystem_evidence(record: Mapping[str, object], contract: Mapping[str, object]) -> None:
     validate_artifact(record, "filesystem_evidence", contract)
-    required_order = ["open_root_no_follow", "verify_mount_device_owner_mode", "exclusive_create", "write_complete", "f_fullfsync_file", "close_file", "fsync_directory"]
-    trace = record["durability_trace"]
-    position = -1
-    for required in required_order:
-        try:
-            position = trace.index(required, position + 1)
-        except ValueError:
-            _reject("filesystem durability trace is incomplete or reordered")
+    if record["durability_trace"] != contract["durability_protocol"]["trace"]:
+        _reject("filesystem durability trace must match exactly")
     if record["fault_state"] != "none":
         _reject("indeterminate filesystem evidence cannot authorize progress")
 
@@ -1307,10 +2022,27 @@ def synthetic_archive_outcome(mode: str, evidence: Mapping[str, object]) -> str:
     marker = evidence["marker_exists"]
     files = evidence["required_files_present"]
     impossible = (
-        (not destination and any((manifest, marker, files, evidence["all_intended_bytes_match"], evidence["all_file_fullfsyncs"], evidence["directory_fsyncs"], evidence["parent_fsync"], evidence["marker_fullfsync"])))
+        (
+            not destination
+            and any(
+                (
+                    manifest,
+                    marker,
+                    files,
+                    evidence["all_intended_bytes_match"],
+                    evidence["all_file_fullfsyncs"],
+                    evidence["directory_fsyncs"],
+                    evidence["parent_fsync"],
+                    evidence["marker_fullfsync"],
+                    evidence["marker_archive_identity_matches"],
+                    evidence["recovery_authorized"],
+                )
+            )
+        )
         or (marker and not manifest)
         or (marker and not files)
         or (marker and not evidence["marker_archive_identity_matches"])
+        or (not marker and evidence["marker_archive_identity_matches"])
     )
     if impossible or evidence["unexpected_files"] or (destination and not evidence["all_intended_bytes_match"]):
         return "invalid_conflicting"
@@ -1330,7 +2062,11 @@ def synthetic_archive_outcome(mode: str, evidence: Mapping[str, object]) -> str:
         )
     )
     if complete:
-        return "already_complete_and_valid"
+        return (
+            "already_complete_and_valid"
+            if mode == "verify_complete"
+            else "invalid_conflicting"
+        )
     if mode == "first_publication":
         return "publication_permitted" if not destination else "invalid_conflicting"
     if mode == "authorized_recovery":
@@ -1345,6 +2081,8 @@ def _git_oid(kind: str, payload: bytes) -> str:
 
 
 def _parse_commit(raw: bytes) -> tuple[str, list[str]]:
+    if b"\n\n" not in raw or b"\r" in raw or b"\x00" in raw:
+        _reject("invalid raw commit framing")
     try:
         header = raw.split(b"\n\n", 1)[0].decode("utf-8", errors="strict")
     except (UnicodeError, ValueError) as exc:
@@ -1364,13 +2102,22 @@ def _parse_tree(raw: bytes) -> list[tuple[str, str, str]]:
         nul = raw.find(b"\x00", space + 1)
         if space < 0 or nul < 0 or nul + 21 > len(raw):
             _reject("invalid raw tree bytes")
-        mode = raw[cursor:space].decode("ascii")
-        name = raw[space + 1:nul].decode("utf-8", errors="strict")
+        try:
+            mode = raw[cursor:space].decode("ascii")
+            name = raw[space + 1:nul].decode("utf-8", errors="strict")
+        except UnicodeError as exc:
+            raise OlympicsAuthorizationGovernanceV005Error(
+                "invalid raw tree encoding"
+            ) from exc
         oid = raw[nul + 1:nul + 21].hex()
         if mode not in {"100644", "40000"} or "/" in name or name in {".", ".."}:
             _reject("invalid tree entry")
         entries.append((mode, name, oid))
         cursor = nul + 21
+    names = [name for _, name, _ in entries]
+    sort_keys = [name + ("/" if mode == "40000" else "") for mode, name, _ in entries]
+    if len(names) != len(set(names)) or sort_keys != sorted(sort_keys):
+        _reject("tree entries are duplicated or noncanonical")
     return entries
 
 
@@ -1432,15 +2179,157 @@ def validate_documentary_git_proof(binding: Mapping[str, object], authorization:
     _verify_tree_proof(proof["binding_tree_proof_bytes"], tree_b, f"bindings/{authorization['authorization_identity']}/documentary_binding.json", binding_blob)
 
 
+def _matrix_projections(value: Mapping[str, object]) -> dict[str, object]:
+    transitions = value["lifecycle"]["transitions"]
+    schemas = value["artifact_schemas"]
+    typed_fields = {
+        artifact_type: {
+            field: rule
+            for field, rule in schema["fields"].items()
+            if str(rule).startswith(
+                ("identity:", "nullable_identity:", "array_identity:")
+            )
+        }
+        for artifact_type, schema in schemas.items()
+    }
+    return {
+        "artifact_schemas": schemas,
+        "transitions": transitions,
+        "state_graph": {
+            "states": value["lifecycle"]["states"],
+            "terminal_definition": value["lifecycle"]["terminal_definition"],
+            "terminal_states": value["lifecycle"]["terminal_states"],
+            "edges": [
+                {
+                    "transition_id": item["transition_id"],
+                    "from": item["from"],
+                    "to": item["to"],
+                    "terminal": item["terminal"],
+                }
+                for item in transitions
+            ],
+        },
+        "typed_references": {
+            "schema_identity_fields": typed_fields,
+            "transition_priors": [
+                {
+                    "transition_id": item["transition_id"],
+                    "prior_record_type": item["prior_record_type"],
+                    "source_state": item["from"],
+                    "root_record_type": item["new_artifact_type"],
+                }
+                for item in transitions
+            ],
+        },
+        "roles": value["role_separation"],
+        "timestamps": {
+            "timestamp_fields": value["lifecycle"]["timestamp_fields"],
+            "timestamp_order": value["lifecycle"]["timestamp_order"],
+            "transition_equations": [
+                [item["transition_id"], item["required_timestamp_equation"]]
+                for item in transitions
+            ],
+        },
+        "validity": {
+            "authorization_validity_seconds": value["lifecycle"][
+                "authorization_validity_seconds"
+            ],
+            "transition_equations": [
+                [item["transition_id"], item["authorization_validity"]]
+                for item in transitions
+            ],
+        },
+        "durability": {
+            "protocol": value["durability_protocol"],
+            "path_security": value["path_security"],
+            "transition_rules": [
+                {
+                    key: item[key]
+                    for key in (
+                        "transition_id",
+                        "atomicity_point",
+                        "durability",
+                        "durability_trace_type",
+                        "crash_before_atomicity",
+                        "crash_after_atomicity_before_durability",
+                        "allowed_retry_mode",
+                        "idempotency",
+                    )
+                }
+                for item in transitions
+            ],
+        },
+        "recovery": {
+            "transitions": [
+                item
+                for item in transitions
+                if item["transition_id"].endswith("_recovered")
+                or item["transition_id"].endswith("_indeterminate")
+            ],
+            "archive_recovery": {
+                key: value["archive_protocol"][key]
+                for key in ("recovery_authority", "recovery_mutation")
+            },
+        },
+        "archive": {
+            "protocol": value["archive_protocol"],
+            "truth_table": value["archive_truth_table"],
+            "schemas": {
+                name: schemas[name]
+                for name in (
+                    "archive_observation",
+                    "archive_pending",
+                    "archive_manifest",
+                    "completion_marker",
+                )
+            },
+        },
+        "supersession": {
+            "protocol": value["supersession_protocol"],
+            "decision_schema": schemas["authorization_decision"],
+            "supersession_schema": schemas["supersession"],
+        },
+        "documentary": {
+            "protocol": value["documentary_binding_protocol"],
+            "repository_context_protocol": value["repository_context_protocol"],
+            "binding_schema": schemas["documentary_binding"],
+            "repository_context_schema": schemas["repository_context"],
+        },
+        "clock": {
+            "protocol": value["clock_protocol"],
+            "schemas": {
+                name: schemas[name]
+                for name in (
+                    "clock_request",
+                    "clock_evidence",
+                    "clock_verifier_attestation",
+                    "clock_attestation",
+                )
+            },
+        },
+    }
+
+
+def _validate_matrix_identities(value: Mapping[str, object]) -> None:
+    declared = value.get("matrix_identities")
+    if not isinstance(declared, Mapping) or set(declared) != set(EXPECTED_MATRIX_IDENTITIES):
+        _reject("matrix identity inventory changed")
+    projections = _matrix_projections(value)
+    for name, expected in EXPECTED_MATRIX_IDENTITIES.items():
+        actual = domain_hash(f"aml.olympics.v005.matrix.{name}", projections[name])
+        if declared[name] != expected or actual != expected:
+            _reject(f"{name} matrix identity changed")
+
+
 def _validate_contract_structure(value: Mapping[str, object]) -> None:
-    required = {"archive_truth_table","artifact_schemas","archive_protocol","canonicalization","clock_protocol","compatibility_edges","consumption_protocol","contract_identity","documentary_binding_protocol","durability_protocol","execution_command","historical_lineage","identity_domains","lifecycle","path_security","primitives","prospective_as_of","repository_context_protocol","role_separation","schema_language","schema_version","scope","supersession_protocol","validation_manifest","version"}
+    required = {"archive_truth_table","artifact_schemas","archive_protocol","canonicalization","clock_protocol","compatibility_edges","consumption_protocol","contract_identity","documentary_binding_protocol","durability_protocol","execution_command","historical_lineage","identity_domains","lifecycle","matrix_identities","path_security","primitives","prospective_as_of","repository_context_protocol","role_separation","schema_language","schema_version","scope","supersession_protocol","validation_manifest","version"}
     if set(value) != required or value.get("schema_version") != SCHEMA or value.get("version") != VERSION:
         _reject("V005 root schema is invalid")
     parse_canonical_timestamp(value.get("prospective_as_of"))
     schemas = value.get("artifact_schemas")
     domains = value.get("identity_domains")
-    if not isinstance(schemas, Mapping) or not isinstance(domains, Mapping) or len(schemas) != 37:
-        _reject("V005 must define exactly thirty-seven artifact schemas")
+    if not isinstance(schemas, Mapping) or not isinstance(domains, Mapping) or len(schemas) != 38:
+        _reject("V005 must define exactly thirty-eight artifact schemas")
     for name, schema in schemas.items():
         if not isinstance(schema, Mapping) or set(schema) != {"domain","fields","identity_field","immutable","path"}:
             _reject("artifact schema metadata is incomplete")
@@ -1453,10 +2342,10 @@ def _validate_contract_structure(value: Mapping[str, object]) -> None:
     transitions = value["lifecycle"]["transitions"]
     if len(transitions) != len(EXPECTED_TRANSITIONS) or value["lifecycle"]["transition_count"] != len(EXPECTED_TRANSITIONS) or len({item["transition_id"] for item in transitions}) != len(EXPECTED_TRANSITIONS):
         _reject("lifecycle transition inventory changed")
-    required_transition_keys = {"transition_id","from","to","actor","required_artifact_types","required_one_of_artifact_type_sets","new_artifact_type","forbidden_competing_artifact_types","prior_state_identity_required","clock_binding","documentary_binding_required","atomicity_point","durability","crash_before_atomicity","crash_after_atomicity_before_durability","retry","idempotency","recovery","terminal","prior_record_type","required_event_record_type","required_timestamp_equation","authorization_validity","required_identity_equations","durability_trace_type","allowed_retry_mode","allowed_recovery_route"}
+    required_transition_keys = {"transition_id","from","to","actor","required_artifact_types","required_one_of_artifact_type_sets","required_supporting_reference_types","new_artifact_type","forbidden_competing_artifact_types","prior_state_identity_required","clock_binding","documentary_binding_required","atomicity_point","durability","crash_before_atomicity","crash_after_atomicity_before_durability","retry","idempotency","recovery","terminal","prior_record_type","required_event_record_type","required_timestamp_equation","authorization_validity","required_identity_equations","durability_trace_type","allowed_retry_mode","allowed_recovery_route"}
     for item in transitions:
         conditional_types = {name for group in item["required_one_of_artifact_type_sets"] for name in group}
-        if set(item) != required_transition_keys or item["new_artifact_type"] not in schemas or set(item["required_artifact_types"]) - set(schemas) or set(item["forbidden_competing_artifact_types"]) - set(schemas) or conditional_types - set(schemas):
+        if set(item) != required_transition_keys or item["new_artifact_type"] not in schemas or set(item["required_artifact_types"]) - set(schemas) or set(item["forbidden_competing_artifact_types"]) - set(schemas) or set(item["required_supporting_reference_types"]) - set(schemas) or conditional_types - set(schemas):
             _reject("transition bundle schema is incomplete")
         expected = EXPECTED_TRANSITIONS.get(item["transition_id"])
         actual = (
@@ -1467,8 +2356,25 @@ def _validate_contract_structure(value: Mapping[str, object]) -> None:
             _reject("machine lifecycle differs from the independently frozen transition matrix")
     if value["lifecycle"]["terminal_states"] != ["archived", "expired", "rejected", "superseded"]:
         _reject("terminal state inventory changed")
+    if (
+        value["lifecycle"].get("timestamp_fields") != TIMESTAMP_FIELDS
+        or value["lifecycle"].get("authorization_validity_seconds") != VALIDITY_SECONDS
+    ):
+        _reject("lifecycle timestamp or validity inventory changed")
     if value["supersession_protocol"]["eligible_predecessor_states"] != ["active_unconsumed"]:
         _reject("supersession predecessor state policy changed")
+    role_fields = sorted(
+        field.removesuffix("_identity")
+        for field in schemas["role_assignment"]["fields"]
+        if field.endswith("_identity") and field != "role_assignment_identity"
+    )
+    expected_role_pairs = {
+        f"{left}|{right}"
+        for index, left in enumerate(role_fields)
+        for right in role_fields[index + 1 :]
+    }
+    if set(value["role_separation"]["matrix"]) != expected_role_pairs:
+        _reject("role-separation matrix is not complete")
 
 
 def validate_contract(value: Mapping[str, object]) -> dict[str, object]:
@@ -1478,6 +2384,7 @@ def validate_contract(value: Mapping[str, object]) -> dict[str, object]:
         raise OlympicsAuthorizationGovernanceV005Error("V005 contract structure is malformed") from exc
     if value["historical_lineage"] != {"design_base_commit":DESIGN_BASE_COMMIT,"immutable_tag_name":TAG_NAME,"immutable_tag_object":TAG_OBJECT,"immutable_tagged_commit":TAGGED_COMMIT,"v004_contract_identity":V004_CONTRACT_IDENTITY,"v004_implementation_identity":V004_IMPLEMENTATION_IDENTITY}:
         _reject("historical lineage changed")
+    _validate_matrix_identities(value)
     command = value["execution_command"]
     if not isinstance(command, Mapping):
         _reject("execution command is malformed")

@@ -13,6 +13,7 @@ import pytest
 from aml.professional_strategy_olympics_authorization_governance_v005 import (
     COMMAND_IDENTITY,
     CONTRACT_IDENTITY,
+    EXPECTED_MATRIX_IDENTITIES,
     EXPECTED_TRANSITIONS,
     OlympicsAuthorizationGovernanceV005Error,
     artifact_identity,
@@ -23,14 +24,17 @@ from aml.professional_strategy_olympics_authorization_governance_v005 import (
     strict_json_bytes,
     synthetic_archive_outcome,
     transition_spec,
+    _matrix_projections,
     validate_archive_bundle,
     validate_artifact,
     validate_clock_bundle,
     validate_contract,
     validate_documentary_git_proof,
+    validate_filesystem_evidence,
     validate_supersession_chain,
     validate_terminal_bundle,
     validate_transition_bundle,
+    validate_typed_reference,
 )
 
 
@@ -64,6 +68,7 @@ def _primitive(name: str, index: int = 0) -> object:
         "argv": f"arg{index}",
         "artifact_type": "proposal",
         "base64": "",
+        "boolean": False,
         "domain_name": "aml.synthetic.domain",
         "durability_event": "open_root_no_follow",
         "env_assignment": f"A{index}=value",
@@ -143,7 +148,23 @@ def _typed_reference(kind: str, record: dict[str, object], state: str | None) ->
 
 
 class Fixture:
-    def __init__(self, *, transition_id: str, operation_stamp: str | None = None, operation_date: str | None = None, actor_override: str | None = None, durability_path: str | None = None):
+    def __init__(
+        self,
+        *,
+        transition_id: str,
+        operation_stamp: str | None = None,
+        operation_date: str | None = None,
+        actor_override: str | None = None,
+        durability_path: str | None = None,
+        event_times: dict[str, tuple[str, str]] | None = None,
+        store_root: str = "/synthetic/root0",
+        authorized_run_identity: str = ZERO,
+        lifecycle_run_identity: str | None = None,
+        uncertain_operation_override: str | None = None,
+        recovery_outcome_override: str | None = None,
+        archive_destination_override: str | None = None,
+        superseder_is_author: bool = False,
+    ):
         self.c = contract()
         self.transition_id = transition_id
         self.spec = transition_spec(self.c, transition_id)
@@ -151,6 +172,17 @@ class Fixture:
         self.operation_date = operation_date
         self.actor_override = actor_override
         self.durability_path = durability_path
+        self.event_times = event_times or {}
+        self.store_root = store_root
+        self.authorized_run_identity = authorized_run_identity
+        self.lifecycle_run_identity = (
+            authorized_run_identity
+            if lifecycle_run_identity is None
+            else lifecycle_run_identity
+        )
+        self.uncertain_operation_override = uncertain_operation_override
+        self.recovery_outcome_override = recovery_outcome_override
+        self.archive_destination_override = archive_destination_override
         self.records: dict[str, list[dict[str, object]]] = {}
         self.serial = 0
         self.accounts = [_account(index + 1) for index in range(9)]
@@ -165,6 +197,8 @@ class Fixture:
             self.superseder,
             self.system,
         ) = [item["stable_account_identity"] for item in self.accounts]
+        if superseder_is_author:
+            self.superseder = self.authorization_author
         self.add_many("stable_account", self.accounts)
         self._build()
 
@@ -179,6 +213,8 @@ class Fixture:
         self.serial += 1
         stamp = self.operation_stamp if root and self.operation_stamp else STAMP
         date = self.operation_date if root and self.operation_date else DATE
+        if kind in self.event_times:
+            stamp, date = self.event_times[kind]
         if root and kind == "expiration" and self.operation_stamp is None:
             stamp = "2030-08-03T12:00:00Z"
             date = "Sat, 03 Aug 2030 12:00:00 GMT"
@@ -246,7 +282,7 @@ class Fixture:
                 reviewer_identity=self.reviewer,
                 operator_identity=self.operator,
                 archive_custodian_identity=self.archive_custodian,
-                previous_operator_identity=self.previous_operator,
+                previous_operator_identity=self.operator,
                 superseding_authorization_author_identity=self.superseder,
                 system_identity=self.system,
             ),
@@ -269,7 +305,14 @@ class Fixture:
                 inspected_network_destinations=["api.alpaca.markets"],
             ),
         )
-        store = self.add("consumption_store", make_artifact("consumption_store", filesystem_evidence_identity=filesystem["filesystem_evidence_identity"]))
+        store = self.add(
+            "consumption_store",
+            make_artifact(
+                "consumption_store",
+                filesystem_evidence_identity=filesystem["filesystem_evidence_identity"],
+                canonical_root=self.store_root,
+            ),
+        )
         repository = self.add("repository_context", make_artifact("repository_context"))
         proposal = self.event(
             "proposal",
@@ -279,6 +322,7 @@ class Fixture:
             authorized_source_commit=GIT_A,
             authorized_source_tree=GIT_B,
             execution_command_identity=COMMAND_IDENTITY,
+            authoritative_run_identity=self.authorized_run_identity,
         )
         proposal_ref = self.prior("proposal", proposal, "proposed")
         approval = self.event(
@@ -310,6 +354,7 @@ class Fixture:
             execution_command_identity=COMMAND_IDENTITY,
             execution_argv=self.c["execution_command"]["argv"],
             expires_at="2030-08-03T12:00:00Z",
+            authoritative_run_identity=self.authorized_run_identity,
         )
         auth = authorization["authorization_identity"]
         activation = self.event(
@@ -323,12 +368,29 @@ class Fixture:
         activation_ref = self.prior("activation", activation, "active_unconsumed")
         superseding = self.transition_id.startswith("supersession")
         successor = None
+        successor_approval = None
         if superseding:
+            successor_proposal = self.event(
+                "proposal",
+                "proposal_timestamp",
+                authorization_author_identity=self.superseder,
+                authorized_source_commit=GIT_A,
+                authorized_source_tree=GIT_B,
+                execution_command_identity=COMMAND_IDENTITY,
+                authoritative_run_identity=self.authorized_run_identity,
+            )
+            successor_approval = self.event(
+                "human_approval",
+                "approval_timestamp",
+                proposal_identity=successor_proposal["proposal_identity"],
+                author_identity=self.superseder,
+                reviewer_identity=self.reviewer,
+            )
             successor = self.event(
                 "authorization",
                 "issued_at",
-                proposal_identity=proposal["proposal_identity"],
-                approval_identity=approval["approval_identity"],
+                proposal_identity=successor_proposal["proposal_identity"],
+                approval_identity=successor_approval["approval_identity"],
                 authorization_author_identity=self.superseder,
                 reviewer_identity=self.reviewer,
                 operator_identity=self.operator,
@@ -345,6 +407,7 @@ class Fixture:
                 execution_argv=self.c["execution_command"]["argv"],
                 expires_at="2030-08-03T12:00:00Z",
                 previous_authorization_identity=auth,
+                authoritative_run_identity=self.authorized_run_identity,
             )
         decision = self.event(
             "authorization_decision",
@@ -390,8 +453,22 @@ class Fixture:
             build_start_identity=build["build_start_identity"],
         )
         run_ref = self.prior("run_start", run, "run_started")
-        result = self.add("result_manifest", make_artifact("result_manifest", authorization_identity=auth))
-        failure = self.add("failure", make_artifact("failure", authorization_identity=auth))
+        result = self.add(
+            "result_manifest",
+            make_artifact(
+                "result_manifest",
+                authorization_identity=auth,
+                run_identity=self.lifecycle_run_identity,
+            ),
+        )
+        failure = self.add(
+            "failure",
+            make_artifact(
+                "failure",
+                authorization_identity=auth,
+                run_identity=self.lifecycle_run_identity,
+            ),
+        )
         failure_path = self.transition_id in {"run_failed", "build_failed", "failure_archive_started", "run_failure_recovered"}
         terminal_prior = build_ref if self.transition_id == "build_failed" else run_ref
         terminal = self.event(
@@ -406,6 +483,7 @@ class Fixture:
             result_identities=[] if failure_path else result["result_identities"],
             failure_identity=failure["failure_identity"] if failure_path else None,
             failure_details=failure["failure_code"] if failure_path else None,
+            run_identity=self.lifecycle_run_identity,
         )
         terminal_ref = self.prior("lifecycle_terminal", terminal, "run_failed" if failure_path else "run_succeeded")
         pending = self.event(
@@ -416,7 +494,10 @@ class Fixture:
             prior_reference_identity=terminal_ref["typed_reference_identity"],
             operator_identity=self.archive_custodian,
             terminal_identity=terminal["terminal_identity"],
-            destination_relative_path="archives/" + str(terminal["run_identity"]),
+            destination_relative_path=(
+                self.archive_destination_override
+                or "archives/" + str(terminal["run_identity"])
+            ),
         )
         pending_ref = self.prior("archive_pending", pending, "archive_pending")
         archive = self.event(
@@ -437,6 +518,7 @@ class Fixture:
             result_identities=[] if failure_path else result["result_identities"],
             failure_identity=failure["failure_identity"] if failure_path else None,
             failure_details=failure["failure_code"] if failure_path else None,
+            run_identity=self.lifecycle_run_identity,
         )
         completion = self.event(
             "completion_marker",
@@ -446,6 +528,75 @@ class Fixture:
             archive_identity=archive["archive_identity"],
             terminal_state=terminal["terminal_state"],
             actor_identity=self.archive_custodian,
+            run_identity=self.lifecycle_run_identity,
+        )
+        archive_transition = self.transition_id in {
+            "success_archive_started",
+            "failure_archive_started",
+            "archive_completed",
+            "archive_indeterminate",
+            "archive_recovered",
+            "archive_completion_recovered",
+        }
+        complete_observation = self.transition_id in {
+            "archive_completed",
+            "archive_completion_recovered",
+        }
+        recovery_observation = self.transition_id == "archive_recovered"
+        indeterminate_observation = self.transition_id == "archive_indeterminate"
+        observed_files = (
+            list(archive["expected_file_identities"])
+            if complete_observation or recovery_observation
+            else []
+        )
+        observation = self.event(
+            "archive_observation",
+            "observed_at",
+            authorization_identity=auth,
+            run_identity=self.lifecycle_run_identity,
+            archive_pending_identity=pending["archive_pending_identity"],
+            archive_identity=(
+                archive["archive_identity"]
+                if complete_observation or recovery_observation
+                else None
+            ),
+            completion_marker_identity=(
+                completion["completion_marker_identity"]
+                if complete_observation
+                else None
+            ),
+            destination_relative_path=pending["destination_relative_path"],
+            staging_relative_path=(
+                "archives/staging/" + str(pending["archive_pending_identity"])
+            ),
+            expected_file_identities=archive["expected_file_identities"],
+            observed_file_identities=observed_files,
+            unexpected_file_identities=[],
+            observer_identity=self.archive_custodian,
+            filesystem_evidence_identity=filesystem["filesystem_evidence_identity"],
+            publication_mode=(
+                "verify_complete"
+                if complete_observation or indeterminate_observation
+                else "authorized_recovery"
+                if recovery_observation
+                else "first_publication"
+            ),
+            destination_exists=(
+                complete_observation or recovery_observation or indeterminate_observation
+            ),
+            manifest_exists=complete_observation or recovery_observation,
+            marker_exists=complete_observation,
+            required_files_present=complete_observation or recovery_observation,
+            all_intended_bytes_match=(
+                complete_observation or recovery_observation or indeterminate_observation
+            ),
+            unexpected_files=False,
+            recovery_authorized=recovery_observation,
+            all_file_fullfsyncs=complete_observation,
+            directory_fsyncs=complete_observation,
+            parent_fsync=complete_observation,
+            marker_fullfsync=complete_observation,
+            marker_archive_identity_matches=complete_observation,
         )
         supersession = self.event(
             "supersession",
@@ -455,7 +606,11 @@ class Fixture:
             successor_authorization_identity=successor["authorization_identity"] if successor else ONE,
             decision_identity=decision["decision_identity"],
             superseding_author_identity=self.superseder,
-            approval_identity=approval["approval_identity"],
+            approval_identity=(
+                successor_approval["approval_identity"]
+                if successor_approval is not None
+                else approval["approval_identity"]
+            ),
         )
         rejection = self.event(
             "rejection",
@@ -495,7 +650,7 @@ class Fixture:
             root=self.transition_id.endswith("_indeterminate"),
             authorization_identity=auth,
             prior_reference_identity=source_ref["typed_reference_identity"],
-            uncertain_operation=uncertain,
+            uncertain_operation=self.uncertain_operation_override or uncertain,
             actor_identity=self.system,
         )
         indeterminate_ref = self.prior("indeterminate", indeterminate, "indeterminate")
@@ -508,7 +663,14 @@ class Fixture:
             "archive_completion_recovered": completion,
         }.get(self.transition_id, claim)
         recovered_kind = next(kind for kind, items in self.records.items() if recovered_target in items)
-        recovered_ref = self.prior(recovered_kind, recovered_target, None)
+        recovered_state = {
+            "consumption_claim": "consumed",
+            "build_start": "build_started",
+            "lifecycle_terminal": terminal["terminal_state"],
+            "archive_pending": "archive_pending",
+            "completion_marker": "archived",
+        }.get(recovered_kind)
+        recovered_ref = self.prior(recovered_kind, recovered_target, recovered_state)
         existing_payload = make_artifact("canonical_payload", artifact_type=recovered_kind, artifact_identity=artifact_self_identity(recovered_target, recovered_kind, self.c), canonical_bytes_base64=base64.b64encode(canonical_bytes(recovered_target)).decode(), canonical_bytes_sha256=hashlib.sha256(canonical_bytes(recovered_target)).hexdigest())
         self.add("canonical_payload", existing_payload)
         outcome = {
@@ -529,7 +691,7 @@ class Fixture:
             recovered_reference_identity=recovered_ref["typed_reference_identity"],
             existing_payload_identity=existing_payload["canonical_payload_identity"],
             intended_payload_identity=existing_payload["canonical_payload_identity"],
-            recovery_outcome=outcome,
+            recovery_outcome=self.recovery_outcome_override or outcome,
             recovery_actor_identity=self.archive_custodian if self.transition_id.startswith("archive") else self.operator,
         )
         roots = {
@@ -615,6 +777,9 @@ class Fixture:
             self.documentary_proof = proof
         else:
             self.documentary_proof = None
+        if archive_transition:
+            support = self.prior("archive_observation", observation, None)
+            support_refs.append(support["typed_reference_identity"])
         actor_identity = {
             "authorization_author": self.authorization_author,
             "reviewer": self.reviewer,
@@ -717,11 +882,20 @@ def test_contract_identity_inventory_and_exact_transition_matrix() -> None:
     c = contract()
     validate_contract(c)
     assert c["contract_identity"] == CONTRACT_IDENTITY
-    assert len(c["artifact_schemas"]) == 37
+    assert len(c["artifact_schemas"]) == 38
     assert c["lifecycle"]["transition_count"] == 27
     actual = {item["transition_id"]: (item["from"], item["to"], item["actor"], item["terminal"], item["prior_record_type"], item["new_artifact_type"], item["authorization_validity"]) for item in c["lifecycle"]["transitions"]}
     assert actual == EXPECTED_TRANSITIONS
     assert c["lifecycle"]["terminal_states"] == ["archived", "expired", "rejected", "superseded"]
+
+
+def test_every_complete_matrix_identity_reproduces_independently() -> None:
+    c = contract()
+    projections = _matrix_projections(c)
+    assert set(projections) == set(EXPECTED_MATRIX_IDENTITIES) == set(c["matrix_identities"])
+    for name, projection in projections.items():
+        assert domain_hash(f"aml.olympics.v005.matrix.{name}", projection) == EXPECTED_MATRIX_IDENTITIES[name]
+        assert c["matrix_identities"][name] == EXPECTED_MATRIX_IDENTITIES[name]
 
 
 @pytest.mark.parametrize("kind", sorted(contract()["artifact_schemas"]))
@@ -820,6 +994,63 @@ def test_build_before_claim_rejects() -> None:
         validate_fixture(fixture)
 
 
+def test_nonroot_lifecycle_history_cannot_move_backward() -> None:
+    fixture = Fixture(
+        transition_id="build_started",
+        event_times={
+            "authorization_decision": (
+                "2029-07-31T12:00:00Z",
+                "Tue, 31 Jul 2029 12:00:00 GMT",
+            )
+        },
+    )
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="predates|outside"):
+        validate_fixture(fixture)
+
+
+def test_authorized_run_and_lifecycle_run_must_match() -> None:
+    fixture = Fixture(
+        transition_id="run_succeeded",
+        authorized_run_identity=ONE,
+        lifecycle_run_identity=ZERO,
+    )
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="run identity"):
+        validate_fixture(fixture)
+
+
+def test_consumption_store_and_filesystem_identity_details_must_match() -> None:
+    fixture = Fixture(transition_id="build_started", store_root="/synthetic/other")
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="consumption store"):
+        validate_fixture(fixture)
+
+
+def test_indeterminate_and_recovery_outcomes_are_transition_specific() -> None:
+    wrong_indeterminate = Fixture(
+        transition_id="claim_indeterminate",
+        uncertain_operation_override="archive",
+    )
+    with pytest.raises(
+        OlympicsAuthorizationGovernanceV005Error,
+        match="indeterminate operation|wrong typed predecessor",
+    ):
+        validate_fixture(wrong_indeterminate)
+    wrong_recovery = Fixture(
+        transition_id="run_success_recovered",
+        recovery_outcome_override="run_failed",
+    )
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="recovery operation"):
+        validate_fixture(wrong_recovery)
+
+
+def test_archive_start_destination_is_exact() -> None:
+    fixture = Fixture(
+        transition_id="success_archive_started",
+        archive_destination_override="archives/wrong",
+    )
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="archive start"):
+        validate_fixture(fixture)
+
+
 def test_terminal_and_archive_foundational_cross_bindings_reject() -> None:
     result = make_artifact("result_manifest", authorization_identity=ZERO, run_identity=ZERO)
     terminal = make_artifact("lifecycle_terminal", authorization_identity=ONE, run_identity=ONE, terminal_state="run_succeeded", result_manifest_identity=result["result_manifest_identity"], result_identities=result["result_identities"], failure_identity=None, failure_details=None)
@@ -862,6 +1093,78 @@ def test_clock_requires_external_verifier_and_rejects_unknown_headers() -> None:
         validate_transition_bundle("proposal_approved", "authorization_author", missing, fixture.c)
 
 
+def test_clock_replay_nonce_and_freshness_are_bound() -> None:
+    fixture = Fixture(transition_id="proposal_approved")
+    evidence = fixture.bundle["clock_evidence"][0]
+    request = next(
+        item
+        for item in fixture.bundle["clock_request"]
+        if item["clock_request_identity"] == evidence["request_identity"]
+    )
+    verifier = next(
+        item
+        for item in fixture.bundle["clock_verifier_attestation"]
+        if item["evidence_identity"] == evidence["clock_evidence_identity"]
+    )
+    attestation = next(
+        item
+        for item in fixture.bundle["clock_attestation"]
+        if item["evidence_identity"] == evidence["clock_evidence_identity"]
+    )
+    wrong_nonce = make_artifact(
+        "clock_verifier_attestation",
+        **{
+            **verifier,
+            "clock_verifier_attestation_identity": ZERO,
+            "replay_nonce": ONE,
+        },
+    )
+    wrong_nonce_attestation = make_artifact(
+        "clock_attestation",
+        **{
+            **attestation,
+            "clock_attestation_identity": ZERO,
+            "verifier_attestation_identity": wrong_nonce[
+                "clock_verifier_attestation_identity"
+            ],
+        },
+    )
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="replay"):
+        validate_clock_bundle(
+            request,
+            evidence,
+            wrong_nonce,
+            wrong_nonce_attestation,
+            fixture.c,
+        )
+    stale = make_artifact(
+        "clock_verifier_attestation",
+        **{
+            **verifier,
+            "clock_verifier_attestation_identity": ZERO,
+            "verified_at": "2030-07-31T12:00:06Z",
+        },
+    )
+    stale_attestation = make_artifact(
+        "clock_attestation",
+        **{
+            **attestation,
+            "clock_attestation_identity": ZERO,
+            "verifier_attestation_identity": stale[
+                "clock_verifier_attestation_identity"
+            ],
+        },
+    )
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="freshness"):
+        validate_clock_bundle(
+            request,
+            evidence,
+            stale,
+            stale_attestation,
+            fixture.c,
+        )
+
+
 def test_actor_and_artifact_bound_durability_attacks_reject() -> None:
     wrong_actor = Fixture(transition_id="build_started")
     envelope = dict(wrong_actor.bundle["transition_envelope"][0], actor_identity=wrong_actor.authorization_author)
@@ -872,6 +1175,14 @@ def test_actor_and_artifact_bound_durability_attacks_reject() -> None:
     wrong_path = Fixture(transition_id="build_started", durability_path="wrong/build.json")
     with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="durability"):
         validate_fixture(wrong_path)
+    filesystem = make_artifact(
+        "filesystem_evidence",
+        device_id=1,
+        mount_id=1,
+        durability_trace=TRACE + ["rename_exclusive"],
+    )
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="exactly"):
+        validate_filesystem_evidence(filesystem, contract())
 
 
 def test_duplicate_and_same_type_ambiguity_attacks_reject() -> None:
@@ -906,6 +1217,34 @@ def test_supersession_requires_active_state_role_and_no_competing_records() -> N
     activations = {item["authorization_identity"]: item for item in fixture.bundle["activation"]}
     with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="no longer active"):
         validate_supersession_chain(records, decisions, auths, fixture.c, activations=activations, competing_records={"consumption_claim": [make_artifact("consumption_claim")]}, role_assignment=fixture.bundle["role_assignment"][0], accounts=accounts)
+    wrong_previous = make_artifact(
+        "role_assignment",
+        **{
+            **fixture.bundle["role_assignment"][0],
+            "role_assignment_identity": ZERO,
+            "previous_operator_identity": fixture.previous_operator,
+        },
+    )
+    all_accounts = {
+        item["stable_account_identity"]: item for item in fixture.accounts
+    }
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="equality|role"):
+        validate_supersession_chain(
+            records,
+            decisions,
+            auths,
+            fixture.c,
+            activations=activations,
+            competing_records={},
+            role_assignment=wrong_previous,
+            accounts=all_accounts,
+        )
+    self_supersession = Fixture(
+        transition_id="supersession_decision_won",
+        superseder_is_author=True,
+    )
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="role separation"):
+        validate_fixture(self_supersession)
 
 
 def test_archive_truth_table_rejects_impossible_states() -> None:
@@ -918,6 +1257,21 @@ def test_archive_truth_table_rejects_impossible_states() -> None:
     complete = {key: True for key in absent}
     complete["unexpected_files"] = False
     assert synthetic_archive_outcome("verify_complete", complete) == "already_complete_and_valid"
+    assert synthetic_archive_outcome("first_publication", complete) == "invalid_conflicting"
+    assert synthetic_archive_outcome("authorized_recovery", complete) == "invalid_conflicting"
+    assert (
+        synthetic_archive_outcome(
+            "first_publication",
+            dict(absent, marker_archive_identity_matches=True),
+        )
+        == "invalid_conflicting"
+    )
+    assert (
+        synthetic_archive_outcome(
+            "first_publication", dict(absent, recovery_authorized=True)
+        )
+        == "invalid_conflicting"
+    )
 
 
 def test_no_generic_prior_escape_hatch_and_recovery_is_reachable() -> None:
@@ -926,6 +1280,30 @@ def test_no_generic_prior_escape_hatch_and_recovery_is_reachable() -> None:
     assert "identity:prior_record" not in rules
     transitions = {item["transition_id"] for item in c["lifecycle"]["transitions"]}
     assert {"claim_recovered", "build_recovered", "run_success_recovered", "run_failure_recovered", "archive_recovered", "archive_completion_recovered"} <= transitions
+
+
+def test_typed_prior_claimed_state_must_match_resolved_record() -> None:
+    c = contract()
+    failure = make_artifact("failure", authorization_identity=ZERO, run_identity=ZERO)
+    terminal = make_artifact(
+        "lifecycle_terminal",
+        authorization_identity=ZERO,
+        run_identity=ZERO,
+        terminal_state="run_failed",
+        result_manifest_identity=None,
+        result_identities=[],
+        failure_identity=failure["failure_identity"],
+        failure_details=failure["failure_code"],
+    )
+    forged = _typed_reference("lifecycle_terminal", terminal, "run_succeeded")
+    with pytest.raises(OlympicsAuthorizationGovernanceV005Error, match="resolved artifact state"):
+        validate_typed_reference(
+            forged,
+            {terminal["terminal_identity"]: ("lifecycle_terminal", terminal)},
+            c,
+            expected_type="lifecycle_terminal",
+            expected_state="run_succeeded",
+        )
 
 
 def test_canonical_json_attacks_reject() -> None:
@@ -948,7 +1326,7 @@ def test_contract_file_and_cli_are_canonical_pure_and_deterministic() -> None:
     report = json.loads(outputs[0])
     assert report["authorization_created"] is False
     assert report["official_run_executed"] is False
-    assert report["artifact_schema_count"] == 37
+    assert report["artifact_schema_count"] == 38
     assert report["lifecycle_transition_count"] == 27
 
 

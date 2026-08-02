@@ -8,9 +8,9 @@ The authoritative machine contract is `config/professional_strategy_olympics_aut
 
 ## Frozen identities
 
-- Governance identity: `9408e2b9dcb4e14534f4f7699ea26fe0846f4a2d3f2ad416ea11758a34f2223a`
-- Governance projection: `104143` canonical bytes
-- Complete contract: `104230` canonical bytes
+- Governance identity: `dc976e8946c362aae7a5a72664560d8c4c3f54e7e01ab77fd93f537fc25433b0`
+- Governance projection: `121296` canonical bytes
+- Complete contract: `121383` canonical bytes
 - Execution-command identity: `ff2c355895182af38127b9a863373fc00f7a0563d9922e782cbf0e8da9431fdb`
 - Execution-command projection: `535` canonical bytes
 - V004 contract: `0dd043154b5ee90cbfa049df6977aaa8c7ec2a0f585a8c7952c77314893e7053`
@@ -23,7 +23,7 @@ Identity is `SHA-256(UTF8(domain) || 0x00 || canonical_projection_bytes)`. Canon
 
 ## Scope and trust boundary
 
-V005 has 37 immutable typed artifact schemas and 27 transitions. Every lifecycle transition is evaluated from a closed typed bundle. A bundle has one transition envelope, one root event, an exact typed prior reference, an artifact-bound durability package, an assigned stable-account actor, and a unique documentary clock package.
+V005 has 38 immutable typed artifact schemas and 27 transitions. Every lifecycle transition is evaluated from a closed typed bundle. A bundle has one transition envelope, one root event, an exact typed prior reference, an artifact-bound durability package, an assigned stable-account actor, and a unique documentary clock package. The complete bundle must be reachable by graph traversal from the single envelope; a disconnected component rejects even if its identities are referenced among themselves.
 
 The validator is intentionally pure. It validates canonical bytes, identities, typed references, deterministic equations, and internally consistent synthetic evidence. It performs no network access, TLS handshake, filesystem mutation, Git checkout, authorization creation, authorization consumption, subprocess execution, or Olympics execution.
 
@@ -36,7 +36,7 @@ V005 validates those attestation records structurally and binds them cryptograph
 
 ## Artifact inventory
 
-The original 31 schemas remain, with generic prior-record references removed. Six schemas complete the evidence graph:
+The original 31 schemas remain, with generic prior-record references removed. Seven schemas complete the evidence graph:
 
 - `typed_reference`: freezes target type, schema version, domain, identity field, represented state, and exact target identity.
 - `canonical_payload`: binds an artifact identity to its exact canonical bytes and SHA-256 digest.
@@ -44,6 +44,7 @@ The original 31 schemas remain, with generic prior-record references removed. Si
 - `repository_context`: records provider, immutable repository and owner numeric IDs, node IDs, canonical name, object format, retrieval evidence, and the external-attestation trust scope.
 - `clock_verifier_attestation`: binds request, response, verifier account/version, host, transport evidence, verified Date, replay nonce, and explicit external-verifier scope.
 - `transition_envelope`: binds transition, source/destination, role, acting stable account, root artifact, typed prior, supporting references, role assignment, and durability evidence.
+- `archive_observation`: binds the archive mode, destination and staging paths, intended and observed identities, filesystem evidence, observer, clock, and every Boolean fact used by the archive truth table.
 
 No `identity:prior_record` or `identity:canonical_bytes` escape hatch exists. External V001–V004 objects remain explicitly declared compatibility edges and are not silently treated as V005 artifacts.
 
@@ -81,7 +82,7 @@ No `identity:prior_record` or `identity:canonical_bytes` escape hatch exists. Ex
 | 26 | `archive_recovered` | indeterminate → archive_pending | archive custodian | indeterminate | recovery | valid | no |
 | 27 | `archive_completion_recovered` | indeterminate → archived | archive custodian | indeterminate | recovery | valid | yes |
 
-Each machine transition also freezes the exact required artifact types, any conditional success/failure set, forbidden competitors, timestamp equation, identity equations, atomicity, durability, retry, idempotency, recovery route, and actor.
+Each machine transition also freezes the exact required artifact types, any conditional success/failure set, forbidden competitors, timestamp equation, identity equations, atomicity, durability, retry, idempotency, recovery route, and actor. Thirteen independently declared matrix identities cryptographically freeze the complete schema, transition, state-graph, typed-reference, role, timestamp, validity, durability, recovery, archive, supersession, documentary, and clock projections; partial transition tuples cannot silently redefine the contract.
 
 ## Authorization validity and timestamp order
 
@@ -91,7 +92,7 @@ Authorization lifetime is exactly 259200 seconds and half-open:
 
 Every authorization-dependent transition applies that equation at its own root-event timestamp. Expiration alone requires `operation_timestamp == expires_at`. Proposal approval and proposal rejection do not require an authorization.
 
-Every root timestamp must be greater than or equal to the timestamp of its typed prior record. Equality is permitted because the trusted Date representation has one-second resolution. The graph therefore enforces:
+Every root timestamp must be greater than or equal to the timestamp of its typed prior record. Equality is permitted because the trusted Date representation has one-second resolution. The validator also checks every reachable lifecycle record—not only the transition root—for monotonic order and half-open authorization validity. The graph therefore enforces:
 
 `proposal <= approval <= issuance <= activation <= decision <= claim <= build <= run <= terminal <= archive_pending <= archive_manifest <= completion`
 
@@ -112,9 +113,9 @@ The validator resolves all internal references recursively. Dynamic references i
 
 ## Actor identity and role separation
 
-The caller’s role string is never sufficient. The transition envelope names the acting stable-account identity; the role assignment maps the declared role to that identity; the root event independently names the same actor; and the stable-account artifact resolves to an immutable GitHub numeric user ID.
+The caller’s role string is never sufficient. The transition envelope names the acting stable-account identity; the role assignment maps the declared role to that identity; the root event independently names the same actor; and the stable-account artifact resolves to an immutable GitHub numeric user ID. Actor fields across the complete reachable lifecycle are reconciled to the same assignment, including proposal, approval, activation, decision, claim, build, run, terminal, archive, indeterminate, recovery, rejection, expiration, and supersession records.
 
-Display login metadata is never used for identity or separation. The complete frozen role matrix is validated for every transition. Operator, reviewer, authorization author, governance author, source author, archive custodian, system actor, previous operator, and superseding author constraints therefore apply throughout the lifecycle, including supersession and recovery.
+Display login metadata is never used for identity or separation. All 36 unordered pairs among the nine roles are explicit; unlisted pairs reject. The matrix supports `must_differ`, `must_match`, and `may_match`. In particular, the predecessor's recorded previous operator must be the assigned operator, while predecessor and successor authorization authors must differ. These constraints apply throughout the lifecycle, including supersession and recovery.
 
 ## Documentary Git and repository context
 
@@ -130,7 +131,7 @@ The documentary binding and authorization must name the same repository-context 
 
 Each timestamp-bearing artifact has a unique request, response, external verifier attestation, and event attestation. The raw documentary HTTP response uses exact ASCII CRLF framing, status 200, and a strict Date-only header allowlist. `Age`, `Via`, `Warning`, `X-Cache`, `X-Proxy-Cache`, and every other unrecognized response header therefore reject.
 
-The external verifier attestation records the verified host, transport-evidence identity, certificate/TLS result, proxy/redirect/cache results, Date, verifier version/account, and replay nonce. The pure validator binds those claims and does not independently authenticate them. A future external verifier must maintain the replay registry and establish real TLS and current-time facts. An event without that typed verifier attestation rejects.
+The external verifier attestation records the verified host, transport-evidence identity, certificate/TLS result, proxy/redirect/cache results, Date, verifier version/account, and replay nonce. Its account must be the assigned system identity; its nonce must equal the request nonce; and its verification time must be between the response Date and five seconds later. Request, evidence, request nonce, verifier attestation, and event attestation identities must each be unique within a transition bundle. The pure validator binds those claims and does not independently authenticate them. A future external verifier and consumer must maintain durable cross-bundle replay registries and establish real TLS and current-time facts. An event without that typed verifier attestation rejects.
 
 ## Transition-specific APFS durability
 
@@ -157,13 +158,13 @@ The exact ordered trace is:
 6. `close_file`
 7. `fsync_directory`
 
-Filesystem evidence must describe local APFS on macOS, a trusted descriptor-relative root, correct UID/GID/modes, no symlinks, no cross-device traversal, one hard link, and no ACL, xattrs, flags, network mount, disk image, overlay, synthetic, or removable backing. Generic durability strings cannot authorize a transition.
+Filesystem evidence must describe local APFS on macOS, a trusted descriptor-relative root, correct UID/GID/modes, no symlinks, no cross-device traversal, one hard link, and no ACL, xattrs, flags, network mount, disk image, overlay, synthetic, or removable backing. Its filesystem identity, canonical root, mount point, UID, and GID must agree with the consumption store, and its syscall trace must equal the seven frozen events exactly—extras and reordered events reject. Generic durability strings cannot authorize a transition.
 
 ## Supersession
 
 The predecessor decision slot is exclusive and can contain exactly one durable consume or supersede decision. Complete supersession validation requires the predecessor authorization, activation evidence, decision, successor, supersession record, accounts, and role assignment. It rejects any supplied claim, expiration, rejection, terminal, indeterminate, or earlier supersession evidence.
 
-The predecessor must be active, unconsumed, unexpired, unrejected, nonterminal, determinate, and not already superseded at the decision time. The successor must name exactly that predecessor and preserve run, fixture, manifest, dataset, command, V004, source commit, and source tree identities. The superseding author must differ from the previous operator by immutable numeric account ID. Forks, duplicate incoming edges, cycles, stale records, missing links, and conflicting decisions reject.
+The predecessor must be active, unconsumed, unexpired, unrejected, nonterminal, determinate, and not already superseded at the decision time. The successor must name exactly that predecessor and preserve run, fixture, manifest, dataset, command, V004, source commit, and source tree identities. Predecessor and successor require distinct proposals and approvals, the successor author must differ from the predecessor authorization author, and the recorded previous operator must equal the assigned operator. Self-supersession, forks, duplicate incoming edges, cycles, stale records, missing links, and conflicting decisions reject.
 
 ## Reachable recovery
 
@@ -178,6 +179,8 @@ Canonical destination: `archives/{run_identity}`
 Canonical staging path: `archives/staging/{archive_pending_identity}`
 
 The archive manifest binds the pending record, terminal, authorization, run, outcome projection, expected file identities, destination, and staging path. The completion marker binds the same authorization, run, archive identity, and terminal state. Pending time must not exceed manifest time; manifest time must not exceed completion time.
+
+Each archive-related transition requires a typed `archive_observation`; the validator reconciles that record to the authorization, run, pending record, archive/marker identities, exact paths, expected inventory, filesystem evidence, actor, clock, publication mode, and required classifier outcome. The observation remains an externally supplied synthetic attestation: this design-only pure validator does not inspect the filesystem itself.
 
 The pure archive classifier returns exactly one of:
 
