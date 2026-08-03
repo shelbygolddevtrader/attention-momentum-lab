@@ -13,8 +13,10 @@ from aml.professional_strategy_olympics_authorization_governance_v005 import (
     load_contract as load_v005_contract,
     parse_canonical_timestamp,
     strict_json_bytes,
+    transition_spec as v005_transition_spec,
     validate_artifact as validate_v005_artifact,
     validate_relative_path,
+    validate_transition_bundle as validate_v005_transition_bundle,
 )
 from aml.professional_strategy_olympics_execution_publication_v004 import (
     CONTRACT_IDENTITY as V004_CONTRACT_IDENTITY,
@@ -36,7 +38,7 @@ CONTRACT_PATH = "config/professional_strategy_olympics_clock_continuation_v008.j
 SCHEMA = "aml.professional-strategy-olympics.clock-continuation.v008"
 VERSION = "professional-strategy-olympics-clock-continuation-v008"
 CONTRACT_DOMAIN = "aml.olympics.v008.clock-continuation"
-CONTRACT_IDENTITY = "81c2d0caa1f42915acc4558585a43bb5cf0435095bfa3c3145e33e5bbbd0d0dc"
+CONTRACT_IDENTITY = "4d3a3c7a2690decfd275b91fe80fee497953795d086a9c191480eb1ac688cda5"
 DESIGN_BASE_COMMIT = "0c0a3e60af5fa4cfefc9d0e63933fcea1ca867a3"
 V005_GOVERNANCE_IDENTITY = "dc976e8946c362aae7a5a72664560d8c4c3f54e7e01ab77fd93f537fc25433b0"
 V005_COMMAND_IDENTITY = "ff2c355895182af38127b9a863373fc00f7a0563d9922e782cbf0e8da9431fdb"
@@ -70,12 +72,12 @@ EXPECTED_SECTION_IDENTITIES = {
     "nonce_authority": "40b41062b862810c8703fd6a85d715369fd100209580748aa7234bf8321e1d07",
     "packaged_history": "58f62c0b9f8349e37bd431885d328dcd1d930e100a43209aae473f0ae9868cbc",
     "live_session": "42e55f9c8c978a2af8e8157ea1b3df2e5a698e3f6435e8a08d1cd5e35e1e0389",
-    "continuation_storage": "446edfddc5ae4d16c75ab8b1de98162cada15b6f6106fe811240ec42c9617421",
-    "lifecycle_binding": "4cf588190a44d7c11b76378e92263c70778fc4a8df32603a69e4201b256dea0f",
-    "interruption_replay_recovery": "3941be3e1a544e783528f7b3dc5780659b93e952a8777dbfc74dc11fcca65f92",
+    "continuation_storage": "ad7cc2b06f7ac67e4fafa9fbe99689aba3592fdec1e2ff2290bec3ba2a568ae8",
+    "lifecycle_binding": "ea35a70dea140c7ffb26e4dab58b07ac1e41d42a0b787f2caa6d17f6ff60f4d2",
+    "interruption_replay_recovery": "e58ece2bc3d08729f30eac15a7c572d21f62d57018e91e4184eaad2a3b0e9a31",
     "determinism": "aabc067ecd86b077f007da0fc6d979e9b08974ac062ec1fd66ca85d7450c3f41",
     "runtime_schemas": "5c29e974331d711276bc4e3a83412a458f0f975ecf1764b34845dd7b0b724269",
-    "error_status_model": "578b1950ecbf0b0eaca06d1efeed1e31603b92e0422f7b912c85819daedbb57d",
+    "error_status_model": "c5b061b9ef4c4f82991ccb014756b1ce3c194e86e433880aad71dc0d1d0fadec",
     "canonicalization": "dee3f719ce2a91d8f190d8e6173be7f0ec45d3949145334155cde5af22e6fc23",
     "capability_scope": "c90c4926e680dae01b8478dd2f969e635eb5481bf909792ef282cd95c6880e1f",
     "validation_manifest": "182fd82c30dc112e21a4a0de92f14eeb214c3bfd648a2a9ec3aa130a8cd0c8fe",
@@ -390,6 +392,7 @@ def validate_write_evidence(
 
 def validate_invocation_binding(
     invocation: Mapping[str, object],
+    invocation_write_evidence: Mapping[str, object],
     *,
     authorization_identity: str,
     authoritative_run_identity: str,
@@ -423,6 +426,17 @@ def validate_invocation_binding(
     )
     if any(actual != resolved for actual, resolved in expected):
         _reject("V008_SEQUENCE_CONTINUITY", "invocation_binding")
+    validate_write_evidence(
+        invocation_write_evidence,
+        "continuation_invocation",
+        invocation,
+        authorization_identity=authorization_identity,
+        continuation_invocation_identity=str(
+            invocation["continuation_invocation_identity"]
+        ),
+        sequence_number=None,
+        contract=contract,
+    )
     return invocation
 
 
@@ -454,6 +468,7 @@ def validate_binding_to_invocation(
 def validate_failure_binding(
     failure: Mapping[str, object],
     invocation: Mapping[str, object],
+    failure_write_evidence: Mapping[str, object],
     *,
     prior_clock_attestation_identity: str,
     prior_continuation_binding_identity: str | None,
@@ -494,41 +509,143 @@ def validate_failure_binding(
         _reject("V008_SEQUENCE_CONTINUITY", "failure_packaged_anchor")
     if int(failure["failed_sequence_number"]) > 2 and prior_binding is None:
         _reject("V008_SEQUENCE_CONTINUITY", "failure_prior_binding")
+    validate_write_evidence(
+        failure_write_evidence,
+        "continuation_failure",
+        failure,
+        authorization_identity=str(failure["authorization_identity"]),
+        continuation_invocation_identity=str(
+            failure["continuation_invocation_identity"]
+        ),
+        sequence_number=None,
+        contract=contract,
+    )
     return failure
 
 
 def validate_lifecycle_binding(
     binding: Mapping[str, object],
     invocation: Mapping[str, object],
+    invocation_write_evidence: Mapping[str, object],
     request: Mapping[str, object],
     response: Mapping[str, object],
     root_artifact: Mapping[str, object],
     transition_envelope: Mapping[str, object],
     request_write_evidence: Mapping[str, object],
     response_write_evidence: Mapping[str, object],
+    binding_write_evidence: Mapping[str, object],
     *,
     root_artifact_type: str,
     contract: Mapping[str, object],
     v005_contract: Mapping[str, object],
     v007_contract: Mapping[str, object],
     bootstrap: Mapping[str, object],
-    previous_verified_timestamp: str,
+    clock_registry: Mapping[str, object],
+    packaged_sequence_1_response: Mapping[str, object],
+    previous_binding: Mapping[str, object] | None,
+    previous_binding_write_evidence: Mapping[str, object] | None,
+    v005_transition_artifacts: Mapping[str, Sequence[Mapping[str, object]]],
+    documentary_git_proof: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Validate the exact additive edge from a V007 exchange to one V005 transition."""
     binding = validate_binding_to_invocation(binding, invocation, contract)
     request = validate_runtime_record("clock_request", request, v007_contract)
     response = validate_runtime_record("clock_response", response, v007_contract)
+    packaged_response = validate_runtime_record(
+        "clock_response", packaged_sequence_1_response, v007_contract
+    )
+    sequence = int(binding["sequence_number"])
+    if sequence == 2:
+        if previous_binding is not None or previous_binding_write_evidence is not None:
+            _reject("V008_SEQUENCE_CONTINUITY", "unexpected_previous_binding")
+        prior_attestation_identity = invocation[
+            "packaged_sequence_1_v005_clock_attestation_identity"
+        ]
+        previous_verified_timestamp = packaged_response["verified_timestamp"]
+        packaged_checks = (
+            (packaged_response["response_identity"], invocation["packaged_sequence_1_response_identity"]),
+            (packaged_response["sequence_number"], 1),
+            (packaged_response["status"], "success"),
+            (packaged_response["session_identity"], invocation["session_identity"]),
+            (
+                packaged_response["v005_clock_attestation_identity"],
+                prior_attestation_identity,
+            ),
+        )
+        if any(left != right for left, right in packaged_checks):
+            _reject("V008_SEQUENCE_CONTINUITY", "packaged_response")
+    else:
+        if previous_binding is None or previous_binding_write_evidence is None:
+            _reject("V008_SEQUENCE_CONTINUITY", "previous_binding_required")
+        previous = validate_binding_to_invocation(previous_binding, invocation, contract)
+        if (
+            int(previous["sequence_number"]) + 1 != sequence
+            or binding["prior_continuation_binding_identity"]
+            != previous["continuation_binding_identity"]
+        ):
+            _reject("V008_SEQUENCE_CONTINUITY", "previous_binding")
+        validate_write_evidence(
+            previous_binding_write_evidence,
+            "continuation_binding",
+            previous,
+            authorization_identity=str(previous["authorization_identity"]),
+            continuation_invocation_identity=str(
+                previous["continuation_invocation_identity"]
+            ),
+            sequence_number=int(previous["sequence_number"]),
+            contract=contract,
+        )
+        prior_attestation_identity = previous["v005_clock_attestation_identity"]
+        previous_verified_timestamp = previous["verified_timestamp"]
+    if request["prior_clock_attestation_identity"] != prior_attestation_identity:
+        _reject("V008_SEQUENCE_CONTINUITY", "prior_clock_attestation")
+    validate_invocation_binding(
+        invocation,
+        invocation_write_evidence,
+        authorization_identity=str(binding["authorization_identity"]),
+        authoritative_run_identity=str(binding["authoritative_run_identity"]),
+        operator_implementation_identity=str(
+            binding["operator_implementation_identity"]
+        ),
+        session_identity=str(binding["session_identity"]),
+        packaged_sequence_1_response_identity=str(
+            packaged_response["response_identity"]
+        ),
+        packaged_sequence_1_v005_clock_attestation_identity=str(
+            packaged_response["v005_clock_attestation_identity"]
+        ),
+        contract=contract,
+    )
     validate_clock_exchange(
         request,
         response,
         bootstrap,
+        clock_registry,
         v007_contract,
-        v005_contract,
         previous_verified_timestamp=previous_verified_timestamp,
     )
     root_artifact = validate_v005_artifact(root_artifact, root_artifact_type, v005_contract)
     transition_envelope = validate_v005_artifact(
         transition_envelope, "transition_envelope", v005_contract
+    )
+    roots = list(v005_transition_artifacts.get(root_artifact_type, ()))
+    envelopes = list(v005_transition_artifacts.get("transition_envelope", ()))
+    if (
+        len(roots) != 1
+        or len(envelopes) != 1
+        or canonical_bytes(roots[0]) != canonical_bytes(root_artifact)
+        or canonical_bytes(envelopes[0]) != canonical_bytes(transition_envelope)
+    ):
+        _reject("V008_LIFECYCLE_BINDING", "v005_transition_artifacts")
+    specification = v005_transition_spec(
+        v005_contract, str(binding["v005_transition_id"])
+    )
+    validate_v005_transition_bundle(
+        str(binding["v005_transition_id"]),
+        str(specification["actor"]),
+        v005_transition_artifacts,
+        v005_contract,
+        documentary_git_proof=documentary_git_proof,
     )
     request_write_evidence = validate_write_evidence(
         request_write_evidence,
@@ -546,6 +663,15 @@ def validate_lifecycle_binding(
         authorization_identity=str(binding["authorization_identity"]),
         continuation_invocation_identity=str(binding["continuation_invocation_identity"]),
         sequence_number=int(binding["sequence_number"]),
+        contract=contract,
+    )
+    binding_write_evidence = validate_write_evidence(
+        binding_write_evidence,
+        "continuation_binding",
+        binding,
+        authorization_identity=str(binding["authorization_identity"]),
+        continuation_invocation_identity=str(binding["continuation_invocation_identity"]),
+        sequence_number=sequence,
         contract=contract,
     )
     timestamp_field = str(binding["v005_timestamp_field"])
@@ -569,6 +695,10 @@ def validate_lifecycle_binding(
         (
             binding["response_durability_identity"],
             response_write_evidence["continuation_write_evidence_identity"],
+        ),
+        (
+            binding_write_evidence["target_identity"],
+            binding["continuation_binding_identity"],
         ),
         (binding["v005_clock_attestation_identity"], response["v005_clock_attestation_identity"]),
         (binding["v005_root_artifact_type"], root_artifact_type),
@@ -605,15 +735,24 @@ def validate_sequence_chain(
         return []
     if [int(item["sequence_number"]) for item in validated] != list(range(2, 2 + len(validated))):
         _reject("V008_SEQUENCE_CONTINUITY", "sequence")
-    identities: set[str] = set()
+    identity_fields = (
+        "continuation_binding_identity",
+        "request_identity",
+        "response_identity",
+        "v005_clock_attestation_identity",
+        "v005_root_artifact_identity",
+        "v005_transition_envelope_identity",
+    )
+    observed: set[str] = set()
     invocation_identities = {str(item["continuation_invocation_identity"]) for item in validated}
     if len(invocation_identities) != 1:
         _reject("V008_SEQUENCE_CONTINUITY", "invocation_identity")
     for index, item in enumerate(validated):
-        identity = str(item["continuation_binding_identity"])
-        if identity in identities:
-            _reject("V008_CONTINUATION_REPLAY", "binding_identity")
-        identities.add(identity)
+        for field in identity_fields:
+            identity = str(item[field])
+            if identity in observed:
+                _reject("V008_CONTINUATION_REPLAY", field)
+            observed.add(identity)
         if index == 0:
             if item["packaged_prior_response_identity"] != packaged_sequence_1_response_identity:
                 _reject("V008_SEQUENCE_CONTINUITY", "first_anchor")

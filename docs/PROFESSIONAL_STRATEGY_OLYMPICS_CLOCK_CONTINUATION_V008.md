@@ -12,13 +12,13 @@ publication, archive, data access, network client, or trading capability.
 
 ## Identity
 
-The canonical contract is `21,364` bytes. Its identity equation is:
+The canonical contract is `24,335` bytes. Its identity equation is:
 
 `SHA256(UTF8(domain) || 0x00 || canonical_projection_bytes)`
 
 The outer domain is `aml.olympics.v008.clock-continuation` and the frozen identity is:
 
-`81c2d0caa1f42915acc4558585a43bb5cf0435095bfa3c3145e33e5bbbd0d0dc`
+`4d3a3c7a2690decfd275b91fe80fee497953795d086a9c191480eb1ac688cda5`
 
 | Section | Identity |
 | --- | --- |
@@ -26,12 +26,12 @@ The outer domain is `aml.olympics.v008.clock-continuation` and the frozen identi
 | nonce_authority | `40b41062b862810c8703fd6a85d715369fd100209580748aa7234bf8321e1d07` |
 | packaged_history | `58f62c0b9f8349e37bd431885d328dcd1d930e100a43209aae473f0ae9868cbc` |
 | live_session | `42e55f9c8c978a2af8e8157ea1b3df2e5a698e3f6435e8a08d1cd5e35e1e0389` |
-| continuation_storage | `446edfddc5ae4d16c75ab8b1de98162cada15b6f6106fe811240ec42c9617421` |
-| lifecycle_binding | `4cf588190a44d7c11b76378e92263c70778fc4a8df32603a69e4201b256dea0f` |
-| interruption_replay_recovery | `3941be3e1a544e783528f7b3dc5780659b93e952a8777dbfc74dc11fcca65f92` |
+| continuation_storage | `ad7cc2b06f7ac67e4fafa9fbe99689aba3592fdec1e2ff2290bec3ba2a568ae8` |
+| lifecycle_binding | `ea35a70dea140c7ffb26e4dab58b07ac1e41d42a0b787f2caa6d17f6ff60f4d2` |
+| interruption_replay_recovery | `e58ece2bc3d08729f30eac15a7c572d21f62d57018e91e4184eaad2a3b0e9a31` |
 | determinism | `aabc067ecd86b077f007da0fc6d979e9b08974ac062ec1fd66ca85d7450c3f41` |
 | runtime_schemas | `5c29e974331d711276bc4e3a83412a458f0f975ecf1764b34845dd7b0b724269` |
-| error_status_model | `578b1950ecbf0b0eaca06d1efeed1e31603b92e0422f7b912c85819daedbb57d` |
+| error_status_model | `c5b061b9ef4c4f82991ccb014756b1ce3c194e86e433880aad71dc0d1d0fadec` |
 | canonicalization | `dee3f719ce2a91d8f190d8e6173be7f0ec45d3949145334155cde5af22e6fc23` |
 | capability_scope | `c90c4926e680dae01b8478dd2f969e635eb5481bf909792ef282cd95c6880e1f` |
 | validation_manifest | `182fd82c30dc112e21a4a0de92f14eeb214c3bfd648a2a9ec3aa130a8cd0c8fe` |
@@ -85,9 +85,13 @@ Before entropy acquisition or socket connection, the operator durably publishes
 one deterministic, write-once continuation-invocation claim and its write
 evidence. It binds the authorization, run, operator, V007 boundary, session,
 packaged response 1, its V005 clock attestation, and first sequence 2. Any
-existing invocation claim prohibits another execution invocation; it is never a
-resume signal. A proven failure before exclusive creation permits retrying only
-the identical record bytes. Uncertain or post-atomicity state is indeterminate.
+existing complete canonical invocation claim and write evidence is replay and
+prohibits another execution invocation; it is never a resume signal. A malformed,
+partial, unverifiable, or evidence-incomplete existing claim is continuity
+indeterminate. Exactly one exclusive-creation attempt is permitted. A proven
+failure before creation is a preclaim rejection requiring formal V005
+supersession; there is no retry. Uncertain or post-creation state is continuity
+indeterminate.
 
 ## Durable continuation evidence
 
@@ -114,6 +118,13 @@ evidence binds the target identity, path, canonical-byte hash, APFS device and
 mount, owner and group, modes, link and symlink state, exclusive creation,
 `F_FULLFSYNC`, close, parent fsync, and exact ordered durability trace.
 
+The closed world contains exactly one invocation and write-evidence pair;
+exactly one request, response, and binding plus one write-evidence record for
+each of them per successful sequence; and at most one failure marker and its
+write evidence. No terminal success or primary failure classification may be
+reported until closed-world, reopen, rehash, stat, and required write-evidence
+validation completes. Any uncertainty is continuity indeterminate.
+
 The sealed V006/V007 package is never modified. For sequence 2 and later, the
 V008 continuation binding is the additive reachability edge from the V007
 request/response to the exact V005 transition envelope. This is V008's only
@@ -137,6 +148,18 @@ The verified timestamp completes the V005 root. The complete V005 transition
 validates before the binding is written. A binding is evidence only and grants no
 authorization, lifecycle, consumption, publication, archive, or recovery power.
 
+Lifecycle validation receives and validates the exact V007 clock registry in its
+registry argument and the V007 contract in its contract argument. It also requires
+packaged response 1, the previous binding and its write evidence for sequences
+after 2, invocation, request, response, and binding write evidence, and the
+complete V005 transition artifact bundle. It validates the invocation claim,
+prior binding durability, V007 exchange, and complete V005 transition bundle.
+At sequence 2, the request's prior clock
+attestation must equal the invocation's packaged sequence-1 attestation. Later
+requests must name the immediately preceding binding's attestation. Request,
+response, attestation, root, transition, and binding identities are unique within
+the invocation.
+
 ## Interruption, replay, recovery, and rollback
 
 Any failure from entropy acquisition through binding durability closes the
@@ -147,7 +170,15 @@ postclaim indeterminate: no success, no failure, and no reuse may be asserted.
 
 When the store remains provably available, the operator writes one deterministic,
 non-authoritative continuation-failure marker. It contains no new timestamp and
-makes no clock claim. Failure to write that marker never restores reuse.
+makes no clock claim. The marker's durable-identity set is exactly the sorted,
+unique invocation and invocation-write-evidence identities plus every request,
+request-write-evidence, response, response-write-evidence, V005 root, V005
+durability-evidence, V005 transition, binding, and binding-write-evidence identity
+durably published for the failed sequence. It excludes prior sequences and the
+failure marker and its own evidence to avoid a self-cycle. The marker and its
+write evidence each receive one exclusive-creation attempt. Failure or uncertainty
+while creating, publishing, or validating either is continuity indeterminate and
+never restores reuse.
 
 V008 implements no recovery transition. Same-authorization restart, reconnect,
 session resume, nonce reuse, or continuation replay is prohibited. Preclaim
@@ -184,9 +215,11 @@ V008 adds only these closed failure codes:
 
 Ordinary phase-dependent failures are preclaim rejection before a durable V005
 consumption decision or claim mutation and postclaim indeterminate afterward.
-Continuity uncertainty is always the phase-independent class `indeterminate`.
-Packaged-history replay is always preclaim rejection. Unexpected exceptions map to session interruption without
-exposing exception text or host details.
+Continuity uncertainty is always the phase-independent class `indeterminate` and
+overrides replay or phase-dependent classifications whenever existence, contents,
+atomicity, durability, registry state, or terminal continuity is uncertain.
+Packaged-history replay is always preclaim rejection. Unexpected exceptions map
+to session interruption without exposing exception text or host details.
 
 ## Pure verification
 

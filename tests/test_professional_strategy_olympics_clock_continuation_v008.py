@@ -10,6 +10,7 @@ import sys
 
 import pytest
 
+import aml.professional_strategy_olympics_clock_continuation_v008 as continuation_module
 from aml.professional_strategy_olympics_authorization_governance_v005 import (
     canonical_bytes,
     domain_hash,
@@ -34,6 +35,7 @@ from aml.professional_strategy_olympics_clock_continuation_v008 import (
     validate_contract,
     validate_failure_binding,
     validate_invocation_binding,
+    validate_lifecycle_binding,
     validate_nonce_observation,
     validate_sequence_chain,
     validate_write_evidence,
@@ -99,6 +101,22 @@ def binding(sequence: int = 2, prior: str | None = None) -> dict[str, object]:
         "root_durability_identity": "d" * 64,
         "binding_state": "durable_complete",
     }
+    return seal_record("continuation_binding", value)
+
+
+def unique_binding(sequence: int, prior: str | None) -> dict[str, object]:
+    value = binding(sequence, prior)
+    for offset, field in enumerate(
+        (
+            "request_identity",
+            "response_identity",
+            "v005_clock_attestation_identity",
+            "v005_root_artifact_identity",
+            "v005_transition_envelope_identity",
+        ),
+        start=10,
+    ):
+        value[field] = f"{sequence * 100 + offset:064x}"
     return seal_record("continuation_binding", value)
 
 
@@ -222,7 +240,7 @@ def mutate_leaf(value: object) -> object:
 def test_contract_loads_with_exact_identity_size_and_canonical_bytes() -> None:
     value = contract()
     raw = (ROOT / CONTRACT_PATH).read_bytes()
-    assert len(raw) == 21_364
+    assert len(raw) == 24_335
     assert raw == canonical_bytes(value) == canonical_contract_bytes(value)
     assert value["contract_identity"] == CONTRACT_IDENTITY
     assert value["schema_version"] == "aml.professional-strategy-olympics.clock-continuation.v008"
@@ -523,8 +541,10 @@ def test_invocation_claim_path_state_and_no_sequence_alias_are_exact() -> None:
 
 def test_invocation_claim_binds_every_resolved_package_and_session_identity() -> None:
     value = invocation()
+    evidence = bound_write_evidence("continuation_invocation", value, None)
     assert validate_invocation_binding(
         value,
+        evidence,
         authorization_identity="1" * 64,
         authoritative_run_identity="2" * 64,
         operator_implementation_identity="3" * 64,
@@ -551,7 +571,23 @@ def test_invocation_claim_binds_every_resolved_package_and_session_identity() ->
         }
         kwargs[field] = "f" * 64
         with pytest.raises(OlympicsClockContinuationV008Error, match="V008_SEQUENCE_CONTINUITY"):
-            validate_invocation_binding(value, contract=contract(), **kwargs)
+            validate_invocation_binding(value, evidence, contract=contract(), **kwargs)
+
+    altered_evidence = copy.deepcopy(evidence)
+    altered_evidence["canonical_bytes_sha256"] = H2
+    altered_evidence = seal_record("continuation_write_evidence", altered_evidence)
+    with pytest.raises(OlympicsClockContinuationV008Error, match="V008_CONTINUATION_STORAGE"):
+        validate_invocation_binding(
+            value,
+            altered_evidence,
+            authorization_identity="1" * 64,
+            authoritative_run_identity="2" * 64,
+            operator_implementation_identity="3" * 64,
+            session_identity="4" * 64,
+            packaged_sequence_1_response_identity="5" * 64,
+            packaged_sequence_1_v005_clock_attestation_identity="6" * 64,
+            contract=contract(),
+        )
 
 
 def test_binding_and_failure_records_resolve_to_the_single_invocation_claim() -> None:
@@ -571,14 +607,30 @@ def test_binding_and_failure_records_resolve_to_the_single_invocation_claim() ->
         "continuation_invocation_identity"
     ]
     marker = seal_record("continuation_failure", marker)
+    marker_evidence = bound_write_evidence("continuation_failure", marker, None)
     assert validate_failure_binding(
         marker,
         invocation_record,
+        marker_evidence,
         prior_clock_attestation_identity="8" * 64,
         prior_continuation_binding_identity=None,
         known_durable_identity_set=[],
         contract=contract(),
     ) == marker
+
+    altered_evidence = copy.deepcopy(marker_evidence)
+    altered_evidence["canonical_bytes_sha256"] = H2
+    altered_evidence = seal_record("continuation_write_evidence", altered_evidence)
+    with pytest.raises(OlympicsClockContinuationV008Error, match="V008_CONTINUATION_STORAGE"):
+        validate_failure_binding(
+            marker,
+            invocation_record,
+            altered_evidence,
+            prior_clock_attestation_identity="8" * 64,
+            prior_continuation_binding_identity=None,
+            known_durable_identity_set=[],
+            contract=contract(),
+        )
 
     substituted = copy.deepcopy(marker)
     substituted["continuation_invocation_identity"] = H2
@@ -587,6 +639,7 @@ def test_binding_and_failure_records_resolve_to_the_single_invocation_claim() ->
         validate_failure_binding(
             substituted,
             invocation_record,
+            marker_evidence,
             prior_clock_attestation_identity="8" * 64,
             prior_continuation_binding_identity=None,
             known_durable_identity_set=[],
@@ -605,9 +658,11 @@ def test_later_failure_requires_exact_prior_binding_and_sorted_durable_history()
     ]
     marker["known_durable_identity_set"] = ["1" * 64, "2" * 64]
     marker = seal_record("continuation_failure", marker)
+    marker_evidence = bound_write_evidence("continuation_failure", marker, None)
     assert validate_failure_binding(
         marker,
         invocation_record,
+        marker_evidence,
         prior_clock_attestation_identity=H3,
         prior_continuation_binding_identity=H2,
         known_durable_identity_set=["1" * 64, "2" * 64],
@@ -617,6 +672,7 @@ def test_later_failure_requires_exact_prior_binding_and_sorted_durable_history()
         validate_failure_binding(
             marker,
             invocation_record,
+            marker_evidence,
             prior_clock_attestation_identity=H3,
             prior_continuation_binding_identity=None,
             known_durable_identity_set=["2" * 64, "1" * 64],
@@ -670,9 +726,9 @@ def test_write_evidence_wrong_path_type_durability_or_filesystem_rejects(
 
 
 def test_sequence_chain_starts_at_two_is_contiguous_and_ancestry_bound() -> None:
-    first = binding()
-    second = binding(3, first["continuation_binding_identity"])
-    third = binding(4, second["continuation_binding_identity"])
+    first = unique_binding(2, None)
+    second = unique_binding(3, first["continuation_binding_identity"])
+    third = unique_binding(4, second["continuation_binding_identity"])
     assert [item["sequence_number"] for item in validate_sequence_chain(
         [first, second, third],
         packaged_sequence_1_response_identity="7" * 64,
@@ -708,6 +764,316 @@ def test_sequence_chain_cannot_mix_invocation_claims() -> None:
             [first, second],
             packaged_sequence_1_response_identity="7" * 64,
             contract=contract(),
+        )
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "request_identity",
+        "response_identity",
+        "v005_clock_attestation_identity",
+        "v005_root_artifact_identity",
+        "v005_transition_envelope_identity",
+    ],
+)
+def test_sequence_chain_rejects_every_cross_sequence_identity_reuse(field: str) -> None:
+    first = unique_binding(2, None)
+    second = unique_binding(3, first["continuation_binding_identity"])
+    second[field] = first[field]
+    second = seal_record("continuation_binding", second)
+    with pytest.raises(OlympicsClockContinuationV008Error, match="V008_CONTINUATION_REPLAY"):
+        validate_sequence_chain(
+            [first, second],
+            packaged_sequence_1_response_identity="7" * 64,
+            contract=contract(),
+        )
+
+
+def test_sequence_chain_rejects_cross_type_identity_reuse() -> None:
+    first = unique_binding(2, None)
+    second = unique_binding(3, first["continuation_binding_identity"])
+    second["response_identity"] = first["request_identity"]
+    second = seal_record("continuation_binding", second)
+    with pytest.raises(OlympicsClockContinuationV008Error, match="V008_CONTINUATION_REPLAY"):
+        validate_sequence_chain(
+            [first, second],
+            packaged_sequence_1_response_identity="7" * 64,
+            contract=contract(),
+        )
+
+
+def test_lifecycle_validator_uses_exact_registry_contract_chain_and_binding_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invocation_record = invocation()
+    invocation_record["packaged_sequence_1_response_identity"] = "7" * 64
+    invocation_record["packaged_sequence_1_v005_clock_attestation_identity"] = "8" * 64
+    invocation_record = seal_record("continuation_invocation", invocation_record)
+    lifecycle = binding()
+    lifecycle["continuation_invocation_identity"] = invocation_record[
+        "continuation_invocation_identity"
+    ]
+    lifecycle = seal_record("continuation_binding", lifecycle)
+    request = {
+        "authorization_identity": "1" * 64,
+        "authoritative_run_identity": "2" * 64,
+        "operator_implementation_identity": "3" * 64,
+        "session_identity": "4" * 64,
+        "sequence_number": 2,
+        "request_identity": "5" * 64,
+        "prior_clock_attestation_identity": "8" * 64,
+        "transition_id": "authorization_activated",
+        "bound_artifact_type": "activation",
+        "bound_timestamp_field": "activated_at",
+    }
+    response = {
+        "response_identity": "6" * 64,
+        "v005_clock_attestation_identity": "8" * 64,
+        "verified_timestamp": T,
+    }
+    packaged_response = {
+        "response_identity": "7" * 64,
+        "sequence_number": 1,
+        "status": "success",
+        "session_identity": "4" * 64,
+        "v005_clock_attestation_identity": "8" * 64,
+        "verified_timestamp": T,
+    }
+    root = {"activation_identity": "9" * 64, "activated_at": T}
+    transition = {
+        "transition_id": "authorization_activated",
+        "transition_envelope_identity": "a" * 64,
+        "root_artifact_type": "activation",
+        "root_artifact_identity": "9" * 64,
+        "durability_evidence_identity": "d" * 64,
+    }
+    request_evidence = bound_write_evidence("clock_request", request, 2)
+    response_evidence = bound_write_evidence("clock_response", response, 2)
+    invocation_evidence = bound_write_evidence(
+        "continuation_invocation", invocation_record, None
+    )
+    for evidence in (request_evidence, response_evidence, invocation_evidence):
+        evidence["continuation_invocation_identity"] = invocation_record[
+            "continuation_invocation_identity"
+        ]
+    request_evidence = seal_record("continuation_write_evidence", request_evidence)
+    response_evidence = seal_record("continuation_write_evidence", response_evidence)
+    invocation_evidence = seal_record(
+        "continuation_write_evidence", invocation_evidence
+    )
+    lifecycle["request_durability_identity"] = request_evidence[
+        "continuation_write_evidence_identity"
+    ]
+    lifecycle["response_durability_identity"] = response_evidence[
+        "continuation_write_evidence_identity"
+    ]
+    lifecycle = seal_record("continuation_binding", lifecycle)
+    binding_evidence = bound_write_evidence("continuation_binding", lifecycle, 2)
+    binding_evidence["continuation_invocation_identity"] = invocation_record[
+        "continuation_invocation_identity"
+    ]
+    binding_evidence = seal_record("continuation_write_evidence", binding_evidence)
+    v005_contract = {
+        "artifact_schemas": {"activation": {"identity_field": "activation_identity"}},
+        "lifecycle": {"timestamp_fields": {"activation": "activated_at"}},
+    }
+    v007_contract = {"identity": "v007"}
+    clock_registry = {"identity": "clock-registry"}
+    bootstrap = {"identity": "bootstrap"}
+    observed: list[tuple[object, ...]] = []
+
+    monkeypatch.setattr(
+        continuation_module,
+        "validate_runtime_record",
+        lambda _record_type, record, _contract: dict(record),
+    )
+    monkeypatch.setattr(
+        continuation_module,
+        "validate_v005_artifact",
+        lambda record, _record_type, _contract: dict(record),
+    )
+    monkeypatch.setattr(
+        continuation_module,
+        "v005_transition_spec",
+        lambda _contract, _transition_id: {"actor": "operator"},
+    )
+    transition_calls: list[tuple[object, ...]] = []
+
+    def transition_bundle_spy(*args, **kwargs) -> None:
+        transition_calls.append((*args, kwargs))
+
+    monkeypatch.setattr(
+        continuation_module,
+        "validate_v005_transition_bundle",
+        transition_bundle_spy,
+    )
+
+    def clock_exchange_spy(*args, **kwargs) -> None:
+        observed.append((*args, kwargs))
+
+    monkeypatch.setattr(continuation_module, "validate_clock_exchange", clock_exchange_spy)
+    assert validate_lifecycle_binding(
+        lifecycle,
+        invocation_record,
+        invocation_evidence,
+        request,
+        response,
+        root,
+        transition,
+        request_evidence,
+        response_evidence,
+        binding_evidence,
+        root_artifact_type="activation",
+        contract=contract(),
+        v005_contract=v005_contract,
+        v007_contract=v007_contract,
+        bootstrap=bootstrap,
+        clock_registry=clock_registry,
+        packaged_sequence_1_response=packaged_response,
+        previous_binding=None,
+        previous_binding_write_evidence=None,
+        v005_transition_artifacts={
+            "activation": [root],
+            "transition_envelope": [transition],
+        },
+    ) == lifecycle
+    assert observed == [
+        (
+            request,
+            response,
+            bootstrap,
+            clock_registry,
+            v007_contract,
+            {"previous_verified_timestamp": T},
+        )
+    ]
+    assert transition_calls == [
+        (
+            "authorization_activated",
+            "operator",
+            {"activation": [root], "transition_envelope": [transition]},
+            v005_contract,
+            {"documentary_git_proof": None},
+        )
+    ]
+
+    later = copy.deepcopy(lifecycle)
+    later["sequence_number"] = 3
+    later["packaged_prior_response_identity"] = None
+    later["prior_continuation_binding_identity"] = lifecycle[
+        "continuation_binding_identity"
+    ]
+    later = seal_record("continuation_binding", later)
+    with pytest.raises(OlympicsClockContinuationV008Error, match="V008_SEQUENCE_CONTINUITY"):
+        validate_lifecycle_binding(
+            later,
+            invocation_record,
+            invocation_evidence,
+            request,
+            response,
+            root,
+            transition,
+            request_evidence,
+            response_evidence,
+            binding_evidence,
+            root_artifact_type="activation",
+            contract=contract(),
+            v005_contract=v005_contract,
+            v007_contract=v007_contract,
+            bootstrap=bootstrap,
+            clock_registry=clock_registry,
+            packaged_sequence_1_response=packaged_response,
+            previous_binding=lifecycle,
+            previous_binding_write_evidence=None,
+            v005_transition_artifacts={
+                "activation": [root],
+                "transition_envelope": [transition],
+            },
+        )
+
+    with pytest.raises(OlympicsClockContinuationV008Error, match="V008_LIFECYCLE_BINDING"):
+        validate_lifecycle_binding(
+            lifecycle,
+            invocation_record,
+            invocation_evidence,
+            request,
+            response,
+            root,
+            transition,
+            request_evidence,
+            response_evidence,
+            binding_evidence,
+            root_artifact_type="activation",
+            contract=contract(),
+            v005_contract=v005_contract,
+            v007_contract=v007_contract,
+            bootstrap=bootstrap,
+            clock_registry=clock_registry,
+            packaged_sequence_1_response=packaged_response,
+            previous_binding=None,
+            previous_binding_write_evidence=None,
+            v005_transition_artifacts={"transition_envelope": [transition]},
+        )
+
+    wrong_prior = {**request, "prior_clock_attestation_identity": H2}
+    with pytest.raises(OlympicsClockContinuationV008Error, match="V008_SEQUENCE_CONTINUITY"):
+        validate_lifecycle_binding(
+            lifecycle,
+            invocation_record,
+            invocation_evidence,
+            wrong_prior,
+            response,
+            root,
+            transition,
+            request_evidence,
+            response_evidence,
+            binding_evidence,
+            root_artifact_type="activation",
+            contract=contract(),
+            v005_contract=v005_contract,
+            v007_contract=v007_contract,
+            bootstrap=bootstrap,
+            clock_registry=clock_registry,
+            packaged_sequence_1_response=packaged_response,
+            previous_binding=None,
+            previous_binding_write_evidence=None,
+            v005_transition_artifacts={
+                "activation": [root],
+                "transition_envelope": [transition],
+            },
+        )
+
+    wrong_binding_evidence = copy.deepcopy(binding_evidence)
+    wrong_binding_evidence["target_identity"] = H2
+    wrong_binding_evidence = seal_record(
+        "continuation_write_evidence", wrong_binding_evidence
+    )
+    with pytest.raises(OlympicsClockContinuationV008Error, match="V008_CONTINUATION_STORAGE"):
+        validate_lifecycle_binding(
+            lifecycle,
+            invocation_record,
+            invocation_evidence,
+            request,
+            response,
+            root,
+            transition,
+            request_evidence,
+            response_evidence,
+            wrong_binding_evidence,
+            root_artifact_type="activation",
+            contract=contract(),
+            v005_contract=v005_contract,
+            v007_contract=v007_contract,
+            bootstrap=bootstrap,
+            clock_registry=clock_registry,
+            packaged_sequence_1_response=packaged_response,
+            previous_binding=None,
+            previous_binding_write_evidence=None,
+            v005_transition_artifacts={
+                "activation": [root],
+                "transition_envelope": [transition],
+            },
         )
 
 
