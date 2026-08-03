@@ -55,7 +55,7 @@ PACKAGE_BINDING_DOMAIN = "aml.olympics.v009.documentary-proof-package-binding"
 MEMBER_DOMAIN = "aml.olympics.v009.documentary-proof-member"
 VALIDATION_DOMAIN = "aml.olympics.v009.documentary-proof-validation"
 
-CONTRACT_IDENTITY = "7822d0e69d02ced20c58988a0381324ccebe3a870be0c7345edceadccd8c9212"
+CONTRACT_IDENTITY = "0d9cba96035cec3c21bef24597ac32b308d71fc83c3ac07ea81e126ea4d12794"
 DESIGN_BASE_COMMIT = "02529b3001d090c48186607d398b73209e8deb85"
 V004_IMPLEMENTATION_IDENTITY = "d711d18cfbdc5aeaa01975102acd07a7767c6874670fc445abb5100abe79f5c4"
 TAG_OBJECT = "746e147efd9bb09dedfdd4d2850f461e36d9f046"
@@ -73,6 +73,9 @@ MAX_COMMIT_PARENTS = 1
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SCHEMA_RE = re.compile(r"^[a-z0-9][a-z0-9.-]{0,159}$")
+BASE64_RE = re.compile(
+    r"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+)
 
 RAW_MEMBER_LIMITS = {
     "authorization_bytes": 2_000_000,
@@ -102,17 +105,17 @@ SECTION_NAMES = (
 EXPECTED_SECTION_IDENTITIES = {
     "inheritance": "c44a61ec97a52dc656c5ed37821ab14639dcff4ae83718343604b7aa7ac93a0c",
     "transport_model": "d0c7ff1aaaa36b520544728d4af0a0248d2841418cb48fbb05aa5e8225b88ad2",
-    "envelope_schema": "d35e4875b79887ad81a7e057d576c1534eae7d7ec7d3035d95e5301eccdd68ac",
+    "envelope_schema": "0728276c03d78f652d23fb6a848b407915bb3bae9eef2ed22d29ee4099d09605",
     "raw_byte_representation": "1c3b7b9d197236a71b861817b1ed98932314cd28f6beddc5c04fb2c521ace17a",
     "git_object_validation": "53a2bdb3b7fe705e7f0cbd889d440f89d099db442eb574cee9f3149da06a690a",
-    "package_integration": "526c7d38e9e4806137fe1d991db8e9d6adc3e2bfc8ea52ab221c354154b4aed7",
+    "package_integration": "0eee723d429b225202cac41c95663dd8ce35eee7c538ac8e6ac97b799b081964",
     "detached_source_relationship": "490d7dcc8247f2cc478ca61ec7c67b1e3cf8d361ec99488348ed427d3d6d49ef",
     "canonicalization": "7c2beeb6b39a4d32d141c20304d4fb85d2578ba5b94ddf6fdb0be431cb49e310",
     "resource_limits": "260f7795d452b19f8176a4ad6e8bc4b45a1501b7aa3d7ab565d034b5bd774bb7",
     "error_status_model": "63497e131ab028fadf80f410621bf9e4f61ac67e09a128f38f5c88a9dd3d3cce",
     "authority_boundary": "cdcd38bbca9e997f1d72b9dad103477082b4af262b0bda9accb65eb7a0f17f04",
     "capability_scope": "46f0c6ba3815ff359ac457a52bd46ec8b76d25a474d39104da321a494508512a",
-    "validation_manifest": "7bf9543bd52f6f96859e16d72216a06f9b58757ef6fadc99f84775a417f6238e",
+    "validation_manifest": "0f9f9f5f69b68451a598a6caf72d81d48afca5bb318e5e7d3aa707b665890bd7",
 }
 
 ROOT_FIELDS = {
@@ -164,7 +167,7 @@ INDEX_FIELDS_V006 = {
 }
 INDEX_FIELDS_V007 = INDEX_FIELDS_V006 | {"schema_version"}
 
-PACKAGE_FIELDS = {
+PACKAGE_FIELD_ORDER = (
     "schema_version",
     "package_identity",
     "v009_contract_identity",
@@ -177,7 +180,26 @@ PACKAGE_FIELDS = {
     "documentary_proof_envelope_relative_path",
     "v006_record_index_extension",
     "v007_supplemental_manifest_entry",
-}
+)
+PACKAGE_FIELDS = set(PACKAGE_FIELD_ORDER)
+
+PACKAGE_BINDING_FIELD_ORDER = (
+    "authorization_identity",
+    "documentary_binding_identity",
+    "v006_operator_package_identity",
+    "v007_runtime_package_identity",
+    "v008_clock_continuation_identity",
+    "v009_contract_identity",
+)
+
+VALIDATION_ORDER = (
+    "validate_frozen_contract_and_lineage",
+    "validate_closed_world_inventory_and_canonical_bytes",
+    "validate_storage_observations",
+    "validate_envelope_and_recover_exact_v005_proof",
+    "validate_successor_package_binding",
+    "validate_v008_invocation_binding",
+)
 
 STORAGE_OBSERVATION_FIELDS = {
     "relative_path",
@@ -232,6 +254,24 @@ def _reject(code: str, detail: str) -> None:
     raise OlympicsDocumentaryProofTransportV009Error(f"{code}:{detail}")
 
 
+def _canonical_json_bytes(value: object, detail: str) -> bytes:
+    try:
+        return canonical_bytes(value)
+    except OlympicsAuthorizationGovernanceV005Error as exc:
+        raise OlympicsDocumentaryProofTransportV009Error(
+            f"V009_SCHEMA:{detail}"
+        ) from exc
+
+
+def _domain_identity(domain: str, value: object, detail: str) -> str:
+    try:
+        return domain_hash(domain, value)
+    except OlympicsAuthorizationGovernanceV005Error as exc:
+        raise OlympicsDocumentaryProofTransportV009Error(
+            f"V009_SCHEMA:{detail}"
+        ) from exc
+
+
 def _exact_mapping(value: object, fields: set[str], detail: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping) or set(value) != fields:
         _reject("V009_SCHEMA", detail)
@@ -253,10 +293,17 @@ def _git_oid(value: object, detail: str) -> str:
 def _relative_path(value: object, detail: str) -> str:
     if type(value) is not str or not value.isascii() or value != value.lower():
         _reject("V009_ARTIFACT_PATH_MISMATCH", detail)
-    if not 1 <= len(value.encode("ascii")) <= MAX_PATH_BYTES or value.endswith("/"):
+    if (
+        not 1 <= len(value.encode("ascii")) <= MAX_PATH_BYTES
+        or value.endswith("/")
+        or "\x00" in value
+    ):
+        _reject("V009_ARTIFACT_PATH_MISMATCH", detail)
+    raw_parts = value.split("/")
+    if any(part in {"", ".", ".."} for part in raw_parts):
         _reject("V009_ARTIFACT_PATH_MISMATCH", detail)
     path = PurePosixPath(value)
-    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+    if path.is_absolute() or path.as_posix() != value:
         _reject("V009_ARTIFACT_PATH_MISMATCH", detail)
     return value
 
@@ -269,17 +316,39 @@ def git_object_oid(kind: str, payload: bytes) -> str:
     return hashlib.sha1(header + payload).hexdigest()
 
 
-def _decode_member(name: str, value: object) -> bytes:
+def _preflight_member(name: str, value: object) -> int:
     member = _exact_mapping(value, RAW_MEMBER_FIELDS, f"raw_member_{name}")
     if member["encoding"] != "base64_rfc4648_padded":
         _reject("V009_SCHEMA", f"raw_member_encoding_{name}")
     encoded = member["value"]
-    if type(encoded) is not str or not encoded.isascii() or any(ch.isspace() for ch in encoded):
+    if (
+        type(encoded) is not str
+        or not encoded.isascii()
+        or not BASE64_RE.fullmatch(encoded)
+    ):
         _reject("V009_SCHEMA", f"raw_member_base64_{name}")
     if type(member["encoded_length"]) is not int or member["encoded_length"] != len(encoded):
         _reject("V009_RAW_MEMBER_SIZE_MISMATCH", f"encoded_{name}")
-    if len(encoded) > 4 * ((RAW_MEMBER_LIMITS[name] + 2) // 3):
+    encoded_limit = 4 * ((RAW_MEMBER_LIMITS[name] + 2) // 3)
+    if len(encoded) > encoded_limit:
         _reject("V009_RAW_MEMBER_SIZE_MISMATCH", f"encoded_limit_{name}")
+    padding = 2 if encoded.endswith("==") else 1 if encoded.endswith("=") else 0
+    decoded_length = (len(encoded) // 4) * 3 - padding
+    if (
+        type(member["decoded_length"]) is not int
+        or member["decoded_length"] != decoded_length
+        or decoded_length > RAW_MEMBER_LIMITS[name]
+    ):
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", f"decoded_{name}")
+    _identity(member["sha256"], f"raw_member_sha256_{name}")
+    _identity(member["member_identity"], f"raw_member_identity_{name}")
+    return decoded_length
+
+
+def _decode_member(name: str, value: object) -> bytes:
+    member = _exact_mapping(value, RAW_MEMBER_FIELDS, f"raw_member_{name}")
+    _preflight_member(name, member)
+    encoded = member["value"]
     try:
         raw = base64.b64decode(encoded, validate=True)
     except (ValueError, TypeError) as exc:
@@ -297,9 +366,10 @@ def _decode_member(name: str, value: object) -> bytes:
     digest = hashlib.sha256(raw).hexdigest()
     if member["sha256"] != digest:
         _reject("V009_RAW_MEMBER_HASH_MISMATCH", name)
-    expected_member_identity = domain_hash(
+    expected_member_identity = _domain_identity(
         MEMBER_DOMAIN,
         {"member_name": name, "decoded_length": len(raw), "sha256": digest},
+        f"raw_member_identity_{name}",
     )
     if member["member_identity"] != expected_member_identity:
         _reject("V009_PROOF_IDENTITY_MISMATCH", f"member_{name}")
@@ -319,9 +389,10 @@ def encode_raw_member(name: str, raw: bytes) -> dict[str, object]:
         "encoded_length": len(encoded),
         "decoded_length": len(raw),
         "sha256": digest,
-        "member_identity": domain_hash(
+        "member_identity": _domain_identity(
             MEMBER_DOMAIN,
             {"member_name": name, "decoded_length": len(raw), "sha256": digest},
+            f"raw_member_identity_{name}",
         ),
         "value": encoded,
     }
@@ -329,12 +400,12 @@ def encode_raw_member(name: str, raw: bytes) -> dict[str, object]:
 
 def envelope_identity(value: Mapping[str, object]) -> str:
     projection = {key: item for key, item in value.items() if key != "envelope_identity"}
-    return domain_hash(ENVELOPE_DOMAIN, projection)
+    return _domain_identity(ENVELOPE_DOMAIN, projection, "envelope_identity")
 
 
 def package_identity(value: Mapping[str, object]) -> str:
     projection = {key: item for key, item in value.items() if key != "package_identity"}
-    return domain_hash(PACKAGE_DOMAIN, projection)
+    return _domain_identity(PACKAGE_DOMAIN, projection, "package_identity")
 
 
 def _commit_headers(raw: bytes) -> tuple[str, list[str]]:
@@ -450,7 +521,7 @@ def _inspect_tree_proof(
 
 
 def _package_binding_identity(envelope: Mapping[str, object]) -> str:
-    return domain_hash(
+    return _domain_identity(
         PACKAGE_BINDING_DOMAIN,
         {
             "authorization_identity": envelope["authorization_identity"],
@@ -460,6 +531,7 @@ def _package_binding_identity(envelope: Mapping[str, object]) -> str:
             "v008_clock_continuation_identity": envelope["v008_clock_continuation_identity"],
             "v009_contract_identity": envelope["v009_contract_identity"],
         },
+        "package_binding_identity",
     )
 
 
@@ -474,8 +546,11 @@ def validate_envelope(
     v005_contract: Mapping[str, object],
 ) -> dict[str, bytes]:
     """Validate and recover the exact seven-value V005 proof input offline."""
-    if contract.get("contract_identity") != CONTRACT_IDENTITY:
-        _reject("V009_CROSS_VERSION_SUBSTITUTION", "v009_contract")
+    validate_contract(contract)
+    if not isinstance(authorization, Mapping) or not isinstance(
+        documentary_binding, Mapping
+    ):
+        _reject("V009_SCHEMA", "documentary_artifacts")
     try:
         validate_v005_contract(v005_contract)
     except OlympicsAuthorizationGovernanceV005Error as exc:
@@ -485,6 +560,24 @@ def validate_envelope(
     _exact_mapping(envelope, ENVELOPE_FIELDS, "envelope_fields")
     if envelope["schema_version"] != ENVELOPE_SCHEMA:
         _reject("V009_SCHEMA", "envelope_schema")
+    envelope_bytes = _canonical_json_bytes(envelope, "envelope_canonical_json")
+    if len(envelope_bytes) > MAX_ENVELOPE_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "envelope_limit")
+    raw_value = envelope["raw_members"]
+    if not isinstance(raw_value, Mapping):
+        _reject("V009_RAW_MEMBER_MISSING", "raw_members")
+    missing_members = set(RAW_MEMBER_NAMES) - set(raw_value)
+    extra_members = set(raw_value) - set(RAW_MEMBER_NAMES)
+    if missing_members:
+        _reject("V009_RAW_MEMBER_MISSING", "raw_members")
+    if extra_members:
+        _reject("V009_RAW_MEMBER_EXTRA", "raw_members")
+    raw_members = _exact_mapping(raw_value, set(RAW_MEMBER_NAMES), "raw_members")
+    declared_total = sum(
+        _preflight_member(name, raw_members[name]) for name in RAW_MEMBER_NAMES
+    )
+    if declared_total > MAX_TOTAL_DECODED_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "total")
     identities = {
         "authorization_identity": authorization.get("authorization_identity"),
         "documentary_binding_identity": documentary_binding.get(
@@ -526,26 +619,20 @@ def validate_envelope(
             else:
                 code = "V009_PROOF_PACKAGE_MISMATCH"
             _reject(code, field)
-    raw_value = envelope["raw_members"]
-    if not isinstance(raw_value, Mapping):
-        _reject("V009_RAW_MEMBER_MISSING", "raw_members")
-    missing_members = set(RAW_MEMBER_NAMES) - set(raw_value)
-    extra_members = set(raw_value) - set(RAW_MEMBER_NAMES)
-    if missing_members:
-        _reject("V009_RAW_MEMBER_MISSING", "raw_members")
-    if extra_members:
-        _reject("V009_RAW_MEMBER_EXTRA", "raw_members")
     if envelope["package_binding_identity"] != _package_binding_identity(envelope):
         _reject("V009_PROOF_PACKAGE_MISMATCH", "package_binding_identity")
     if envelope["envelope_identity"] != envelope_identity(envelope):
         _reject("V009_PROOF_IDENTITY_MISMATCH", "envelope")
-    raw_members = _exact_mapping(raw_value, set(RAW_MEMBER_NAMES), "raw_members")
     decoded = {name: _decode_member(name, raw_members[name]) for name in RAW_MEMBER_NAMES}
-    if sum(map(len, decoded.values())) > MAX_TOTAL_DECODED_BYTES:
+    if sum(map(len, decoded.values())) != declared_total:
         _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "total")
-    if decoded["authorization_bytes"] != canonical_bytes(authorization):
+    if decoded["authorization_bytes"] != _canonical_json_bytes(
+        authorization, "authorization_canonical_json"
+    ):
         _reject("V009_ARTIFACT_BYTES_MISMATCH", "authorization")
-    if decoded["documentary_binding_bytes"] != canonical_bytes(documentary_binding):
+    if decoded["documentary_binding_bytes"] != _canonical_json_bytes(
+        documentary_binding, "documentary_binding_canonical_json"
+    ):
         _reject("V009_ARTIFACT_BYTES_MISMATCH", "documentary_binding")
 
     tree_a, parents_a = _commit_headers(decoded["commit_a_raw_bytes"])
@@ -620,14 +707,17 @@ def validate_package(
     contract: Mapping[str, object],
 ) -> dict[str, object]:
     """Validate V009 reachability from exact sealed V006/V007 roots."""
-    if contract.get("contract_identity") != CONTRACT_IDENTITY:
-        _reject("V009_CROSS_VERSION_SUBSTITUTION", "v009_contract")
+    validate_contract(contract)
     _exact_mapping(package, PACKAGE_FIELDS, "package_fields")
+    _exact_mapping(envelope, ENVELOPE_FIELDS, "package_envelope_fields")
     if package["schema_version"] != PACKAGE_SCHEMA:
         _reject("V009_SCHEMA", "package_schema")
+    package_bytes = _canonical_json_bytes(package, "package_canonical_json")
+    if len(package_bytes) > MAX_PACKAGE_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "package_manifest_limit")
     if type(envelope_bytes) is not bytes or len(envelope_bytes) > MAX_ENVELOPE_BYTES:
         _reject("V009_PROOF_UNREADABLE", "envelope_bytes")
-    if envelope_bytes != canonical_bytes(envelope):
+    if envelope_bytes != _canonical_json_bytes(envelope, "envelope_canonical_json"):
         _reject("V009_PROOF_UNREADABLE", "noncanonical_envelope")
     auth = _identity(package["authorization_identity"], "package_authorization")
     path = proof_relative_path(auth)
@@ -677,14 +767,27 @@ def validate_package_inventory(
     contract: Mapping[str, object],
 ) -> None:
     """Reject absent, duplicate/alternate, unindexed, or unreachable proof files."""
+    validate_contract(contract)
+    _exact_mapping(package, PACKAGE_FIELDS, "inventory_package_fields")
+    _exact_mapping(envelope, ENVELOPE_FIELDS, "inventory_envelope_fields")
+    proof_path = proof_relative_path(authorization_identity)
+    package_path = package_relative_path(authorization_identity)
     expected = {
-        proof_relative_path(authorization_identity): canonical_bytes(envelope),
-        package_relative_path(authorization_identity): canonical_bytes(package),
+        proof_path: _canonical_json_bytes(
+            envelope, "envelope_canonical_json"
+        ),
+        package_path: _canonical_json_bytes(
+            package, "package_canonical_json"
+        ),
     }
+    if len(expected[proof_path]) > MAX_ENVELOPE_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "envelope_limit")
+    if len(expected[package_path]) > MAX_PACKAGE_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "package_manifest_limit")
+    if sum(len(item) for item in expected.values()) > MAX_TOTAL_PACKAGE_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "total_package")
     if not isinstance(members, Mapping):
         _reject("V009_PROOF_UNREADABLE", "inventory")
-    if contract.get("contract_identity") != CONTRACT_IDENTITY:
-        _reject("V009_CROSS_VERSION_SUBSTITUTION", "contract")
     for path in members:
         _relative_path(path, "inventory_path")
     proof_paths = [path for path in members if path.endswith("documentary_git_proof_v009.json")]
@@ -711,6 +814,18 @@ def validate_storage_observations(
         proof_relative_path(authorization_identity),
         package_relative_path(authorization_identity),
     }
+    if not isinstance(members, Mapping) or set(members) != expected_paths:
+        _reject("V009_PACKAGE_REACHABILITY_UNCERTAIN", "storage_member_inventory")
+    if any(type(members[path]) is not bytes for path in expected_paths):
+        _reject("V009_PROOF_UNREADABLE", "storage_member_bytes")
+    proof_path = proof_relative_path(authorization_identity)
+    package_path = package_relative_path(authorization_identity)
+    if len(members[proof_path]) > MAX_ENVELOPE_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "envelope_limit")
+    if len(members[package_path]) > MAX_PACKAGE_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "package_manifest_limit")
+    if sum(len(members[path]) for path in expected_paths) > MAX_TOTAL_PACKAGE_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "total_package")
     if type(observations) is not list or len(observations) != 2:
         _reject("V009_PACKAGE_REACHABILITY_UNCERTAIN", "storage_observation_count")
     seen: set[str] = set()
@@ -724,7 +839,9 @@ def validate_storage_observations(
             _reject("V009_ARTIFACT_MODE_MISMATCH", path)
         if item["git_mode"] != "100644":
             _reject("V009_ARTIFACT_MODE_MISMATCH", path)
-        if item["hard_link_count"] != 1 or item["symlink_free"] is not True:
+        if type(item["hard_link_count"]) is not int or item["hard_link_count"] != 1:
+            _reject("V009_PACKAGE_REACHABILITY_UNCERTAIN", "link_state")
+        if item["symlink_free"] is not True:
             _reject("V009_PACKAGE_REACHABILITY_UNCERTAIN", "link_state")
         if item["same_device"] is not True or item["durable"] is not True:
             _reject("V009_DURABILITY_UNCERTAIN", path)
@@ -743,15 +860,102 @@ def validate_invocation_binding(
     runtime_package: Mapping[str, object],
 ) -> None:
     """Bind V009 transitively to V008 without changing the V008 schema."""
+    if not isinstance(invocation, Mapping) or not isinstance(runtime_package, Mapping):
+        _reject("V009_SCHEMA", "invocation_inputs")
+    _exact_mapping(package, PACKAGE_FIELDS, "invocation_package_fields")
+    if package["schema_version"] != PACKAGE_SCHEMA:
+        _reject("V009_SCHEMA", "invocation_package_schema")
+    if len(_canonical_json_bytes(package, "invocation_package_canonical_json")) > MAX_PACKAGE_BYTES:
+        _reject("V009_RAW_MEMBER_SIZE_MISMATCH", "package_manifest_limit")
+    if package["v009_contract_identity"] != CONTRACT_IDENTITY:
+        _reject("V009_CROSS_VERSION_SUBSTITUTION", "invocation_v009_contract")
+    if package["v008_clock_continuation_identity"] != V008_CLOCK_CONTINUATION_IDENTITY:
+        _reject("V009_CROSS_VERSION_SUBSTITUTION", "invocation_v008_contract")
+    if package["package_identity"] != package_identity(package):
+        _reject("V009_PROOF_IDENTITY_MISMATCH", "invocation_package")
+    package_authorization = _identity(
+        package["authorization_identity"], "invocation_package_authorization"
+    )
+    invocation_authorization = _identity(
+        invocation.get("authorization_identity"), "invocation_authorization"
+    )
+    runtime_authorization = _identity(
+        runtime_package.get("authorization_identity"), "runtime_authorization"
+    )
+    package_v007 = _identity(
+        package["v007_runtime_package_identity"], "invocation_package_v007"
+    )
+    runtime_v007 = _identity(
+        runtime_package.get("runtime_package_identity"), "runtime_package_identity"
+    )
+    package_v006 = _identity(
+        package["v006_operator_package_identity"], "invocation_package_v006"
+    )
+    runtime_v006 = _identity(
+        runtime_package.get("v006_operator_package_identity"),
+        "runtime_v006_package_identity",
+    )
     checks = (
-        (package.get("authorization_identity"), invocation.get("authorization_identity")),
-        (package.get("authorization_identity"), runtime_package.get("authorization_identity")),
-        (package.get("v007_runtime_package_identity"), runtime_package.get("runtime_package_identity")),
-        (package.get("v006_operator_package_identity"), runtime_package.get("v006_operator_package_identity")),
-        (package.get("v008_clock_continuation_identity"), V008_CLOCK_CONTINUATION_IDENTITY),
+        (package_authorization, invocation_authorization),
+        (package_authorization, runtime_authorization),
+        (package_v007, runtime_v007),
+        (package_v006, runtime_v006),
     )
     if any(left != right for left, right in checks):
         _reject("V009_PROOF_PACKAGE_MISMATCH", "v008_invocation_binding")
+
+
+def validate_documentary_proof_transport(
+    authorization: Mapping[str, object],
+    documentary_binding: Mapping[str, object],
+    envelope: Mapping[str, object],
+    package: Mapping[str, object],
+    members: Mapping[str, bytes],
+    storage_observations: object,
+    invocation: Mapping[str, object],
+    runtime_package: Mapping[str, object],
+    *,
+    v006_operator_package_identity: str,
+    v007_runtime_package_identity: str,
+    contract: Mapping[str, object],
+    v005_contract: Mapping[str, object],
+) -> dict[str, bytes]:
+    """Run the one frozen, pure V009 validation sequence without path choice."""
+    validate_contract(contract)
+    if not isinstance(authorization, Mapping):
+        _reject("V009_SCHEMA", "authorization")
+    authorization_identity = _identity(
+        authorization.get("authorization_identity"), "authorization_identity"
+    )
+    validate_package_inventory(
+        members,
+        authorization_identity=authorization_identity,
+        package=package,
+        envelope=envelope,
+        contract=contract,
+    )
+    validate_storage_observations(
+        storage_observations,
+        members,
+        authorization_identity=authorization_identity,
+    )
+    proof = validate_envelope(
+        envelope,
+        authorization,
+        documentary_binding,
+        v006_operator_package_identity=v006_operator_package_identity,
+        v007_runtime_package_identity=v007_runtime_package_identity,
+        contract=contract,
+        v005_contract=v005_contract,
+    )
+    validate_package(
+        package,
+        envelope,
+        members[proof_relative_path(authorization_identity)],
+        contract=contract,
+    )
+    validate_invocation_binding(package, invocation, runtime_package)
+    return proof
 
 
 def prohibit_fallback(kind: str) -> None:
@@ -782,6 +986,8 @@ def _section_projection(name: str, contract: Mapping[str, object]) -> object:
 def validate_contract(value: Mapping[str, object], root: Path | None = None) -> dict[str, object]:
     """Validate the exact design-only V009 contract and frozen lineage."""
     _exact_mapping(value, ROOT_FIELDS, "contract_fields")
+    if len(_canonical_json_bytes(value, "contract_canonical_json")) > MAX_CONTRACT_BYTES:
+        _reject("V009_SCHEMA", "contract_size")
     if value["schema_version"] != SCHEMA or value["version"] != VERSION:
         _reject("V009_SCHEMA", "contract_version")
     if value["prospective_as_of"] != "2026-08-03T00:00:00Z":
@@ -790,13 +996,19 @@ def validate_contract(value: Mapping[str, object], root: Path | None = None) -> 
         value["section_identities"], set(SECTION_NAMES), "section_identity_inventory"
     )
     for name in SECTION_NAMES:
-        expected = domain_hash(f"{CONTRACT_DOMAIN}.section.{name}", _section_projection(name, value))
+        expected = _domain_identity(
+            f"{CONTRACT_DOMAIN}.section.{name}",
+            _section_projection(name, value),
+            f"section_{name}",
+        )
         if section_identities[name] != expected:
             _reject("V009_PROOF_IDENTITY_MISMATCH", f"section_{name}")
         if EXPECTED_SECTION_IDENTITIES and EXPECTED_SECTION_IDENTITIES.get(name) != expected:
             _reject("V009_PROOF_IDENTITY_MISMATCH", f"frozen_section_{name}")
     projection = {key: item for key, item in value.items() if key != "contract_identity"}
-    if value["contract_identity"] != domain_hash(CONTRACT_DOMAIN, projection):
+    if value["contract_identity"] != _domain_identity(
+        CONTRACT_DOMAIN, projection, "contract_identity"
+    ):
         _reject("V009_PROOF_IDENTITY_MISMATCH", "contract")
     if CONTRACT_IDENTITY != "0" * 64 and value["contract_identity"] != CONTRACT_IDENTITY:
         _reject("V009_PROOF_IDENTITY_MISMATCH", "frozen_contract")
@@ -820,6 +1032,24 @@ def validate_contract(value: Mapping[str, object], root: Path | None = None) -> 
         _reject("V009_SCHEMA", "transport_model")
     if model.get("separate_raw_members_permitted") is not False:
         _reject("V009_SCHEMA", "dual_transport_model")
+    envelope_schema = value["envelope_schema"]
+    if not isinstance(envelope_schema, Mapping) or envelope_schema.get(
+        "package_binding_identity_projection"
+    ) != list(PACKAGE_BINDING_FIELD_ORDER):
+        _reject("V009_SCHEMA", "package_binding_projection")
+    package_integration = value["package_integration"]
+    if not isinstance(package_integration, Mapping) or package_integration.get(
+        "package_manifest_fields"
+    ) != list(PACKAGE_FIELD_ORDER):
+        _reject("V009_SCHEMA", "package_manifest_fields")
+    validation_manifest = value["validation_manifest"]
+    if (
+        not isinstance(validation_manifest, Mapping)
+        or validation_manifest.get("composite_validator")
+        != "validate_documentary_proof_transport"
+        or validation_manifest.get("validation_order") != list(VALIDATION_ORDER)
+    ):
+        _reject("V009_SCHEMA", "validation_order")
     scope = value["capability_scope"]
     if not isinstance(scope, Mapping) or scope.get("design_only") is not True:
         _reject("V009_SCHEMA", "capability_scope")
@@ -876,4 +1106,4 @@ def validation_report(root: Path) -> bytes:
         "status": contract["validation_manifest"]["status"],
         "v009_documentary_proof_transport_identity": contract["contract_identity"],
     }
-    return canonical_bytes(report)
+    return _canonical_json_bytes(report, "validation_report")

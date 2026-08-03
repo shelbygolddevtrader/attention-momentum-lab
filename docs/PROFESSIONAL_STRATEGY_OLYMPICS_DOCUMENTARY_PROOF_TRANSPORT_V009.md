@@ -123,6 +123,23 @@ The unindexed V009 successor package root is:
 authorizations/{authorization_identity}/documentary_proof_package_v009.json
 ```
 
+Its exact canonical field inventory is, in frozen order:
+
+```text
+schema_version
+package_identity
+v009_contract_identity
+authorization_identity
+documentary_binding_identity
+v006_operator_package_identity
+v007_runtime_package_identity
+v008_clock_continuation_identity
+documentary_proof_envelope_identity
+documentary_proof_envelope_relative_path
+v006_record_index_extension
+v007_supplemental_manifest_entry
+```
+
 The package root binds one exact sealed V006 operator-package identity, one
 exact sealed V007 runtime-package identity, and one proof envelope. It carries:
 
@@ -140,11 +157,18 @@ Pure storage observations cover exactly those two members and bind relative
 path, regular-file type, filesystem mode `0600`, review Git mode `100644`, link
 count one, symlink absence, same-device status, durability, byte length, and
 SHA-256. Missing, duplicated, linked, mode-substituted, or uncertain storage
-evidence cannot pass.
+evidence cannot pass. The storage validator independently rejects an extra or
+unobserved member; it does not rely on a prior inventory call for that closure.
 
 The future V008 invocation is bound transitively by equality of authorization,
 V006 package, V007 runtime package, and the literal V008 contract identity. No
 V008 schema is changed.
+
+The sole composite validator is `validate_documentary_proof_transport`. It
+validates the frozen contract and lineage, closed-world inventory and canonical
+bytes, storage observations, envelope and exact V005 proof, successor package,
+and V008 invocation binding in that order. The proof and package paths are
+derived from the authorization identity; the caller cannot select them.
 
 ## Detached source and offline isolation
 
@@ -171,8 +195,10 @@ The frozen limits are listed in the contract, including explicit decoded and
 Base64-encoded ceilings for every member. Key limits are 800,000 envelope
 bytes, 832,768 total V009 package bytes, 500,000 total decoded proof bytes, 32
 tree-proof steps, one parent per commit, 1,024 path bytes, and six raw members.
-Oversize and structural failures are rejected before expensive validation
-where possible.
+Envelope canonical size, every declared and encoded member size, and the total
+decoded size are rejected before Base64 decoding, hashing, or Git-proof
+validation. Every proof and package validator validates the complete frozen
+V009 contract rather than trusting a copied contract-identity field.
 
 ## Failure handling
 

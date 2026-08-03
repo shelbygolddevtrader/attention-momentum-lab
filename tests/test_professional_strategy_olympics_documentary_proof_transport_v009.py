@@ -21,6 +21,9 @@ from aml.professional_strategy_olympics_documentary_proof_transport_v009 import 
     CONTRACT_DOMAIN,
     CONTRACT_IDENTITY,
     ENVELOPE_SCHEMA,
+    MAX_CONTRACT_BYTES,
+    MAX_PACKAGE_BYTES,
+    MAX_TOTAL_DECODED_BYTES,
     PACKAGE_SCHEMA,
     V004_CONTRACT_IDENTITY,
     V004_IMPLEMENTATION_IDENTITY,
@@ -39,6 +42,7 @@ from aml.professional_strategy_olympics_documentary_proof_transport_v009 import 
     prohibit_fallback,
     proof_relative_path,
     validate_contract,
+    validate_documentary_proof_transport,
     validate_envelope,
     validate_invocation_binding,
     validate_package,
@@ -340,6 +344,62 @@ def test_storage_observations_bind_regular_files_modes_links_and_durability() ->
     )
 
 
+def test_composite_validator_recovers_v005_proof_and_preflights_inventory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authorization, binding, _, envelope, package = documentary_fixture()
+    auth = str(authorization["authorization_identity"])
+    members = {
+        proof_relative_path(auth): canonical_bytes(envelope),
+        package_relative_path(auth): canonical_bytes(package),
+    }
+    invocation = {"authorization_identity": auth}
+    runtime = {
+        "authorization_identity": auth,
+        "runtime_package_identity": V007_PACKAGE,
+        "v006_operator_package_identity": V006_PACKAGE,
+    }
+    proof = validate_documentary_proof_transport(
+        authorization,
+        binding,
+        envelope,
+        package,
+        members,
+        _storage_observations(members),
+        invocation,
+        runtime,
+        v006_operator_package_identity=V006_PACKAGE,
+        v007_runtime_package_identity=V007_PACKAGE,
+        contract=load_contract(ROOT),
+        v005_contract=load_v005_contract(ROOT),
+    )
+    assert proof["commit_b_oid"] == envelope["documentary_binding_commit_b_oid"]
+
+    def forbidden_decode(*args: object, **kwargs: object) -> bytes:
+        raise AssertionError("Base64 decode occurred before inventory rejection")
+
+    monkeypatch.setattr(base64, "b64decode", forbidden_decode)
+    attacked_members = {**members, "proofs/extra.json": b"{}\n"}
+    with pytest.raises(
+        OlympicsDocumentaryProofTransportV009Error,
+        match="V009_PACKAGE_REACHABILITY_UNCERTAIN",
+    ):
+        validate_documentary_proof_transport(
+            authorization,
+            binding,
+            envelope,
+            package,
+            attacked_members,
+            _storage_observations(members),
+            invocation,
+            runtime,
+            v006_operator_package_identity=V006_PACKAGE,
+            v007_runtime_package_identity=V007_PACKAGE,
+            contract=load_contract(ROOT),
+            v005_contract=load_v005_contract(ROOT),
+        )
+
+
 @pytest.mark.parametrize(
     ("field", "value", "code"),
     [
@@ -526,6 +586,9 @@ def test_inventory_absent_duplicate_extra_alternate_and_traversal_fail() -> None
         {**valid, f"proofs/{auth}/copy/documentary_git_proof_v009.json": canonical_bytes(envelope)},
         {**valid, f"proofs/{auth}/extra.json": b"{}\n"},
         {**valid, f"proofs/{auth}/../escape.json": b"{}\n"},
+        {**valid, f"proofs/{auth}/./documentary_git_proof_v009.json": b"{}\n"},
+        {**valid, f"proofs/{auth}//documentary_git_proof_v009.json": b"{}\n"},
+        {**valid, f"proofs/{auth}/bad\x00path.json": b"{}\n"},
     ]
     for members in cases:
         with pytest.raises(OlympicsDocumentaryProofTransportV009Error):
@@ -686,3 +749,158 @@ def test_proof_validator_imports_no_network_or_git_process_capability() -> None:
     assert not any(f"import {name}" in module for name in prohibited)
     assert "subprocess." not in module
     assert "socket." not in module
+
+
+@pytest.mark.parametrize("target", ["envelope", "package", "inventory"])
+def test_identity_only_v009_contract_spoof_fails(target: str) -> None:
+    authorization, binding, _, envelope, package = documentary_fixture()
+    fake_contract = {"contract_identity": CONTRACT_IDENTITY}
+    with pytest.raises(OlympicsDocumentaryProofTransportV009Error, match="V009_SCHEMA"):
+        if target == "envelope":
+            validate_envelope(
+                envelope,
+                authorization,
+                binding,
+                v006_operator_package_identity=V006_PACKAGE,
+                v007_runtime_package_identity=V007_PACKAGE,
+                contract=fake_contract,
+                v005_contract=load_v005_contract(ROOT),
+            )
+        elif target == "package":
+            validate_package(
+                package,
+                envelope,
+                canonical_bytes(envelope),
+                contract=fake_contract,
+            )
+        else:
+            auth = str(authorization["authorization_identity"])
+            validate_package_inventory(
+                {
+                    proof_relative_path(auth): canonical_bytes(envelope),
+                    package_relative_path(auth): canonical_bytes(package),
+                },
+                authorization_identity=auth,
+                package=package,
+                envelope=envelope,
+                contract=fake_contract,
+            )
+
+
+def test_total_decoded_limit_fails_before_base64_decode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authorization, binding, _, envelope, _ = documentary_fixture()
+    envelope["raw_members"]["authorization_bytes"]["decoded_length"] = (
+        MAX_TOTAL_DECODED_BYTES + 1
+    )
+    envelope["envelope_identity"] = envelope_identity(envelope)
+
+    def forbidden_decode(*args: object, **kwargs: object) -> bytes:
+        raise AssertionError("Base64 decode occurred before size rejection")
+
+    monkeypatch.setattr(base64, "b64decode", forbidden_decode)
+    with pytest.raises(
+        OlympicsDocumentaryProofTransportV009Error,
+        match="V009_RAW_MEMBER_SIZE_MISMATCH",
+    ):
+        validate_envelope(
+            envelope,
+            authorization,
+            binding,
+            v006_operator_package_identity=V006_PACKAGE,
+            v007_runtime_package_identity=V007_PACKAGE,
+            contract=load_contract(ROOT),
+            v005_contract=load_v005_contract(ROOT),
+        )
+
+
+def test_storage_evidence_rejects_extra_member_and_boolean_link_count() -> None:
+    authorization, _, _, envelope, package = documentary_fixture()
+    auth = str(authorization["authorization_identity"])
+    members = {
+        proof_relative_path(auth): canonical_bytes(envelope),
+        package_relative_path(auth): canonical_bytes(package),
+    }
+    observations = _storage_observations(members)
+    extra_members = {**members, "proofs/extra.json": b"{}\n"}
+    with pytest.raises(
+        OlympicsDocumentaryProofTransportV009Error,
+        match="V009_PACKAGE_REACHABILITY_UNCERTAIN",
+    ):
+        validate_storage_observations(
+            observations, extra_members, authorization_identity=auth
+        )
+    observations[0]["hard_link_count"] = True
+    with pytest.raises(
+        OlympicsDocumentaryProofTransportV009Error,
+        match="V009_PACKAGE_REACHABILITY_UNCERTAIN",
+    ):
+        validate_storage_observations(observations, members, authorization_identity=auth)
+
+
+def test_invocation_binding_rejects_missing_required_identities() -> None:
+    with pytest.raises(OlympicsDocumentaryProofTransportV009Error, match="V009_SCHEMA"):
+        validate_invocation_binding(
+            {"v008_clock_continuation_identity": V008_CLOCK_CONTINUATION_IDENTITY},
+            {},
+            {},
+        )
+
+
+def test_noncanonical_envelope_value_uses_v009_failure_class() -> None:
+    authorization, binding, _, envelope, _ = documentary_fixture()
+    envelope["raw_members"]["authorization_bytes"]["decoded_length"] = 1.5
+    with pytest.raises(OlympicsDocumentaryProofTransportV009Error, match="V009_SCHEMA"):
+        validate_envelope(
+            envelope,
+            authorization,
+            binding,
+            v006_operator_package_identity=V006_PACKAGE,
+            v007_runtime_package_identity=V007_PACKAGE,
+            contract=load_contract(ROOT),
+            v005_contract=load_v005_contract(ROOT),
+        )
+
+
+def test_direct_contract_and_package_size_limits_fail_closed() -> None:
+    oversized_contract = contract()
+    oversized_contract["transport_model"]["reason"] = "x" * MAX_CONTRACT_BYTES
+    with pytest.raises(OlympicsDocumentaryProofTransportV009Error, match="contract_size"):
+        validate_contract(oversized_contract)
+
+    _, _, _, envelope, package = documentary_fixture()
+    package["v006_operator_package_identity"] = "x" * MAX_PACKAGE_BYTES
+    with pytest.raises(
+        OlympicsDocumentaryProofTransportV009Error,
+        match="package_manifest_limit",
+    ):
+        validate_package(
+            package,
+            envelope,
+            canonical_bytes(envelope),
+            contract=load_contract(ROOT),
+        )
+
+
+def test_public_validators_reject_malformed_mapping_inputs() -> None:
+    _, binding, _, envelope, package = documentary_fixture()
+    with pytest.raises(OlympicsDocumentaryProofTransportV009Error, match="V009_SCHEMA"):
+        validate_envelope(
+            envelope,
+            [],
+            binding,
+            v006_operator_package_identity=V006_PACKAGE,
+            v007_runtime_package_identity=V007_PACKAGE,
+            contract=load_contract(ROOT),
+            v005_contract=load_v005_contract(ROOT),
+        )
+    with pytest.raises(OlympicsDocumentaryProofTransportV009Error, match="V009_SCHEMA"):
+        validate_package(
+            package,
+            {},
+            canonical_bytes(envelope),
+            contract=load_contract(ROOT),
+        )
+    with pytest.raises(OlympicsDocumentaryProofTransportV009Error, match="V009_SCHEMA"):
+        validate_invocation_binding(package, [], {})
