@@ -47,9 +47,9 @@ outer contract and fourteen security-critical sections have independently
 frozen identities. Every field in every section is therefore covered by both
 its section identity and the outer identity.
 
-The canonical contract is 30,076 bytes. Its domain is
+The canonical contract is 35,616 bytes. Its domain is
 `aml.olympics.v007.runtime-boundary` and its identity is
-`d90a9d93bb637059cc34fe37c953005f014e1849e08dbc2cadb8b08f34f8d5c5`.
+`a90c60509253131e218b199cf199471ef9e6c634cd195097104af573b4a14d45`.
 The section identities are:
 
 | Section | Identity |
@@ -57,37 +57,46 @@ The section identities are:
 | inheritance | `aa9f200c0c4fce52ab25cf566be73c03e3fc8a8334ea86a0b8c4924c34ec556a` |
 | capability_scope | `1c6463c621a47b686b3f1468a5a535ff0518806b9d8e73b06e3267bf8caf2de9` |
 | canonicalization | `e866c4636b955e9c1156ff2a929e31b5395f5e5b8ffba468b22d29826a2e0ddc` |
-| runtime_package | `93a77d28a4e080d3a04ab6bf8a65f2883d7fc70ffc96dd1edae5ce8881246fc6` |
-| runtime_schemas | `819ca4997a28d131813917efe8b75d278d5056af6ecc6046c8176c19d4257b4e` |
+| runtime_package | `0309811ffcde9b453c75c96637ac590eb71dc42140f04c988dbd9ae326ea182e` |
+| runtime_schemas | `4e82fd2b0cf99efce8c053f10eb673581c77d46aa7dde70b3675c99f7bca962a` |
 | socket_transport | `2e26ee2e18b04dd2b42d42cbe1e1baddb63e403c1c5acdcdb72f406e14ac14f6` |
 | peer_identity | `32400675c1a769a12b272c47ef2189c22cdff32455c8707916d35d0fb1d72823` |
-| clock_session_replay | `298c8c921f01f3e9723240f1b33ce2b7e4909a1cef9a806bb7886b9700246b95` |
-| repository_freshness_replay | `7fcb57f6e8c6745c7160665e6921e066c0d80ab450537c5136b7ee5317a9045e` |
+| clock_session_replay | `6b91e36fa8ab327dc030cc9d479fad8c5933c8660c0daaee871b57b7a69793ed` |
+| repository_freshness_replay | `b39aec2006aceed475d174af5d6693264e44d505a3e46a762664032453ede98b` |
 | repository_trust | `c83aa57a1890ac9c364115d0e8129ac036daad01d18b78050cc0d0624524ce9a` |
-| runtime_identity_binding | `37041d3adee9c3b4e2d2fd32447ea969795e246ee7ca23a0a0ecb3a1fc3875b1` |
-| cross_version_binding | `fd59a6570c7fb429242ce62f9871ac03af06d08b4114460b9b35ba7e33e787ca` |
-| error_status_model | `6f55fcd4529b366db12d2da909fde7442e73255d77afb03b18da178e5ae3f571` |
+| runtime_identity_binding | `03e1a35687b841aaddb1bf5742547f0bbf915b46e6fdbc17931cf42464b6453e` |
+| cross_version_binding | `478fd9e7eab006a11b1ab259068a57ae7cd597e0941d1e80d026c20d4362e4da` |
+| error_status_model | `330ff6bede7cedda5fe28fccd9324d0fef0ecd7641d0ad00d14b1e0724b40847` |
 | validation_manifest | `495b81c9ad1cd3717315b472c33ddaf4775ac9a3665fa0d3b4b0ddcbc226320c` |
 
 ## Runtime package
 
 The sealed package has one unindexed, self-identifying
 `runtime_package_v007.json` root. Excluding the package from its own index
-avoids an impossible self-hash cycle. Its index covers every other supplied
-record by type, identity, canonical-byte digest, relative path, and schema
-version.
+avoids an impossible self-hash cycle. Its supplemental index covers exactly
+the V007 records by type, identity, canonical-byte digest, relative path, and
+schema version. It never duplicates V005 or V006 entries.
+
+The V007 package and runtime envelope both bind one exact dynamic V006 operator
+package identity. V006 remains the sole owner of the authorization,
+documentary-binding, and complete V005 transition closure. A real package is
+the disjoint union of the V006-accepted closed world and the exact V007 files;
+path overlap, a second package, or any mismatched authorization, run, source,
+tree, or V006-package identity rejects.
 
 The package permits exactly the inherited V005/V006 files, canonical V005
 artifact paths reachable from one transition envelope, and these V007 files:
 
 - `authorizations/{authorization_identity}/runtime_package_v007.json`
 - `runtime/{authorization_identity}/clock_bootstrap.json`
+- `runtime/{authorization_identity}/clock_registry_initialization.json`
 - `runtime/{authorization_identity}/clock_replay_registry.json`
 - `runtime/{authorization_identity}/clock_requests/repository_request.json`
 - `runtime/{authorization_identity}/clock_requests/repository_response.json`
 - `runtime/{authorization_identity}/clock_responses/repository_request.json`
 - `runtime/{authorization_identity}/clock_responses/repository_response.json`
 - `runtime/{authorization_identity}/repository_replay_registry.json`
+- `runtime/{authorization_identity}/repository_registry_initialization.json`
 - `runtime/{authorization_identity}/repository_request.json`
 - `runtime/{authorization_identity}/repository_response.json`
 - `runtime/{authorization_identity}/runtime_envelope.json`
@@ -108,6 +117,15 @@ sealed package.
 The bootstrap has one exact schema, field set, type system, identity domain,
 self-exclusion rule, protocol version, verifier identity set, limits, timeout
 set, session policy, and failure policy.
+
+Its four initial V005 clock identities must each resolve exactly once inside
+the exact bound V006 package and pass the exact V005 clock-bundle validator
+against the one reachable activation artifact, using event type `activation`
+and timestamp field `activated_at`. Bare, substituted, cross-package, or
+incomplete bootstrap hashes cannot establish the initial clock state. The
+initial V005 request nonce must already be durably registered in the bound
+clock-registry epoch and be distinct from every V007 session, request, and
+evidence nonce.
 
 V007 selects path-based `AF_UNIX/SOCK_STREAM` exclusively. An inherited file
 descriptor is prohibited because the frozen V005 argv has no descriptor
@@ -154,10 +172,30 @@ Failure and indeterminate responses prohibit those payloads. Verification must
 complete within five seconds. Verified time cannot precede the prior accepted
 time or follow completion time.
 
-Session, request, and evidence nonces are permanently unique in the external
-verifier's durable replay registry. Its atomic operation is exclusive creation,
+On success, the embedded V005 request nonce is the V007 response evidence
+nonce, its verifier account is the bootstrap system account, and its
+attestation's event projection and timestamp equal the exact V007 request and
+response. Registered V005 events also retain the request's artifact type and
+timestamp field. The two V007-only repository records use the exact frozen V005
+compatibility carrier `activation` / `activated_at`, because V005 cannot name
+later record types; only the V007 envelope types those events. A valid V005
+bundle for another event cannot satisfy a V007 clock exchange.
+
+Session, request, and evidence nonces are unique across nonce types within one
+bound external-verifier registry epoch. Its atomic operation is exclusive creation,
 `F_FULLFSYNC`, close, and parent-directory fsync. A collision is replay. A
 registry-write failure is indeterminate and cannot produce success.
+
+Each registry record binds a pre-existing independently reviewed initialization
+record and epoch to its root, service, implementation, UID, GID, modes, and
+filesystem. The exact canonical initialization record must already exist at
+`registry_epoch_v007.json` below that root, with the frozen exclusive-creation,
+durability, ownership, no-link, and mutation checks. A copy is indexed in the
+sealed runtime package. Runtime creation, replacement, or reinitialization is
+prohibited. Local APFS cannot cryptographically detect offline deletion,
+rollback, or restoration from backup; V007 therefore makes no such claim. Any
+uncertainty about epoch continuity is
+`V007_REGISTRY_CONTINUITY`, an indeterminate condition that prohibits success.
 
 Sequence zero names the bootstrap's initial V005 clock-attestation identity as
 its prior attestation. Every later request names the V005 clock-attestation
@@ -200,15 +238,18 @@ The response must list those non-claims exactly; unsupported claims reject.
 V007 avoids a commit/self-reference cycle with a two-stage identity:
 
 1. The future implementation identity hashes an exact manifest projection and
-   SHA-256 digests of exactly two frozen implementation source paths.
-2. The manifest itself, Git commit, and tree are excluded from that identity.
+   a UTF-8-sorted inventory of every tracked regular file, its Git mode, and
+   SHA-256 of its raw bytes.
+2. Only the future manifest itself is excluded from that inventory. Symlinks,
+   gitlinks, submodules, missing files, untracked files, external project code,
+   and modes other than `100644` and `100755` reject.
 3. After implementation merges, an authorization separately binds the final
    commit, tree, and implementation identity.
 4. The attestor recomputes file and implementation identities from the
    authorized tree; the operator recomputes from `O_NOFOLLOW` file descriptors
    before validation and immediately before claim.
 
-The future implementation paths are:
+The two required entry points are:
 
 - `scripts/run_professional_strategy_olympics_v005.py`
 - `src/aml/professional_strategy_olympics_operator_v001.py`

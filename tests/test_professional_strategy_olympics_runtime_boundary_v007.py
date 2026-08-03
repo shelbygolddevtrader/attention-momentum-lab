@@ -159,15 +159,48 @@ def v005_clock_artifacts(
     return request, evidence, verifier, attestation
 
 
+def registry_initialization(
+    kind: str, value_contract: dict[str, object]
+) -> dict[str, object]:
+    owner_service = "8" * 64 if kind == "clock" else "7" * 64
+    owner_implementation = "9" * 64 if kind == "clock" else "8" * 64
+    return seal(
+        "registry_initialization",
+        {
+            "schema_version": "aml.professional-strategy-olympics.registry-initialization.v007",
+            "registry_initialization_identity": H,
+            "registry_kind": kind,
+            "registry_epoch_identity": "a" * 64 if kind == "clock" else "b" * 64,
+            "canonical_root": f"/synthetic/{kind}-registry",
+            "owner_service_identity": owner_service,
+            "owner_implementation_identity": owner_implementation,
+            "owner_uid": 501,
+            "owner_gid": 20,
+            "directory_mode": "0700",
+            "file_mode": "0600",
+            "filesystem": "local_APFS",
+            "marker_relative_path": "registry_epoch_v007.json",
+            "creation_policy": "created_once_before_first_authorization_and_independently_reviewed_never_created_or_replaced_by_runtime",
+            "marker_durability": "O_CREAT_O_EXCL_O_WRONLY_O_NOFOLLOW_write_canonical_bytes_F_FULLFSYNC_close_parent_fsync",
+            "mutation_policy": "exact_canonical_bytes_owner_mode_device_inode_and_nlink_1_verified_before_use_and_immediately_before_success",
+            "rollback_restore_limit": "offline_deletion_rollback_or_backup_restoration_not_cryptographically_detectable_uncertainty_is_indeterminate",
+        },
+        value_contract,
+    )
+
+
 def replay_registry(kind: str, value_contract: dict[str, object]) -> dict[str, object]:
+    initialization = registry_initialization(kind, value_contract)
+    owner_service = "8" * 64 if kind == "clock" else "7" * 64
+    owner_implementation = "9" * 64 if kind == "clock" else "8" * 64
     return seal(
         "replay_registry",
         {
             "schema_version": "aml.professional-strategy-olympics.replay-registry.v007",
             "replay_registry_identity": H,
             "registry_kind": kind,
-            "owner_service_identity": "3" * 64,
-            "owner_implementation_identity": "4" * 64,
+            "owner_service_identity": owner_service,
+            "owner_implementation_identity": owner_implementation,
             "canonical_root": f"/synthetic/{kind}-registry",
             "owner_uid": 501,
             "owner_gid": 20,
@@ -178,7 +211,16 @@ def replay_registry(kind: str, value_contract: dict[str, object]) -> dict[str, o
             "atomicity": "openat_O_CREAT_O_EXCL_O_WRONLY_O_NOFOLLOW_then_F_FULLFSYNC_close_parent_fsync",
             "collision_policy": "replay_reject",
             "write_failure_policy": "indeterminate_no_success_response",
-            "retention_policy": "permanent_no_delete_or_reuse",
+            "retention_policy": "no_delete_or_reuse_within_bound_epoch",
+            "registry_epoch_identity": "a" * 64
+            if kind == "clock"
+            else "b" * 64,
+            "initialization_marker_identity": initialization[
+                "registry_initialization_identity"
+            ],
+            "initialization_policy": "one_independently_reviewed_epoch_before_first_authorization_no_runtime_reinitialize",
+            "continuity_policy": "unproven_epoch_continuity_is_indeterminate_no_success",
+            "rollback_restore_policy": "deletion_rollback_restore_or_continuity_uncertainty_indeterminate_no_success",
         },
         value_contract,
     )
@@ -322,8 +364,10 @@ def repository_request(
         "clock_request_envelope_identity": H,
         "clock_response_envelope_identity": H,
         "expected_attestor_actor_identity": "6" * 64,
+        "expected_attestor_gid": 20,
         "expected_attestor_implementation_identity": "8" * 64,
         "expected_attestor_service_identity": "7" * 64,
+        "expected_attestor_uid": 501,
         "requested_at": T0,
         "maximum_age_seconds": 300,
         "repository_replay_registry_identity": repository_registry["replay_registry_identity"],
@@ -406,7 +450,7 @@ def repository_clock_pair(
     seal("clock_request", request, value_contract)
     v005_request, v005_evidence, v005_verifier, v005_attestation = (
         v005_clock_artifacts(
-            nonce=f"{sequence + 30:064x}",
+            nonce=f"{sequence + 20:064x}",
             artifact_type="activation",
             timestamp_field="activated_at",
             projection_identity=request["event_projection_identity"],
@@ -525,6 +569,10 @@ def runtime_records(value_contract: dict[str, object]) -> dict[str, list[dict[st
         response_clock_request,
         response_clock_response,
     ) = repository_fixture(value_contract)
+    clock_initialization = registry_initialization("clock", value_contract)
+    repository_initialization = registry_initialization(
+        "repository", value_contract
+    )
     envelope = seal(
         "runtime_envelope",
         {
@@ -545,6 +593,7 @@ def runtime_records(value_contract: dict[str, object]) -> dict[str, list[dict[st
             "v005_governance_identity": "dc976e8946c362aae7a5a72664560d8c4c3f54e7e01ab77fd93f537fc25433b0",
             "v005_command_identity": "ff2c355895182af38127b9a863373fc00f7a0563d9922e782cbf0e8da9431fdb",
             "v006_operator_interface_identity": "1c7d7b437d7bc61f7b62302036abe1978805c78a23c6ec337e0efee4875fbbb6",
+            "v006_operator_package_identity": "e" * 64,
         },
         value_contract,
     )
@@ -555,6 +604,8 @@ def runtime_records(value_contract: dict[str, object]) -> dict[str, list[dict[st
         ("clock_request", response_clock_request, f"{runtime_root}/clock_requests/repository_response.json"),
         ("clock_response", request_clock_response, f"{runtime_root}/clock_responses/repository_request.json"),
         ("clock_response", response_clock_response, f"{runtime_root}/clock_responses/repository_response.json"),
+        ("registry_initialization", clock_initialization, f"{runtime_root}/clock_registry_initialization.json"),
+        ("registry_initialization", repository_initialization, f"{runtime_root}/repository_registry_initialization.json"),
         ("replay_registry", clock_registry, f"{runtime_root}/clock_replay_registry.json"),
         ("replay_registry", repository_registry, f"{runtime_root}/repository_replay_registry.json"),
         ("repository_request", request, f"{runtime_root}/repository_request.json"),
@@ -591,6 +642,7 @@ def runtime_records(value_contract: dict[str, object]) -> dict[str, list[dict[st
             "authorized_source_tree": request["expected_source_tree"],
             "authoritative_run_identity": request["authoritative_run_identity"],
             "runtime_envelope_identity": envelope["runtime_envelope_identity"],
+            "v006_operator_package_identity": "e" * 64,
             "record_index": entries,
         },
         value_contract,
@@ -601,6 +653,10 @@ def runtime_records(value_contract: dict[str, object]) -> dict[str, list[dict[st
         "clock_bootstrap": [value_bootstrap],
         "clock_request": [request_clock_request, response_clock_request],
         "clock_response": [request_clock_response, response_clock_response],
+        "registry_initialization": [
+            clock_initialization,
+            repository_initialization,
+        ],
         "repository_request": [request],
         "repository_response": [response],
         "replay_registry": [clock_registry, repository_registry],
@@ -612,7 +668,7 @@ def test_contract_loads_as_canonical_bytes_with_exact_identities() -> None:
     assert value["contract_identity"] == CONTRACT_IDENTITY
     assert (ROOT / CONTRACT_PATH).read_bytes() == canonical_bytes(value)
     assert canonical_contract_bytes(value) == canonical_bytes(value)
-    assert len(canonical_bytes(value)) == 30_076
+    assert len(canonical_bytes(value)) == 35_616
 
 
 def test_outer_and_every_section_identity_reproduce_independently() -> None:
@@ -719,8 +775,23 @@ def test_hostile_frames_reject(frame: bytes) -> None:
         decode_frame(frame)
 
 
+def observed_operator_files() -> dict[str, tuple[str, bytes]]:
+    return {
+        "config/operator-runtime.json": ("100644", b"{}\n"),
+        "scripts/run_professional_strategy_olympics_v005.py": (
+            "100755",
+            b"#!/usr/bin/env python3\n",
+        ),
+        "src/aml/professional_strategy_olympics_operator_v001.py": (
+            "100644",
+            b"VALUE = 1\n",
+        ),
+    }
+
+
 def operator_manifest(value_contract: dict[str, object]) -> dict[str, object]:
     binding = value_contract["runtime_identity_binding"]
+    observed = observed_operator_files()
     value = {
         "schema_version": binding["future_manifest_schema"],
         "implementation_identity": H,
@@ -729,8 +800,12 @@ def operator_manifest(value_contract: dict[str, object]) -> dict[str, object]:
         "v006_operator_interface_identity": "1c7d7b437d7bc61f7b62302036abe1978805c78a23c6ec337e0efee4875fbbb6",
         "v007_runtime_boundary_identity": CONTRACT_IDENTITY,
         "implementation_files": [
-            {"relative_path": path, "canonical_bytes_sha256": str(index + 1) * 64}
-            for index, path in enumerate(binding["implementation_source_paths"])
+            {
+                "relative_path": path,
+                "git_mode": observed[path][0],
+                "canonical_bytes_sha256": hashlib.sha256(observed[path][1]).hexdigest(),
+            }
+            for path in sorted(observed, key=lambda item: item.encode("utf-8"))
         ],
     }
     projection = {
@@ -745,9 +820,11 @@ def operator_manifest(value_contract: dict[str, object]) -> dict[str, object]:
 def test_future_operator_identity_is_non_circular_and_reproducible() -> None:
     value_contract = contract()
     manifest = operator_manifest(value_contract)
-    assert operator_implementation_identity(manifest, value_contract) == manifest[
-        "implementation_identity"
-    ]
+    assert operator_implementation_identity(
+        manifest,
+        value_contract,
+        observed_files=observed_operator_files(),
+    ) == manifest["implementation_identity"]
     assert "implementation_identity" not in value_contract[
         "runtime_identity_binding"
     ]["implementation_projection"]
@@ -765,6 +842,14 @@ def test_future_operator_identity_is_non_circular_and_reproducible() -> None:
         lambda value: value["implementation_files"][0].update(
             {"canonical_bytes_sha256": "0" * 64}
         ),
+        lambda value: value["implementation_files"][0].update(
+            {"git_mode": "120000"}
+        ),
+        lambda value: value["implementation_files"][0].update(
+            {
+                "relative_path": "config/professional_strategy_olympics_operator_implementation_v001.json"
+            }
+        ),
         lambda value: value.update({"implementation_identity": "0" * 64}),
     ],
 )
@@ -773,15 +858,56 @@ def test_future_operator_identity_rejects_substitution(mutation) -> None:
     manifest = operator_manifest(value_contract)
     mutation(manifest)
     with pytest.raises(OlympicsRuntimeBoundaryV007Error, match="V007_IMPLEMENTATION_IDENTITY"):
-        operator_implementation_identity(manifest, value_contract)
+        operator_implementation_identity(
+            manifest,
+            value_contract,
+            observed_files=observed_operator_files(),
+        )
+
+
+def test_future_operator_identity_covers_every_non_manifest_tracked_file() -> None:
+    value_contract = contract()
+    manifest = operator_manifest(value_contract)
+    observed = observed_operator_files()
+    missing = dict(observed)
+    missing.pop("config/operator-runtime.json")
+    with pytest.raises(
+        OlympicsRuntimeBoundaryV007Error, match="V007_IMPLEMENTATION_IDENTITY"
+    ):
+        operator_implementation_identity(
+            manifest, value_contract, observed_files=missing
+        )
+    altered = dict(observed)
+    altered["config/operator-runtime.json"] = ("100644", b'{"changed":true}\n')
+    with pytest.raises(
+        OlympicsRuntimeBoundaryV007Error, match="V007_IMPLEMENTATION_IDENTITY"
+    ):
+        operator_implementation_identity(
+            manifest, value_contract, observed_files=altered
+        )
 
 
 def test_runtime_graph_is_closed_and_deterministic() -> None:
     value_contract = contract()
     records = runtime_records(value_contract)
-    first = validate_runtime_graph(records, value_contract)
-    second = validate_runtime_graph(copy.deepcopy(records), value_contract)
+    first = validate_runtime_graph(records, value_contract, trusted_use_time=T0)
+    second = validate_runtime_graph(
+        copy.deepcopy(records), value_contract, trusted_use_time=T0
+    )
     assert first == second
+
+
+def test_runtime_graph_requires_independent_fresh_use_time() -> None:
+    value_contract = contract()
+    records = runtime_records(value_contract)
+    with pytest.raises(
+        OlympicsRuntimeBoundaryV007Error, match="V007_STALE_REPOSITORY"
+    ):
+        validate_runtime_graph(
+            records,
+            value_contract,
+            trusted_use_time="2026-08-03T12:05:00Z",
+        )
 
 
 @pytest.mark.parametrize(
@@ -798,7 +924,7 @@ def test_runtime_graph_rejects_unknown_missing_and_duplicate_records(mutation) -
     records = runtime_records(value_contract)
     mutation(records)
     with pytest.raises(OlympicsRuntimeBoundaryV007Error, match="V007_RUNTIME_REACHABILITY"):
-        validate_runtime_graph(records, value_contract)
+        validate_runtime_graph(records, value_contract, trusted_use_time=T0)
 
 
 def test_runtime_graph_rejects_wrong_edge_and_mixed_authorization() -> None:
@@ -808,7 +934,34 @@ def test_runtime_graph_rejects_wrong_edge_and_mixed_authorization() -> None:
     envelope["clock_bootstrap_identity"] = "0" * 64
     seal("runtime_envelope", envelope, value_contract)
     with pytest.raises(OlympicsRuntimeBoundaryV007Error, match="V007_RUNTIME_REACHABILITY"):
-        validate_runtime_graph(records, value_contract)
+        validate_runtime_graph(records, value_contract, trusted_use_time=T0)
+
+
+def test_runtime_graph_rejects_v006_package_substitution() -> None:
+    value_contract = contract()
+    records = runtime_records(value_contract)
+    records["runtime_envelope"][0]["v006_operator_package_identity"] = "0" * 64
+    seal("runtime_envelope", records["runtime_envelope"][0], value_contract)
+    with pytest.raises(
+        OlympicsRuntimeBoundaryV007Error, match="V007_RUNTIME_REACHABILITY"
+    ):
+        validate_runtime_graph(records, value_contract, trusted_use_time=T0)
+
+
+def test_runtime_graph_binds_preexisting_registry_initialization_records() -> None:
+    value_contract = contract()
+    records = runtime_records(value_contract)
+    clock_initialization = next(
+        item
+        for item in records["registry_initialization"]
+        if item["registry_kind"] == "clock"
+    )
+    clock_initialization["registry_epoch_identity"] = "0" * 64
+    seal("registry_initialization", clock_initialization, value_contract)
+    with pytest.raises(
+        OlympicsRuntimeBoundaryV007Error, match="V007_REGISTRY_CONTINUITY"
+    ):
+        validate_runtime_graph(records, value_contract, trusted_use_time=T0)
 
 
 @pytest.mark.parametrize(
@@ -839,7 +992,7 @@ def test_runtime_graph_rejects_index_metadata_substitution(
     )
     seal("runtime_package", package, value_contract)
     with pytest.raises(OlympicsRuntimeBoundaryV007Error, match="V007_RUNTIME_REACHABILITY"):
-        validate_runtime_graph(records, value_contract)
+        validate_runtime_graph(records, value_contract, trusted_use_time=T0)
 
 
 def test_runtime_graph_rejects_extra_index_record_and_package_self_index() -> None:
@@ -873,7 +1026,7 @@ def test_runtime_graph_rejects_extra_index_record_and_package_self_index() -> No
         with pytest.raises(
             OlympicsRuntimeBoundaryV007Error, match="V007_RUNTIME_REACHABILITY"
         ):
-            validate_runtime_graph(records, value_contract)
+            validate_runtime_graph(records, value_contract, trusted_use_time=T0)
 
 
 @pytest.mark.parametrize("attack", ["prior_chain", "cross_type_nonce"])
@@ -889,7 +1042,7 @@ def test_runtime_graph_rejects_clock_chain_and_global_nonce_replay(attack: str) 
         ]
         seal("clock_response", records["clock_response"][1], value_contract)
     with pytest.raises(OlympicsRuntimeBoundaryV007Error):
-        validate_runtime_graph(records, value_contract)
+        validate_runtime_graph(records, value_contract, trusted_use_time=T0)
 
 
 @pytest.mark.parametrize(
@@ -932,6 +1085,24 @@ def test_clock_exchange_rejects_mismatch_nonce_collision_and_rollback() -> None:
         validate_clock_exchange(request, changed, value_bootstrap, registry, value_contract)
 
 
+def test_clock_registry_owner_and_epoch_are_bound() -> None:
+    value_contract = contract()
+    registry = replay_registry("clock", value_contract)
+    registry["owner_implementation_identity"] = "0" * 64
+    seal("replay_registry", registry, value_contract)
+    value_bootstrap = bootstrap(registry, value_contract)
+    request = clock_request(value_bootstrap, value_contract)
+    response = failed_clock_response(
+        request, value_bootstrap, registry, value_contract
+    )
+    with pytest.raises(
+        OlympicsRuntimeBoundaryV007Error, match="V007_REGISTRY_CONTINUITY"
+    ):
+        validate_clock_exchange(
+            request, response, value_bootstrap, registry, value_contract
+        )
+
+
 def test_clock_response_rejects_window_and_status_contradictions() -> None:
     value_contract = contract()
     registry = replay_registry("clock", value_contract)
@@ -970,6 +1141,77 @@ def test_clock_exchange_rejects_tampered_embedded_v005_bundle() -> None:
     response["v005_clock_request_base64"] = response[
         "v005_clock_evidence_base64"
     ]
+    seal("clock_response", response, value_contract)
+    with pytest.raises(
+        OlympicsRuntimeBoundaryV007Error, match="V007_RESPONSE_IDENTITY"
+    ):
+        validate_clock_exchange(
+            request,
+            response,
+            value_bootstrap,
+            clock_registry,
+            value_contract,
+        )
+
+
+@pytest.mark.parametrize(
+    ("nonce", "artifact_type", "timestamp_field", "projection_identity"),
+    [
+        ("f" * 64, "activation", "activated_at", None),
+        (None, "authorization", "issued_at", None),
+        (None, "activation", "activated_at", "f" * 64),
+    ],
+)
+def test_clock_exchange_binds_every_embedded_v005_security_field(
+    nonce: str | None,
+    artifact_type: str,
+    timestamp_field: str,
+    projection_identity: str | None,
+) -> None:
+    value_contract = contract()
+    (
+        value_bootstrap,
+        clock_registry,
+        _,
+        _,
+        request,
+        response,
+        _,
+        _,
+        _,
+    ) = repository_fixture(value_contract)
+    artifacts = v005_clock_artifacts(
+        nonce=nonce or str(response["evidence_nonce"]),
+        artifact_type=artifact_type,
+        timestamp_field=timestamp_field,
+        projection_identity=projection_identity
+        or str(request["event_projection_identity"]),
+    )
+    for artifact_type_name, artifact, payload_field, identity_field in zip(
+        (
+            "clock_request",
+            "clock_evidence",
+            "clock_verifier_attestation",
+            "clock_attestation",
+        ),
+        artifacts,
+        (
+            "v005_clock_request_base64",
+            "v005_clock_evidence_base64",
+            "v005_clock_verifier_attestation_base64",
+            "v005_clock_attestation_base64",
+        ),
+        (
+            "v005_clock_request_identity",
+            "v005_clock_evidence_identity",
+            "v005_clock_verifier_attestation_identity",
+            "v005_clock_attestation_identity",
+        ),
+        strict=True,
+    ):
+        schema = load_v005_contract(ROOT)["artifact_schemas"][artifact_type_name]
+        response[payload_field] = base64.b64encode(canonical_bytes(artifact)).decode()
+        response[identity_field] = artifact[schema["identity_field"]]
     seal("clock_response", response, value_contract)
     with pytest.raises(
         OlympicsRuntimeBoundaryV007Error, match="V007_RESPONSE_IDENTITY"
@@ -1138,6 +1380,39 @@ def test_repository_exchange_rejects_attestor_substitution_and_unknown_failure()
         validate_runtime_record("repository_response", failed, value_contract)
 
 
+def test_repository_registry_owner_is_bound_to_expected_attestor() -> None:
+    value_contract = contract()
+    (
+        value_bootstrap,
+        clock_registry,
+        repo_registry,
+        request,
+        request_clock_request,
+        request_clock_response,
+        response,
+        response_clock_request,
+        response_clock_response,
+    ) = repository_fixture(value_contract)
+    request["expected_attestor_service_identity"] = "0" * 64
+    seal("repository_request", request, value_contract)
+    with pytest.raises(
+        OlympicsRuntimeBoundaryV007Error, match="V007_REGISTRY_CONTINUITY"
+    ):
+        validate_repository_exchange(
+            request,
+            response,
+            request_clock_request,
+            request_clock_response,
+            response_clock_request,
+            response_clock_response,
+            repo_registry,
+            value_bootstrap,
+            clock_registry,
+            value_contract,
+            trusted_use_time=T0,
+        )
+
+
 def test_repository_expiration_boundary_is_half_open() -> None:
     value_contract = contract()
     (
@@ -1165,6 +1440,56 @@ def test_repository_expiration_boundary_is_half_open() -> None:
             value_contract,
             trusted_use_time=response["valid_until"],
         )
+
+
+@pytest.mark.parametrize(
+    ("trusted_use_time", "accepted"),
+    [
+        ("2026-08-03T11:59:59Z", False),
+        ("2026-08-03T12:00:00Z", True),
+        ("2026-08-03T12:04:59Z", True),
+        ("2026-08-03T12:05:00Z", False),
+        ("2026-08-03T12:05:01Z", False),
+    ],
+)
+def test_repository_validity_exact_second_boundaries(
+    trusted_use_time: str, accepted: bool
+) -> None:
+    value_contract = contract()
+    (
+        value_bootstrap,
+        clock_registry,
+        repo_registry,
+        request,
+        request_clock_request,
+        request_clock_response,
+        response,
+        response_clock_request,
+        response_clock_response,
+    ) = repository_fixture(value_contract)
+    arguments = (
+        request,
+        response,
+        request_clock_request,
+        request_clock_response,
+        response_clock_request,
+        response_clock_response,
+        repo_registry,
+        value_bootstrap,
+        clock_registry,
+        value_contract,
+    )
+    if accepted:
+        validate_repository_exchange(
+            *arguments, trusted_use_time=trusted_use_time
+        )
+    else:
+        with pytest.raises(
+            OlympicsRuntimeBoundaryV007Error, match="V007_STALE_REPOSITORY"
+        ):
+            validate_repository_exchange(
+                *arguments, trusted_use_time=trusted_use_time
+            )
 
 
 def test_record_schema_rejects_extra_missing_wrong_type_and_identity() -> None:
@@ -1195,17 +1520,19 @@ def test_socket_model_peer_mechanism_and_operator_binding_are_unambiguous() -> N
     assert value["socket_transport"]["inherited_descriptor"] == "prohibited"
     assert value["peer_identity"]["mechanism"] == "getpeereid(3)_on_connected_AF_UNIX_socket"
     assert value["peer_identity"]["pid_binding"] == "not_available_not_claimed"
-    assert value["runtime_identity_binding"]["implementation_source_paths"] == [
+    assert value["runtime_identity_binding"]["implementation_entrypoint_paths"] == [
         "scripts/run_professional_strategy_olympics_v005.py",
         "src/aml/professional_strategy_olympics_operator_v001.py",
     ]
-    assert "commit_and_tree_are_excluded" in value["runtime_identity_binding"]["self_reference_avoidance"]
+    assert "all_other_tracked_files_are_identity_covered" in value[
+        "runtime_identity_binding"
+    ]["self_reference_avoidance"]
 
 
 def test_error_inventory_has_stable_unique_codes() -> None:
     errors = contract()["error_status_model"]["errors"]
     assert all(code.startswith("V007_") for code in errors)
-    assert len(errors) == len(set(errors)) == 25
+    assert len(errors) == len(set(errors)) == 26
 
 
 def test_cli_report_is_deterministic_across_hash_seeds_and_timezones() -> None:

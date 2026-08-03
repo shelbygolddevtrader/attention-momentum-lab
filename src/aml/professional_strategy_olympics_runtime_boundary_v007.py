@@ -49,7 +49,7 @@ SCHEMA = "aml.professional-strategy-olympics.runtime-boundary.v007"
 VERSION = "professional-strategy-olympics-runtime-boundary-v007"
 CONTRACT_DOMAIN = "aml.olympics.v007.runtime-boundary"
 DESIGN_BASE_COMMIT = "303306b0d2eef4e6fd86ae88dc03ddea5585e210"
-CONTRACT_IDENTITY = "d90a9d93bb637059cc34fe37c953005f014e1849e08dbc2cadb8b08f34f8d5c5"
+CONTRACT_IDENTITY = "a90c60509253131e218b199cf199471ef9e6c634cd195097104af573b4a14d45"
 MAXIMUM_BYTES = 250_000
 
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -79,16 +79,16 @@ EXPECTED_SECTION_IDENTITIES = {
     "inheritance": "aa9f200c0c4fce52ab25cf566be73c03e3fc8a8334ea86a0b8c4924c34ec556a",
     "capability_scope": "1c6463c621a47b686b3f1468a5a535ff0518806b9d8e73b06e3267bf8caf2de9",
     "canonicalization": "e866c4636b955e9c1156ff2a929e31b5395f5e5b8ffba468b22d29826a2e0ddc",
-    "runtime_package": "93a77d28a4e080d3a04ab6bf8a65f2883d7fc70ffc96dd1edae5ce8881246fc6",
-    "runtime_schemas": "819ca4997a28d131813917efe8b75d278d5056af6ecc6046c8176c19d4257b4e",
+    "runtime_package": "0309811ffcde9b453c75c96637ac590eb71dc42140f04c988dbd9ae326ea182e",
+    "runtime_schemas": "4e82fd2b0cf99efce8c053f10eb673581c77d46aa7dde70b3675c99f7bca962a",
     "socket_transport": "2e26ee2e18b04dd2b42d42cbe1e1baddb63e403c1c5acdcdb72f406e14ac14f6",
     "peer_identity": "32400675c1a769a12b272c47ef2189c22cdff32455c8707916d35d0fb1d72823",
-    "clock_session_replay": "298c8c921f01f3e9723240f1b33ce2b7e4909a1cef9a806bb7886b9700246b95",
-    "repository_freshness_replay": "7fcb57f6e8c6745c7160665e6921e066c0d80ab450537c5136b7ee5317a9045e",
+    "clock_session_replay": "6b91e36fa8ab327dc030cc9d479fad8c5933c8660c0daaee871b57b7a69793ed",
+    "repository_freshness_replay": "b39aec2006aceed475d174af5d6693264e44d505a3e46a762664032453ede98b",
     "repository_trust": "c83aa57a1890ac9c364115d0e8129ac036daad01d18b78050cc0d0624524ce9a",
-    "runtime_identity_binding": "37041d3adee9c3b4e2d2fd32447ea969795e246ee7ca23a0a0ecb3a1fc3875b1",
-    "cross_version_binding": "fd59a6570c7fb429242ce62f9871ac03af06d08b4114460b9b35ba7e33e787ca",
-    "error_status_model": "6f55fcd4529b366db12d2da909fde7442e73255d77afb03b18da178e5ae3f571",
+    "runtime_identity_binding": "03e1a35687b841aaddb1bf5742547f0bbf915b46e6fdbc17931cf42464b6453e",
+    "cross_version_binding": "478fd9e7eab006a11b1ab259068a57ae7cd597e0941d1e80d026c20d4362e4da",
+    "error_status_model": "330ff6bede7cedda5fe28fccd9324d0fef0ecd7641d0ad00d14b1e0724b40847",
     "validation_manifest": "495b81c9ad1cd3717315b472c33ddaf4775ac9a3665fa0d3b4b0ddcbc226320c",
 }
 
@@ -106,6 +106,7 @@ RUNTIME_RECORD_TYPES = (
     "clock_bootstrap",
     "clock_request",
     "clock_response",
+    "registry_initialization",
     "replay_registry",
     "repository_request",
     "repository_response",
@@ -320,9 +321,12 @@ def record_identity(record_type: str, record: Mapping[str, object], contract: Ma
 
 
 def operator_implementation_identity(
-    manifest: Mapping[str, object], contract: Mapping[str, object]
+    manifest: Mapping[str, object],
+    contract: Mapping[str, object],
+    *,
+    observed_files: Mapping[str, tuple[str, bytes]],
 ) -> str:
-    """Validate and reproduce the future non-circular operator identity."""
+    """Validate the non-circular full-tree operator inventory and identity."""
     binding = contract["runtime_identity_binding"]
     fields = set(binding["future_manifest_fields"])
     _exact_mapping(manifest, fields, "operator_implementation_manifest")
@@ -336,25 +340,50 @@ def operator_implementation_identity(
     if any(manifest[key] != item for key, item in expected.items()):
         _reject("V007_IMPLEMENTATION_IDENTITY", "manifest_binding")
     files = manifest["implementation_files"]
-    paths = list(binding["implementation_source_paths"])
-    if type(files) is not list or len(files) != len(paths):
+    if type(files) is not list or not files:
         _reject("V007_IMPLEMENTATION_IDENTITY", "file_inventory")
     entries = []
+    previous_path: bytes | None = None
+    seen_paths: set[str] = set()
     for entry in files:
         item = _exact_mapping(
             entry,
             set(binding["implementation_file_entry_fields"]),
             "operator_implementation_file",
         )
+        path = item["relative_path"]
+        mode = item["git_mode"]
         if (
-            not _valid_relative_path(item["relative_path"])
+            not _valid_relative_path(path)
+            or path == binding["future_manifest_path"]
+            or mode not in {"100644", "100755"}
             or type(item["canonical_bytes_sha256"]) is not str
             or not HASH_RE.fullmatch(item["canonical_bytes_sha256"])
         ):
             _reject("V007_IMPLEMENTATION_IDENTITY", "file_entry")
+        encoded_path = str(path).encode("utf-8")
+        if (
+            previous_path is not None
+            and encoded_path <= previous_path
+            or str(path) in seen_paths
+        ):
+            _reject("V007_IMPLEMENTATION_IDENTITY", "file_order")
+        previous_path = encoded_path
+        seen_paths.add(str(path))
         entries.append(dict(item))
-    if [item["relative_path"] for item in entries] != paths:
-        _reject("V007_IMPLEMENTATION_IDENTITY", "file_order")
+    if not set(binding["implementation_entrypoint_paths"]) <= seen_paths:
+        _reject("V007_IMPLEMENTATION_IDENTITY", "entrypoint_inventory")
+    if set(observed_files) != seen_paths:
+        _reject("V007_IMPLEMENTATION_IDENTITY", "observed_inventory")
+    for item in entries:
+        mode, raw = observed_files[str(item["relative_path"])]
+        if (
+            mode != item["git_mode"]
+            or type(raw) is not bytes
+            or hashlib.sha256(raw).hexdigest()
+            != item["canonical_bytes_sha256"]
+        ):
+            _reject("V007_IMPLEMENTATION_IDENTITY", "observed_file")
     projection = {name: manifest[name] for name in binding["implementation_projection"]}
     identity = domain_hash(str(binding["implementation_identity_domain"]), projection)
     if manifest["implementation_identity"] != identity:
@@ -534,6 +563,14 @@ def validate_clock_exchange(
     registry = validate_runtime_record("replay_registry", registry, contract)
     if registry["registry_kind"] != "clock" or registry["replay_registry_identity"] != bootstrap["clock_replay_registry_identity"]:
         _reject("V007_REGISTRY_UNAVAILABLE", "clock_registry")
+    if (
+        registry["owner_service_identity"] != bootstrap["verifier_service_identity"]
+        or registry["owner_implementation_identity"]
+        != bootstrap["verifier_implementation_identity"]
+        or registry["owner_uid"] != bootstrap["expected_peer_uid"]
+        or registry["owner_gid"] != bootstrap["expected_peer_gid"]
+    ):
+        _reject("V007_REGISTRY_CONTINUITY", "clock_registry_owner")
     pairs = (
         (response["request_identity"], request["request_identity"]),
         (response["request_nonce"], request["request_nonce"]),
@@ -584,11 +621,35 @@ def validate_clock_exchange(
             raise OlympicsRuntimeBoundaryV007Error(
                 "V007_RESPONSE_IDENTITY:v005_clock_bundle"
             ) from exc
+        expected_v005_purpose = (
+            ("activation", "activated_at")
+            if request["bound_artifact_type"]
+            in {"repository_request", "repository_response"}
+            else (
+                request["bound_artifact_type"],
+                request["bound_timestamp_field"],
+            )
+        )
         if (
-            artifacts["clock_attestation"]["canonical_utc_timestamp"]
+            artifacts["clock_request"]["request_nonce"]
+            != response["evidence_nonce"]
+            or artifacts["clock_verifier_attestation"][
+                "verifier_account_identity"
+            ]
+            != bootstrap["system_account_identity"]
+            or (
+                artifacts["clock_attestation"]["bound_artifact_type"],
+                artifacts["clock_attestation"]["bound_timestamp_field"],
+            )
+            != expected_v005_purpose
+            or artifacts["clock_attestation"][
+                "bound_event_projection_identity"
+            ]
+            != request["event_projection_identity"]
+            or artifacts["clock_attestation"]["canonical_utc_timestamp"]
             != response["verified_timestamp"]
         ):
-            _reject("V007_RESPONSE_IDENTITY", "v005_clock_time_binding")
+            _reject("V007_RESPONSE_IDENTITY", "v005_clock_request_binding")
 
 
 def validate_repository_exchange(
@@ -630,6 +691,15 @@ def validate_repository_exchange(
         != repository_registry["replay_registry_identity"]
     ):
         _reject("V007_REGISTRY_UNAVAILABLE", "repository_registry")
+    if (
+        repository_registry["owner_service_identity"]
+        != request["expected_attestor_service_identity"]
+        or repository_registry["owner_implementation_identity"]
+        != request["expected_attestor_implementation_identity"]
+        or repository_registry["owner_uid"] != request["expected_attestor_uid"]
+        or repository_registry["owner_gid"] != request["expected_attestor_gid"]
+    ):
+        _reject("V007_REGISTRY_CONTINUITY", "repository_registry_owner")
     validate_clock_exchange(
         request_clock_request,
         request_clock_response,
@@ -737,11 +807,21 @@ def validate_repository_exchange(
             _reject("V007_REPOSITORY_RESPONSE", "observed_binding")
 
 
-def validate_runtime_graph(records: Mapping[str, Sequence[Mapping[str, object]]], contract: Mapping[str, object]) -> dict[str, Mapping[str, object]]:
+def validate_runtime_graph(
+    records: Mapping[str, Sequence[Mapping[str, object]]],
+    contract: Mapping[str, object],
+    *,
+    trusted_use_time: str,
+) -> dict[str, Mapping[str, object]]:
     required = set(RUNTIME_RECORD_TYPES)
     if set(records) != required or any(not values for values in records.values()):
         _reject("V007_RUNTIME_REACHABILITY", "record_types")
-    multiple = {"clock_request", "clock_response", "replay_registry"}
+    multiple = {
+        "clock_request",
+        "clock_response",
+        "registry_initialization",
+        "replay_registry",
+    }
     if any(len(values) != (2 if name in multiple else 1) for name, values in records.items()):
         _reject("V007_RUNTIME_REACHABILITY", "record_count")
     validated: dict[str, Mapping[str, object]] = {}
@@ -762,10 +842,36 @@ def validate_runtime_graph(records: Mapping[str, Sequence[Mapping[str, object]]]
     response = validated["repository_response:0"]
     clock_requests = [validated["clock_request:0"], validated["clock_request:1"]]
     clock_responses = [validated["clock_response:0"], validated["clock_response:1"]]
+    initializations = [
+        validated["registry_initialization:0"],
+        validated["registry_initialization:1"],
+    ]
     registries = [validated["replay_registry:0"], validated["replay_registry:1"]]
+    initialization_by_kind = {
+        str(item["registry_kind"]): item for item in initializations
+    }
     registry_by_kind = {str(item["registry_kind"]): item for item in registries}
-    if set(registry_by_kind) != {"clock", "repository"}:
+    if (
+        set(registry_by_kind) != {"clock", "repository"}
+        or set(initialization_by_kind) != {"clock", "repository"}
+    ):
         _reject("V007_RUNTIME_REACHABILITY", "registry_kind")
+    for kind, registry in registry_by_kind.items():
+        initialization = initialization_by_kind[kind]
+        checks = (
+            (registry["initialization_marker_identity"], initialization["registry_initialization_identity"]),
+            (registry["registry_epoch_identity"], initialization["registry_epoch_identity"]),
+            (registry["canonical_root"], initialization["canonical_root"]),
+            (registry["owner_service_identity"], initialization["owner_service_identity"]),
+            (registry["owner_implementation_identity"], initialization["owner_implementation_identity"]),
+            (registry["owner_uid"], initialization["owner_uid"]),
+            (registry["owner_gid"], initialization["owner_gid"]),
+            (registry["directory_mode"], initialization["directory_mode"]),
+            (registry["file_mode"], initialization["file_mode"]),
+            (registry["filesystem"], initialization["filesystem"]),
+        )
+        if any(left != right for left, right in checks):
+            _reject("V007_REGISTRY_CONTINUITY", f"{kind}_registry_initialization")
     request_by_identity = {str(item["request_identity"]): item for item in clock_requests}
     response_by_identity = {str(item["response_identity"]): item for item in clock_responses}
     if (
@@ -857,6 +963,10 @@ def validate_runtime_graph(records: Mapping[str, Sequence[Mapping[str, object]]]
         (envelope["v005_governance_identity"], V005_GOVERNANCE_IDENTITY),
         (envelope["v005_command_identity"], V005_COMMAND_IDENTITY),
         (envelope["v006_operator_interface_identity"], V006_OPERATOR_INTERFACE_IDENTITY),
+        (
+            package["v006_operator_package_identity"],
+            envelope["v006_operator_package_identity"],
+        ),
     )
     if any(left != right for left, right in cross_record_checks):
         _reject("V007_RUNTIME_REACHABILITY", "cross_record_binding")
@@ -875,6 +985,16 @@ def validate_runtime_graph(records: Mapping[str, Sequence[Mapping[str, object]]]
     for registry in registries:
         expected_paths[("replay_registry", str(registry["replay_registry_identity"]))] = (
             f"runtime/{authorization_identity}/{registry['registry_kind']}_replay_registry.json"
+        )
+    for initialization in initializations:
+        expected_paths[
+            (
+                "registry_initialization",
+                str(initialization["registry_initialization_identity"]),
+            )
+        ] = (
+            f"runtime/{authorization_identity}/"
+            f"{initialization['registry_kind']}_registry_initialization.json"
         )
     for clock_request_record in clock_requests:
         expected_paths[("clock_request", str(clock_request_record["request_identity"]))] = (
@@ -928,7 +1048,7 @@ def validate_runtime_graph(records: Mapping[str, Sequence[Mapping[str, object]]]
         bootstrap,
         registry_by_kind["clock"],
         contract,
-        trusted_use_time=str(response["observation_timestamp"]),
+        trusted_use_time=trusted_use_time,
     )
     return validated
 
