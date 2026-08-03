@@ -1,0 +1,42 @@
+{
+  "schema": "aml.nine-strategy-discovery-screen.result-metadata.v001",
+  "evidence_class": "discovery_empirical_non_authoritative_screen",
+  "discovery_interval": ["2023-07-24", "2024-12-31"],
+  "dataset_manifest_sha256": "b8358cb55c43342e832c18e3d7a3cd2b2943326f58cbc76a60fde6fac70ae53b",
+  "dataset_fingerprint": "fe830c09317d3264fc8f73b2ab19ca1513d67d36dd367fbf4710c624940a959d",
+  "calendar_identity": "8b9ea9f8edfd4a43b4b3c886496c1d14b1a81285b88cc42aab217a7896a8a4e1",
+  "halt_manifest_identity": "57b84efe0be071bb5be03e7b18d083a9b4972fd4091f2ed93604d218032c781a",
+  "corporate_action_manifest_identity": "d7436e94f6d15749a96ba2d5f474b2220337e67b7a2509cabf17fc609c07424d",
+  "preflight_identity": "df473daf269d01a8e070b37264de57ff9c0b595567915b7326b89243e73b1510",
+  "screen_identity": "6e1c58b8e09bb02965dd96a0d96a308416439ab0c7bb131781ceb4626e4cc68f",
+  "screen_artifact_identity": "43c117fbff9b25d9a1de22b0a65f455eee2929ec280b68f5f0d75fdaa97f3c82",
+  "analysis_artifact_identity": "bb0e529d4916801dfed8ce060e0785684fc27582ed308e330fe07a768190db74",
+  "integrity_failure_count": 0,
+  "classifications": {
+    "failed_downside_breakdown_reclaim_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "fifteen_minute_orb_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "first_pullback_continuation_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "five_minute_orb_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "gap_and_go_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "high_of_day_breakout_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "market_relative_momentum_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "rsi_exhaustion_reversion_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "vwap_mean_reversion_fade_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "vwap_reclaim_long_v002": "INCONCLUSIVE_DATA_LIMITATION"
+  },
+  "base_completed_trades": {
+    "failed_downside_breakdown_reclaim_long_v002": 1201,
+    "fifteen_minute_orb_long_v002": 1227,
+    "first_pullback_continuation_long_v002": 14,
+    "five_minute_orb_long_v002": 1382,
+    "high_of_day_breakout_long_v002": 17,
+    "market_relative_momentum_long_v002": 273,
+    "rsi_exhaustion_reversion_long_v002": 21,
+    "vwap_mean_reversion_fade_long_v002": 2909,
+    "vwap_reclaim_long_v002": 2647
+  },
+  "licensed_payloads_tracked": false,
+  "later_period_accessed": false,
+  "gap_and_go_executed": false,
+  "production_or_broker_accessed": false
+}

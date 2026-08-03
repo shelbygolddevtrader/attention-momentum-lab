@@ -1,5 +1,10 @@
 # Attention Momentum Lab
 
+The non-authoritative nine-strategy V002 discovery screen is documented in
+`docs/NINE_STRATEGY_DISCOVERY_SCREEN_V001.md`. Licensed raw evidence and
+trade-level outputs remain outside Git; only reproducibility code, tests, and
+metadata identities are tracked.
+
 The authorization-gated [Professional Strategy Benchmark Olympics Orchestrator V001](docs/PROFESSIONAL_STRATEGY_OLYMPICS_ORCHESTRATOR_V001.md) validates and coordinates the frozen V004 scoring contracts. It is validation-only by default; no Olympic trial or performance result has been produced.
 
 The design-only [Professional Strategy Benchmark Olympics Final Scoring V004](docs/PROFESSIONAL_STRATEGY_OLYMPICS_FINAL_SCORING_V004.md) freezes the final event, precision, capital-efficiency, cost-stress, lifecycle, and disqualification semantics. It authorizes no tournament execution or result.
