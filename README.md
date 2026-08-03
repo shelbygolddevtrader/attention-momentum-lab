@@ -1,5 +1,11 @@
 # Attention Momentum Lab
 
+The Professional Strategy Olympics execution-runtime placement is frozen by
+[V010](docs/PROFESSIONAL_STRATEGY_OLYMPICS_EXECUTION_RUNTIME_V010.md). V010 is
+design-only: it separates the exact authorized source from one external,
+package-bound runtime and supersedes the unusable relative `.venv` command. It
+does not implement an operator, runtime, authorization, or Olympics execution.
+
 The authorization-gated [Professional Strategy Benchmark Olympics Orchestrator V001](docs/PROFESSIONAL_STRATEGY_OLYMPICS_ORCHESTRATOR_V001.md) validates and coordinates the frozen V004 scoring contracts. It is validation-only by default; no Olympic trial or performance result has been produced.
 
 The design-only [Professional Strategy Benchmark Olympics Final Scoring V004](docs/PROFESSIONAL_STRATEGY_OLYMPICS_FINAL_SCORING_V004.md) freezes the final event, precision, capital-efficiency, cost-stress, lifecycle, and disqualification semantics. It authorizes no tournament execution or result.
