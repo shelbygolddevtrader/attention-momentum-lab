@@ -7,6 +7,13 @@ discovery-period bars for implementation diagnostics only. Its separate,
 write-once artifact format omits economic metrics and is structurally barred
 from validation, holdout, production, capital, or accepted empirical claims.
 
+Opening Range Expansion Continuation V001 creates a revision-2 child of the
+underspecified library hypothesis and binds it exactly to the unchanged frozen
+five-minute ORB long V002 contract. Its synthetic conformance evidence and
+bounded contaminated-data exercise publish trigger, availability, lifecycle,
+and integrity diagnostics only. See
+[`docs/OPENING_RANGE_EXPANSION_CONTINUATION_V001.md`](docs/OPENING_RANGE_EXPANSION_CONTINUATION_V001.md).
+
 The corrected non-authoritative nine-strategy V002 discovery screen is
 documented in `docs/NINE_STRATEGY_DISCOVERY_SCREEN_V001.md`. The original
 screen remains preserved but was superseded after an independent audit found
