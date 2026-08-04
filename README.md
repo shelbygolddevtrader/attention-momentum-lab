@@ -459,3 +459,13 @@ execution model, and one on a synchronized indicator. Every decision is an
 immutable, identity-bound readiness artifact with its minimal missing
 capability. No strategy or empirical outcome is executed. See
 `docs/BENCHMARK_IMPLEMENTATION_CAMPAIGN_V001.md`.
+
+### Benchmark Specification Campaign V001
+
+The prospective specification campaign reviews all 11 specification-ready
+Library V001 hypotheses and freezes exactly one complete executable experiment:
+the long arm of `opening-drive-first-pullback-v001`. Its classification is
+`SPECIFIED_READY_FOR_IMPLEMENTATION`; no implementation, dataset authorization,
+discovery execution, outcome, or performance claim is created. The selection,
+complete rule semantics, immutable identities, and remaining implementation
+gate are documented in `docs/BENCHMARK_SPECIFICATION_CAMPAIGN_V001.md`.
