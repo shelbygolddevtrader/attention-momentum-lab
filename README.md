@@ -448,3 +448,14 @@ is `INCONCLUSIVE_INSUFFICIENT_SAMPLE`; this is pipeline evidence, not evidence
 of a trading edge. The successor campaign executes exactly this one hypothesis
 and leaves the other 39 canonically blocked. See
 `docs/EXECUTABLE_BENCHMARK_CANDIDATE_V001.md`.
+
+### Benchmark Implementation Campaign V001
+
+The deterministic implementation-readiness campaign evaluates all 39 Library
+V001 hypotheses that remain after the first executable candidate. It finds no
+additional complete executable chain: 24 are blocked on authorized point-in-time
+data, 11 on a prospective executable specification, three on a versioned
+execution model, and one on a synchronized indicator. Every decision is an
+immutable, identity-bound readiness artifact with its minimal missing
+capability. No strategy or empirical outcome is executed. See
+`docs/BENCHMARK_IMPLEMENTATION_CAMPAIGN_V001.md`.
