@@ -1,5 +1,12 @@
 # Attention Momentum Lab
 
+Exploratory Research Mode V001 is documented in
+[`docs/EXPLORATORY_RESEARCH_MODE_V001.md`](docs/EXPLORATORY_RESEARCH_MODE_V001.md).
+It can exercise multiple preregistered hypotheses on explicitly contaminated
+discovery-period bars for implementation diagnostics only. Its separate,
+write-once artifact format omits economic metrics and is structurally barred
+from validation, holdout, production, capital, or accepted empirical claims.
+
 The corrected non-authoritative nine-strategy V002 discovery screen is
 documented in `docs/NINE_STRATEGY_DISCOVERY_SCREEN_V001.md`. The original
 screen remains preserved but was superseded after an independent audit found
