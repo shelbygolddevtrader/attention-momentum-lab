@@ -1,0 +1,200 @@
+{
+  "schema": "aml.nine-strategy-discovery-screen.result-metadata.v001",
+  "evidence_class": "discovery_empirical_non_authoritative_screen",
+  "acceptance_status": "CORRECTED_ACCEPTED_DISCOVERY_SCREEN",
+  "source_commit": "5c1fedafb6ebaff3a0ed4655d8d1f5294f4da946",
+  "run_id": "run-v012",
+  "analysis_run_id": "analysis-v005-for-run-v012",
+  "discovery_interval": ["2023-07-24", "2024-12-31"],
+  "dataset_manifest_sha256": "b8358cb55c43342e832c18e3d7a3cd2b2943326f58cbc76a60fde6fac70ae53b",
+  "dataset_fingerprint": "fe830c09317d3264fc8f73b2ab19ca1513d67d36dd367fbf4710c624940a959d",
+  "calendar_identity": "8b9ea9f8edfd4a43b4b3c886496c1d14b1a81285b88cc42aab217a7896a8a4e1",
+  "halt_manifest_identity": "57b84efe0be071bb5be03e7b18d083a9b4972fd4091f2ed93604d218032c781a",
+  "corporate_action_manifest_identity": "d7436e94f6d15749a96ba2d5f474b2220337e67b7a2509cabf17fc609c07424d",
+  "preflight_identity": "4193d92d02868857952ad346503a957604ce901b50332618b8cd744884ce79c4",
+  "screen_identity": "c8a396e57ad6ea95add2abbc16abb991da51f79ed41c9d47844d0188feadefc1",
+  "screen_artifact_identity": "b3d69ad4ebe539e79a42be346e4a3101da644fe19d6e1f1b7b954dd0a428ebd6",
+  "analysis_artifact_identity": "ec05b9dcd070a3cad7268434a697a2a18029fa1fdd53d0d2e797e5893cb21451",
+  "reconciliation_identity": "329c6ef167904f844ea1016f922f37a8348d9b92f5b95091d6c2f1138dc596c5",
+  "integrity_failure_count": 0,
+  "correction": {
+    "root_cause": "The adapter removed each left-labeled one-minute interval that partially overlapped an official halt, while the unchanged frozen validator recognized halt coverage only when the bar timestamp itself fell inside the halt.",
+    "selected_remedy": "Conservatively preflight-exclude every symbol-session containing an interval-overlap minute that the unchanged frozen point validator cannot represent.",
+    "halt_interval_convention": "bar=[timestamp,timestamp+1m); halt=[start,resume)",
+    "frozen_strategy_or_executor_identity_changed": false,
+    "incompatible_halt_symbol_sessions": 16,
+    "incompatible_halt_preflight_rows": 144,
+    "net_new_preflight_exclusions": 126
+  },
+  "superseded_run": {
+    "run_id": "run-v010",
+    "preflight_identity": "df473daf269d01a8e070b37264de57ff9c0b595567915b7326b89243e73b1510",
+    "screen_identity": "6e1c58b8e09bb02965dd96a0d96a308416439ab0c7bb131781ceb4626e4cc68f",
+    "screen_artifact_identity": "43c117fbff9b25d9a1de22b0a65f455eee2929ec280b68f5f0d75fdaa97f3c82",
+    "analysis_run_id": "analysis-v003-for-run-v010",
+    "analysis_artifact_identity": "bb0e529d4916801dfed8ce060e0785684fc27582ed308e330fe07a768190db74",
+    "reconciliation_identity": "d2b8619550804752169832d8f637918ee98e97fd6f70a6dfafdb84d40939c2d8",
+    "executor_integrity_failure_count": 704,
+    "status": "HISTORICALLY_REPRODUCIBLE_NOT_CERTIFIABLE"
+  },
+  "corrective_rehearsal": {
+    "run_id": "run-v011",
+    "analysis_run_id": "analysis-v004-for-run-v011",
+    "content_byte_identical_to_accepted_run": true,
+    "status": "PRESERVED_PRE_COMMIT_REHEARSAL"
+  },
+  "preflight_exclusions": {
+    "total": 18435,
+    "by_reason": {
+      "CORPORATE_ACTION_UNRESOLVED": 6453,
+      "HALT_INTERVAL_VALIDATOR_INCOMPATIBLE": 144,
+      "STRATEGY_INPUT_UNAVAILABLE": 9,
+      "UNEXPLAINED_REGULAR_GAP": 9981,
+      "WARMUP_INCOMPLETE": 1848
+    },
+    "incompatible_halt_sessions": [
+      "AMC|2023-07-24",
+      "AMC|2023-08-22",
+      "AMC|2024-05-14",
+      "AMC|2024-05-15",
+      "AMC|2024-06-03",
+      "AMC|2024-06-07",
+      "AMC|2024-07-22",
+      "GME|2024-05-13",
+      "GME|2024-05-14",
+      "GME|2024-05-15",
+      "GME|2024-06-03",
+      "GME|2024-06-06",
+      "GME|2024-06-07",
+      "GME|2024-06-11",
+      "GME|2024-12-05",
+      "UVXY|2024-08-06"
+    ]
+  },
+  "evaluation_accounting": {
+    "proposal_count": 92320,
+    "base_completed_trade_count": 9699,
+    "rejected_proposal_count": 82621,
+    "unavailable_evaluation_count": 557,
+    "executor_integrity_failure_count": 0
+  },
+  "classifications": {
+    "failed_downside_breakdown_reclaim_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "fifteen_minute_orb_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "first_pullback_continuation_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "five_minute_orb_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "gap_and_go_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "high_of_day_breakout_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "market_relative_momentum_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "rsi_exhaustion_reversion_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "vwap_mean_reversion_fade_long_v002": "INCONCLUSIVE_DATA_LIMITATION",
+    "vwap_reclaim_long_v002": "INCONCLUSIVE_DATA_LIMITATION"
+  },
+  "base_completed_trades": {
+    "failed_downside_breakdown_reclaim_long_v002": 1205,
+    "fifteen_minute_orb_long_v002": 1227,
+    "first_pullback_continuation_long_v002": 14,
+    "five_minute_orb_long_v002": 1378,
+    "high_of_day_breakout_long_v002": 17,
+    "market_relative_momentum_long_v002": 270,
+    "rsi_exhaustion_reversion_long_v002": 21,
+    "vwap_mean_reversion_fade_long_v002": 2924,
+    "vwap_reclaim_long_v002": 2643
+  },
+  "base_metrics": {
+    "failed_downside_breakdown_reclaim_long_v002": {
+      "trade_count": 1205,
+      "gross_pnl": -59342.71266379666,
+      "net_pnl": -65712.32266379666,
+      "net_expectancy": -54.53304785377316,
+      "win_rate": 0.183402489626556,
+      "payoff_ratio": 1.3252771204922813,
+      "profit_factor": 0.29764862157397776,
+      "maximum_drawdown": 65900.40434379676
+    },
+    "fifteen_minute_orb_long_v002": {
+      "trade_count": 1227,
+      "gross_pnl": -35964.20752419818,
+      "net_pnl": -40364.52752419818,
+      "net_expectancy": -32.89692544759428,
+      "win_rate": 0.267318663406683,
+      "payoff_ratio": 1.358258937024519,
+      "profit_factor": 0.4955605465450971,
+      "maximum_drawdown": 40418.15320419819
+    },
+    "first_pullback_continuation_long_v002": {
+      "trade_count": 14,
+      "gross_pnl": 1554.6771760000279,
+      "net_pnl": 1014.3471760000276,
+      "net_expectancy": 72.45336971428769,
+      "win_rate": 0.5,
+      "payoff_ratio": 1.4672365577783328,
+      "profit_factor": 1.4672365577783326,
+      "maximum_drawdown": 1221.6281526999917
+    },
+    "five_minute_orb_long_v002": {
+      "trade_count": 1378,
+      "gross_pnl": -39885.827828598114,
+      "net_pnl": -44933.84782859811,
+      "net_expectancy": -32.608017292161186,
+      "win_rate": 0.24528301886792453,
+      "payoff_ratio": 1.6090384131320519,
+      "profit_factor": 0.5229374842679169,
+      "maximum_drawdown": 46005.3661247981
+    },
+    "high_of_day_breakout_long_v002": {
+      "trade_count": 17,
+      "gross_pnl": -1505.992878199933,
+      "net_pnl": -1861.482878199933,
+      "net_expectancy": -109.49899283529018,
+      "win_rate": 0.17647058823529413,
+      "payoff_ratio": 1.666051511183282,
+      "profit_factor": 0.3570110381107034,
+      "maximum_drawdown": 2471.925478199954
+    },
+    "market_relative_momentum_long_v002": {
+      "trade_count": 270,
+      "gross_pnl": -15156.733552899725,
+      "net_pnl": -17574.263552899723,
+      "net_expectancy": -65.08986501073971,
+      "win_rate": 0.34074074074074073,
+      "payoff_ratio": 0.9294135137246521,
+      "profit_factor": 0.4803710295655505,
+      "maximum_drawdown": 17771.722929899726
+    },
+    "rsi_exhaustion_reversion_long_v002": {
+      "trade_count": 21,
+      "gross_pnl": -2758.7439100998713,
+      "net_pnl": -3408.253910099871,
+      "net_expectancy": -162.297805242851,
+      "win_rate": 0.23809523809523808,
+      "payoff_ratio": 0.8727892633502371,
+      "profit_factor": 0.27274664479694904,
+      "maximum_drawdown": 3408.253910099871
+    },
+    "vwap_mean_reversion_fade_long_v002": {
+      "trade_count": 2924,
+      "gross_pnl": -82766.67841419572,
+      "net_pnl": -94865.03841419572,
+      "net_expectancy": -32.44358358898622,
+      "win_rate": 0.1354309165526676,
+      "payoff_ratio": 1.2871231511581755,
+      "profit_factor": 0.2016221391845876,
+      "maximum_drawdown": 94865.50297419581
+    },
+    "vwap_reclaim_long_v002": {
+      "trade_count": 2643,
+      "gross_pnl": -71544.39811909624,
+      "net_pnl": -82149.27811909623,
+      "net_expectancy": -31.081830540709884,
+      "win_rate": 0.17253121452894438,
+      "payoff_ratio": 1.7239807784597863,
+      "profit_factor": 0.3594582693084877,
+      "maximum_drawdown": 82304.20900909616
+    }
+  },
+  "licensed_payloads_tracked": false,
+  "later_period_accessed": false,
+  "gap_and_go_executed": false,
+  "production_or_broker_accessed": false
+}
