@@ -49,6 +49,9 @@ H = "a" * 64
 H2 = "b" * 64
 H3 = "c" * 64
 T = "2026-08-03T12:00:00Z"
+# Scope the historical design-only assertion to the audited V008 merge. Using
+# the current HEAD would incorrectly prohibit unrelated future research results.
+DESIGN_MILESTONE_MERGE_COMMIT = "02529b3001d090c48186607d398b73209e8deb85"
 
 
 def contract() -> dict[str, object]:
@@ -1136,7 +1139,13 @@ def test_design_milestone_has_no_operator_authorization_or_results() -> None:
     assert not (ROOT / "src/aml/professional_strategy_olympics_operator_v001.py").exists()
     assert not (ROOT / "config/professional_strategy_olympics_operator_implementation_v001.json").exists()
     changed = subprocess.run(
-        ["git", "diff", "--name-only", DESIGN_BASE_COMMIT],
+        [
+            "git",
+            "diff",
+            "--name-only",
+            DESIGN_BASE_COMMIT,
+            DESIGN_MILESTONE_MERGE_COMMIT,
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,
