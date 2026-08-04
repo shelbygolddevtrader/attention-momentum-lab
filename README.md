@@ -407,3 +407,12 @@ and Markdown reports under ignored `artifacts/vendor_sample_acceptance/` and
 never copies source samples into canonical research paths. See
 `docs/VENDOR_SAMPLE_ACCEPTANCE_V001.md` and the non-proprietary templates under
 `examples/vendor_sample_acceptance/`.
+
+### Benchmark Strategy Research Framework V001
+
+The first executable upstream research vertical slice carries one synthetic,
+non-empirical hypothesis through observation, triage, specification,
+preregistration, implementation binding, conformance, the existing proposal
+pipeline, the existing discovery classifier, and immutable archive. It does not
+change or authorize any frozen strategy, validation, Olympics, or trading
+behavior. See `docs/BENCHMARK_STRATEGY_RESEARCH_FRAMEWORK_V001.md`.
