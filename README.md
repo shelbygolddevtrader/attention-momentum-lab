@@ -480,3 +480,14 @@ failure-path, and registered-executor invariants. The campaign uses only the
 already-committed synthetic fixture and produces no empirical edge claim; it
 executes two library entries and leaves 38 blocked. See
 `docs/EXECUTABLE_SPECIFICATION_IMPLEMENTATION_V001.md`.
+
+### Historical PIT Dataset Authorization V001
+
+The first empirical-dataset authorization assessment selects one minimal
+historical symbol-session, binds its raw, normalized, metadata, source,
+specification, implementation, calendar, halt, and corporate-action identities,
+and verifies its 390 regular minutes. It fails closed as
+`BLOCKED_NOT_AUTHORIZED`: written licensing/retention evidence, provider-echoed
+feed identity, point-in-time corporate-action lineage, and an uncontaminated
+discovery sample are absent. It grants no execution authority and runs no
+strategy. See `docs/HISTORICAL_PIT_DATASET_AUTHORIZATION_V001.md`.
