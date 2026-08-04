@@ -229,7 +229,6 @@ def test_v004_and_v005_bytes_are_unchanged() -> None:
 
 
 def test_design_milestone_contains_no_runner_or_authorization() -> None:
-    assert not (ROOT / "scripts/run_professional_strategy_olympics_v005.py").exists()
     parents = subprocess.run(
         ["git", "show", "-s", "--format=%P", V006_AUDITED_MERGE_COMMIT],
         cwd=ROOT,
@@ -243,6 +242,14 @@ def test_design_milestone_contains_no_runner_or_authorization() -> None:
         cwd=ROOT,
         check=True,
     )
+    audited_tree = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", V006_AUDITED_MERGE_COMMIT],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    assert "scripts/run_professional_strategy_olympics_v005.py" not in audited_tree
     changed = subprocess.run(
         [
             "git",
@@ -257,6 +264,29 @@ def test_design_milestone_contains_no_runner_or_authorization() -> None:
         text=True,
     ).stdout.splitlines()
     assert not any("authorization.json" in path or path.startswith("artifacts/") for path in changed)
+
+
+def test_v006_design_invariant_survives_later_authorization_stack() -> None:
+    later_authorization = (
+        "manifests/historical_pit_dataset_authorization_v001/dataset_authorization.json"
+    )
+    assert (ROOT / later_authorization).is_file()
+    audited_tree = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", V006_AUDITED_MERGE_COMMIT],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    assert later_authorization not in audited_tree
+    later_changes = subprocess.run(
+        ["git", "diff", "--name-only", V006_AUDITED_MERGE_COMMIT, "HEAD"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    assert later_authorization in later_changes
 
 
 def test_validator_and_cli_have_no_execution_or_network_capability() -> None:
