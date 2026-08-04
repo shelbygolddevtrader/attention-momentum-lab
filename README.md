@@ -425,3 +425,14 @@ Every record reproduces native Framework V001 observation and hypothesis
 identities, permanently contaminates its motivating source material, and grants
 no implementation, discovery, validation, Olympics, or trading authority. See
 `docs/BENCHMARK_HYPOTHESIS_LIBRARY_V001.md`.
+
+### Benchmark Discovery Campaign V001
+
+The campaign reconciles every Library V001 entry to either a verified native
+Framework V001 execution bundle or the canonical
+`BLOCKED_NOT_EXECUTABLE` readiness classification. The initial frozen campaign
+correctly reports all 40 hypotheses blocked because none yet has an executable
+specification, implementation binding, conformance evidence, permitted
+discovery dataset, and registered executor. It creates no strategy rules and
+does not cross validation, holdout, forward, Olympics, paper, live, or broker
+boundaries. See `docs/BENCHMARK_DISCOVERY_CAMPAIGN_V001.md`.
