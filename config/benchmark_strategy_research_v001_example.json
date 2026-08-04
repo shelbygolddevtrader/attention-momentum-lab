@@ -1,0 +1,73 @@
+{
+  "schema_version": "aml.benchmark-strategy-research.example-plan.v001",
+  "evidence_class": "synthetic_non_empirical_vertical_slice",
+  "observation": {
+    "observation_id": "opening-range-midpoint-reclaim-observation-v001",
+    "title": "Opening-range midpoint reclaim observation",
+    "source_kind": "human_hypothesis",
+    "source_references": ["prospective engineering example; no performance outcome used"],
+    "source_dataset_identities": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+    "observed_behavior": "After an early decline inside the opening range, a high-volume reclaim of the fixed midpoint may precede a return toward the fixed range high.",
+    "recorded_at": "2026-08-04T00:00:00Z"
+  },
+  "hypothesis": {
+    "hypothesis_id": "opening-range-midpoint-reclaim-long-v001",
+    "revision": 1,
+    "parent_hypothesis_identity": null,
+    "title": "Opening-range midpoint reclaim continuation",
+    "market_assumption": "The first five regular-session minutes establish a short-lived reference range followed by temporary two-sided price discovery.",
+    "mechanism": "A high-volume reclaim of the fixed opening-range midpoint after a close below it may reflect failed early selling and renewed demand.",
+    "required_evidence": ["complete point-in-time one-minute OHLCV", "deterministic shared execution audit", "fixed transaction-cost stress"],
+    "expected_edge": "Positive net expectancy after frozen costs relative to zero, subject to minimum evidence and concentration rules.",
+    "invalidation_conditions": ["missing required minute", "non-finite input", "opening range incomplete", "target not above eventual entry"],
+    "known_risks": ["opening auction noise", "selection bias", "synthetic example provides no empirical evidence"],
+    "required_indicators": ["fixed five-minute opening range", "opening-range median volume", "opening-range midpoint"],
+    "expected_holding_period": "zero to thirty complete one-minute bars",
+    "expected_market_regime": "unspecified; all eligible regimes reported without filtering",
+    "expected_failure_modes": ["gap over target before entry", "midpoint whipsaw", "opening volume baseline unavailable"],
+    "taxonomy": ["continuation", "intraday", "long", "opening", "price-volume"],
+    "contaminated_dataset_identities": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+    "multiple_testing_family": "benchmark-opening-family-v001"
+  },
+  "triage": {
+    "disposition": "admit",
+    "duplicate_signature": "44ffc14ae125fe43a6ca09c1742afda7a6215bfae1f9cf84862e10f8f63d58c8",
+    "duplicate_hypothesis_identities": [],
+    "priority_vector": {
+      "mechanism_plausibility": 2,
+      "supporting_evidence": 1,
+      "expected_frequency": 2,
+      "data_readiness": 3,
+      "distinctness": 2,
+      "falsification_value": 3,
+      "engineering_cost": 3,
+      "contamination_risk": 2
+    },
+    "reasons": ["complete one-minute inputs already fit the shared proposal pipeline", "small vertical slice directly falsifies lifecycle integration"]
+  },
+  "specification": {
+    "strategy_id": "opening-range-midpoint-reclaim-long-v001",
+    "strategy_version": "1.0.0",
+    "direction": "long",
+    "required_input_fields": ["close", "high", "low", "open", "symbol", "timestamp", "volume"],
+    "decision_window": "09:36 through 10:30 America/New_York using complete left-labeled one-minute bars",
+    "signal_rule": "Previous completed close is at or below the midpoint of the fixed 09:30-09:34 range; current completed bar closes strictly above that midpoint and below the range high, closes above its open, and volume is at least 1.5 times the median volume of the five opening-range bars.",
+    "entry_rule": "Existing shared proposal pipeline at the exact next one-minute bar open with zero permitted delay.",
+    "stop_rule": "Fixed opening-range low known at 09:35.",
+    "target_rule": "Fixed opening-range high known at 09:35.",
+    "timeout_minutes": 30,
+    "missing_data_rule": "Any absent required minute makes the evaluation unavailable; no forward fill or interpolation.",
+    "integrity_rule": "Duplicate, nonchronological, naive, nonfinite, nonpositive-price, negative-volume, mixed-symbol, mixed-session, or malformed-OHLC input fails closed.",
+    "maximum_entries_per_symbol_session": 1,
+    "downstream_proposal_type": "aml.portfolio_simulator.StrategyProposal",
+    "classification_function": "aml.discovery_screen_v001.classify",
+    "material_data_limitation_threshold": 0.1
+  },
+  "preregistration": {
+    "permitted_discovery_dataset_identities": ["db9456eae653e54419609d6e9b4599981f38ec62458b8ec646a0d08a7318b0db"],
+    "prohibited_dataset_labels": ["forward validation", "holdout", "live trading outcomes", "validation extension"],
+    "contaminated_dataset_identities": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+    "preregistered_at": "2026-08-04T00:01:00Z",
+    "research_definitions_locked": true
+  }
+}
