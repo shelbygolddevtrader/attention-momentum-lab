@@ -68,6 +68,7 @@ from aml.exploratory_research_mode_v001 import (
     _reject_prohibited_keys,
     _result_payload,
     _sha256,
+    _strict_json,
     verify_bundle,
 )
 from aml.professional_strategy_executor_models_v001 import (
@@ -83,6 +84,8 @@ SCHEMA = "aml.opening-range-expansion-continuation.v001"
 MILESTONE_VERSION = "opening-range-expansion-continuation-v001"
 EVIDENCE_MANIFEST_SCHEMA = "aml.opening-range-expansion-evidence-manifest.v001"
 EXPLORATORY_SUMMARY_SCHEMA = "aml.exploratory-research-summary.v001"
+CANDIDATE_SPECIFIC_LABEL = "NOT EMPIRICAL EVIDENCE"
+CANDIDATE_SPECIFIC_LABELS = (CANDIDATE_SPECIFIC_LABEL,)
 HASH = re.compile(r"^[0-9a-f]{64}$")
 LIBRARY_IDENTITY = "6d9b4c8f1f279805240ac53c01de98906fb6c7853121a57350dff3395ae85003"
 DATASET_FINGERPRINT = "fe830c09317d3264fc8f73b2ab19ca1513d67d36dd367fbf4710c624940a959d"
@@ -937,6 +940,17 @@ def _source_hashes(repository_root: Path) -> dict[str, str]:
     )
 
 
+def _require_candidate_specific_label(
+    value: Mapping[str, object], *, artifact_name: str
+) -> None:
+    """Require the exact additive candidate label without changing V001 labels."""
+
+    if value.get("candidate_specific_labels") != list(CANDIDATE_SPECIFIC_LABELS):
+        raise OpeningRangeExpansionError(
+            f"candidate-specific exploratory label changed:{artifact_name}"
+        )
+
+
 def run_bounded_exploratory(
     *,
     repository_root: Path,
@@ -1003,6 +1017,7 @@ def run_bounded_exploratory(
         ),
     )
     result_base = {key: value for key, value in base_result.items() if key != "identity"}
+    result_base["candidate_specific_labels"] = list(CANDIDATE_SPECIFIC_LABELS)
     result_base["partition_inspection"] = {
         "warmup_partition_count": len(WARMUP_SESSIONS) * len(SYMBOLS),
         "evaluated_partition_count": len(EVALUATION_SESSIONS) * len(SYMBOLS),
@@ -1036,6 +1051,7 @@ def run_bounded_exploratory(
         summary_base = {
             "schema_version": EXPLORATORY_SUMMARY_SCHEMA,
             "labels": list(LABELS),
+            "candidate_specific_labels": list(CANDIDATE_SPECIFIC_LABELS),
             "evidence_class": EVIDENCE_CLASS,
             "claim_ceiling": CLAIM_CEILING,
             "run_identity": run_identity,
@@ -1069,6 +1085,7 @@ def run_bounded_exploratory(
         manifest_base = {
             "schema_version": MANIFEST_SCHEMA,
             "labels": list(LABELS),
+            "candidate_specific_labels": list(CANDIDATE_SPECIFIC_LABELS),
             "run_identity": run_identity,
             "plan_identity": config["config_identity"],
             "write_once": True,
@@ -1093,8 +1110,21 @@ def run_bounded_exploratory(
 
 
 def verify_opening_range_exploratory_bundle(path: Path) -> dict[str, object]:
-    verified = verify_bundle(path)
-    summary = json.loads((Path(path) / "summary.json").read_text(encoding="utf-8"))
+    root = Path(path).resolve()
+    verified = verify_bundle(root)
+    manifest = _strict_json(root / "manifest.json")
+    _require_candidate_specific_label(manifest, artifact_name="manifest.json")
+    manifested_paths: set[str] = set()
+    for record in manifest.get("files", []):
+        relative = Path(str(record.get("path", "")))
+        if relative.is_absolute() or ".." in relative.parts:
+            raise OpeningRangeExpansionError("unsafe candidate artifact path")
+        value = _strict_json(root / relative)
+        _require_candidate_specific_label(value, artifact_name=relative.as_posix())
+        manifested_paths.add(relative.as_posix())
+    if "summary.json" not in manifested_paths:
+        raise OpeningRangeExpansionError("candidate summary is not manifested")
+    summary = _strict_json(root / "summary.json")
     if (
         summary.get("schema_version") != EXPLORATORY_SUMMARY_SCHEMA
         or summary.get("labels") != list(LABELS)

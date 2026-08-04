@@ -6,7 +6,8 @@ This milestone moves one hypothesis through specification, implementation
 binding, conformance, registered execution, and a bounded diagnostic archive.
 It does not produce empirical evidence.
 
-Every exploratory artifact carries all of these labels:
+Every exploratory artifact preserves the frozen Exploratory Research Mode V001
+global labels unchanged:
 
 - `EXPLORATORY ONLY`
 - `CONTAMINATED DATA`
@@ -15,6 +16,14 @@ Every exploratory artifact carries all of these labels:
 - `NOT HOLDOUT`
 - `NOT PRODUCTION`
 - `NOT CAPITAL ELIGIBLE`
+
+In addition, every candidate result, run summary, and manifest carries the
+candidate-specific, identity-bound singleton field
+`candidate_specific_labels: ["NOT EMPIRICAL EVIDENCE"]`. This additive field
+does not rename or extend the frozen global label contract. The candidate
+verifier requires the exact capitalization and spelling on every manifested
+artifact and rejects missing, synonymous, inconsistent, stale, or tampered
+values.
 
 Economic metrics—including P&L, returns, expectancy, profit factor, Sharpe, and
 win rate—are recursively prohibited from the published bundle. The exercise
@@ -126,11 +135,15 @@ made 2,125 causal decision evaluations. It recorded:
 These counts are engineering diagnostics only. They say that the implementation
 triggers and reconciles under this bounded contaminated input; they say nothing
 about economic quality. The write-once run identity is
-`2025eaf9c615dd0369a6291fcf2e37826ccebe7d258ba11a295e5c0922550920`
+`04a518c1a40f36da96e1b43fc82b99790a5d982b28d6052946f5140919839bc1`
 and its manifest identity is
-`7be7e19db605ea6d38380fca35f2e036e3093feac238f0c8ee582f2a83ec55de`.
+`3f5d2ab9bb794a5a5fcece25098d628a46300ba16c318874679d74ed19ce3ae1`.
+The candidate result identity is
+`07e0eb6cd2d2c48fcc7753c540f1c6b8bb2fb07ddc13ab6107c1b34ee6b1b889`
+and the run-summary identity is
+`3b64c56c7120170b193b48c2373e6f6697ae84a7c7da478137548a555735727d`.
 The run binds evidence manifest
-`d506eebb13e3c224d1b0579078721c9a1b9a99289c09168b23abe89407c728f6`
+`d9e03a066a393b85da5a7be31c9e4036edd86b0c032179f57d45d4f4e4889675`
 and its exact child, preregistration, implementation, conformance, and executor
 registration identities.
 Independent runs under `PYTHONHASHSEED=1, TZ=UTC` and

@@ -24,12 +24,16 @@ from aml.benchmark_candidate_opening_range_expansion_v001 import (
     verify_reference_binding,
 )
 from aml.benchmark_hypothesis_library_v001 import load_library
+from aml.benchmark_strategy_research_v001 import canonical_hash, canonical_json
 from aml.exploratory_research_mode_v001 import LABELS, ExploratoryResearchError
 from aml.opening_range_expansion_continuation_v001 import (
+    CANDIDATE_SPECIFIC_LABEL,
+    CANDIDATE_SPECIFIC_LABELS,
     DATASET_VINTAGE,
     FROZEN_DOWNSTREAM_PATHS,
     FROZEN_SPECIFICATION,
     OpeningRangeExpansionError,
+    _evidence_manifest,
     _source_hashes,
     build_evidence,
     finalize_config,
@@ -54,6 +58,82 @@ def _config() -> dict[str, object]:
 
 def _evidence() -> dict[str, dict[str, object]]:
     return build_evidence(repository_root=ROOT, config=_config(), library_path=LIBRARY)
+
+
+def _publish_stub_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    name: str,
+) -> Path:
+    import aml.opening_range_expansion_continuation_v001 as campaign
+
+    dataset = tmp_path / DATASET_VINTAGE
+    dataset.mkdir(exist_ok=True)
+    output = tmp_path / f"exploratory_research/v001/{name}"
+    dummy = SimpleNamespace(warning_codes=("CONTAMINATED_PARENT_DATASET",))
+    records = [
+        {
+            "metadata_sha256": "1" * 64,
+            "processed_sha256": "2" * 64,
+            "role": "evaluated",
+            "session": "2023-08-21",
+            "symbol": "AAPL",
+            "warning_codes": ["CONTAMINATED_PARENT_DATASET"],
+        }
+    ]
+    counts = {
+        "executed_trade_count": 1,
+        "integrity_failure_count": 0,
+        "proposal_count": 1,
+        "rejected_proposal_count": 0,
+        "trigger_count": 1,
+        "unavailable_event_count": 0,
+    }
+    monkeypatch.setattr(
+        campaign,
+        "_load_partitions",
+        lambda *_: ({("AAPL", "2023-08-21"): dummy}, records),
+    )
+    monkeypatch.setattr(
+        campaign,
+        "_evaluate_exploratory",
+        lambda *_: (counts, Counter({"proposal": 1}), Counter(), [], []),
+    )
+    run_bounded_exploratory(
+        repository_root=ROOT,
+        config=_config(),
+        evidence_artifacts=_evidence(),
+        dataset_root=dataset,
+        output_root=output,
+    )
+    return output
+
+
+def _rehash_artifact_and_manifest(output: Path, artifact_name: str) -> None:
+    artifact = output / artifact_name
+    value = json.loads(artifact.read_text(encoding="utf-8"))
+    value["identity"] = canonical_hash(
+        {key: item for key, item in value.items() if key != "identity"}
+    )
+    artifact.write_bytes(canonical_json(value))
+    manifest_path = output / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    record = next(item for item in manifest["files"] if item["path"] == artifact_name)
+    record["sha256"] = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    manifest["identity"] = canonical_hash(
+        {key: item for key, item in manifest.items() if key != "identity"}
+    )
+    manifest_path.write_bytes(canonical_json(manifest))
+
+
+def _rehash_manifest(output: Path) -> None:
+    path = output / "manifest.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["identity"] = canonical_hash(
+        {key: item for key, item in value.items() if key != "identity"}
+    )
+    path.write_bytes(canonical_json(value))
 
 
 def test_parent_is_immutable_and_ambiguity_creates_revision_two_child() -> None:
@@ -274,44 +354,7 @@ def test_frozen_downstream_hashes_match_phase_a_main() -> None:
 def test_exploratory_bundle_is_write_once_and_non_economic(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import aml.opening_range_expansion_continuation_v001 as campaign
-
-    dataset = tmp_path / DATASET_VINTAGE
-    dataset.mkdir()
-    output = tmp_path / "exploratory_research/v001/opening-range-test"
-    dummy = SimpleNamespace(warning_codes=("CONTAMINATED_PARENT_DATASET",))
-    records = [
-        {
-            "metadata_sha256": "1" * 64,
-            "processed_sha256": "2" * 64,
-            "role": "evaluated",
-            "session": "2023-08-21",
-            "symbol": "AAPL",
-            "warning_codes": ["CONTAMINATED_PARENT_DATASET"],
-        }
-    ]
-    counts = {
-        "executed_trade_count": 1,
-        "integrity_failure_count": 0,
-        "proposal_count": 1,
-        "rejected_proposal_count": 0,
-        "trigger_count": 1,
-        "unavailable_event_count": 0,
-    }
-    monkeypatch.setattr(campaign, "_load_partitions", lambda *_: ({("AAPL", "2023-08-21"): dummy}, records))
-    monkeypatch.setattr(
-        campaign,
-        "_evaluate_exploratory",
-        lambda *_: (counts, Counter({"proposal": 1}), Counter(), [], []),
-    )
-    result = run_bounded_exploratory(
-        repository_root=ROOT,
-        config=_config(),
-        evidence_artifacts=_evidence(),
-        dataset_root=dataset,
-        output_root=output,
-    )
-    assert result["verified"] is True
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="opening-range-test")
     assert verify_opening_range_exploratory_bundle(output)["verified"] is True
     hypothesis_result = json.loads(next(output.glob("01-*.json")).read_text())
     evidence = _evidence()
@@ -325,7 +368,7 @@ def test_exploratory_bundle_is_write_once_and_non_economic(
     assert summary["evidence_binding"] == {
         "child_hypothesis_identity": evidence["02-child-hypothesis.json"]["identity"],
         "conformance_identity": evidence["07-conformance.json"]["identity"],
-        "evidence_manifest_identity": result["evidence_manifest_identity"],
+        "evidence_manifest_identity": _evidence_manifest(evidence)["identity"],
         "implementation_binding_identity": evidence[
             "06-implementation-binding.json"
         ]["identity"],
@@ -336,8 +379,10 @@ def test_exploratory_bundle_is_write_once_and_non_economic(
     for path in output.glob("*.json"):
         text = path.read_text(encoding="utf-8").lower()
         value = json.loads(path.read_text(encoding="utf-8"))
-        if "labels" in value:
-            assert value["labels"] == list(LABELS)
+        assert value["labels"] == list(LABELS)
+        assert value["candidate_specific_labels"] == list(
+            CANDIDATE_SPECIFIC_LABELS
+        )
         for prohibited in (
             '"expectancy"',
             '"gross_pnl"',
@@ -349,6 +394,7 @@ def test_exploratory_bundle_is_write_once_and_non_economic(
         ):
             assert prohibited not in text
     with pytest.raises(ExploratoryResearchError, match="already exists"):
+        dataset = tmp_path / DATASET_VINTAGE
         run_bounded_exploratory(
             repository_root=ROOT,
             config=_config(),
@@ -356,6 +402,145 @@ def test_exploratory_bundle_is_write_once_and_non_economic(
             dataset_root=dataset,
             output_root=output,
         )
+
+
+@pytest.mark.parametrize("artifact_kind", ["result", "summary", "manifest"])
+def test_candidate_label_omission_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    artifact_kind: str,
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name=f"omit-{artifact_kind}")
+    artifact_name = (
+        next(output.glob("01-*.json")).name
+        if artifact_kind == "result"
+        else f"{artifact_kind}.json"
+    )
+    path = output / artifact_name
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value.pop("candidate_specific_labels")
+    path.write_bytes(canonical_json(value))
+    if artifact_kind == "manifest":
+        _rehash_manifest(output)
+    else:
+        _rehash_artifact_and_manifest(output, artifact_name)
+    with pytest.raises(OpeningRangeExpansionError, match="candidate-specific"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        "Not Empirical Evidence",
+        "NOT EMPIRICAL EVIDENCE.",
+        "NOT AUTHORIZED FOR EMPIRICAL CONCLUSIONS",
+    ],
+)
+def test_candidate_label_spelling_synonym_or_punctuation_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    replacement: str,
+) -> None:
+    output = _publish_stub_bundle(
+        tmp_path,
+        monkeypatch,
+        name=hashlib.sha256(replacement.encode()).hexdigest()[:8],
+    )
+    artifact = next(output.glob("01-*.json"))
+    value = json.loads(artifact.read_text(encoding="utf-8"))
+    value["candidate_specific_labels"] = [replacement]
+    artifact.write_bytes(canonical_json(value))
+    _rehash_artifact_and_manifest(output, artifact.name)
+    with pytest.raises(OpeningRangeExpansionError, match="candidate-specific"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_duplicate_candidate_label_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="duplicate-label")
+    artifact = next(output.glob("01-*.json"))
+    value = json.loads(artifact.read_text(encoding="utf-8"))
+    value["candidate_specific_labels"] = [
+        CANDIDATE_SPECIFIC_LABEL,
+        CANDIDATE_SPECIFIC_LABEL,
+    ]
+    artifact.write_bytes(canonical_json(value))
+    _rehash_artifact_and_manifest(output, artifact.name)
+    with pytest.raises(OpeningRangeExpansionError, match="candidate-specific"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_prose_only_candidate_label_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="prose-only")
+    artifact = next(output.glob("01-*.json"))
+    value = json.loads(artifact.read_text(encoding="utf-8"))
+    value.pop("candidate_specific_labels")
+    value["qualitative_observations"].append(CANDIDATE_SPECIFIC_LABEL)
+    artifact.write_bytes(canonical_json(value))
+    _rehash_artifact_and_manifest(output, artifact.name)
+    with pytest.raises(OpeningRangeExpansionError, match="candidate-specific"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_result_summary_manifest_disagreement_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="disagreement")
+    path = output / "summary.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["candidate_specific_labels"] = [
+        "NOT AUTHORIZED FOR EMPIRICAL CONCLUSIONS"
+    ]
+    path.write_bytes(canonical_json(value))
+    _rehash_artifact_and_manifest(output, path.name)
+    with pytest.raises(OpeningRangeExpansionError, match="candidate-specific"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_label_tampering_cannot_retain_identity_or_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="stale-identity")
+    artifact = next(output.glob("01-*.json"))
+    value = json.loads(artifact.read_text(encoding="utf-8"))
+    old_identity = value["identity"]
+    value["candidate_specific_labels"] = ["NOT EMPIRICAL evidence"]
+    assert canonical_hash(
+        {key: item for key, item in value.items() if key != "identity"}
+    ) != old_identity
+    artifact.write_bytes(canonical_json(value))
+    with pytest.raises(ExploratoryResearchError, match="hash mismatch"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_stale_pre_correction_bundle_cannot_verify(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="legacy-bundle")
+    for path in [next(output.glob("01-*.json")), output / "summary.json"]:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value.pop("candidate_specific_labels")
+        path.write_bytes(canonical_json(value))
+        _rehash_artifact_and_manifest(output, path.name)
+    manifest_path = output / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.pop("candidate_specific_labels")
+    manifest_path.write_bytes(canonical_json(manifest))
+    _rehash_manifest(output)
+    with pytest.raises(OpeningRangeExpansionError, match="candidate-specific"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_corrected_bundle_is_byte_deterministic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = _publish_stub_bundle(tmp_path, monkeypatch, name="determinism-a")
+    first_bytes = {path.name: path.read_bytes() for path in first.iterdir()}
+    second = _publish_stub_bundle(tmp_path, monkeypatch, name="determinism-b")
+    assert first_bytes == {path.name: path.read_bytes() for path in second.iterdir()}
 
 
 def test_exploratory_bundle_rejects_prohibited_metric_tampering(
