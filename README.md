@@ -469,3 +469,14 @@ the long arm of `opening-drive-first-pullback-v001`. Its classification is
 discovery execution, outcome, or performance claim is created. The selection,
 complete rule semantics, immutable identities, and remaining implementation
 gate are documented in `docs/BENCHMARK_SPECIFICATION_CAMPAIGN_V001.md`.
+
+### Executable Specification Implementation V001
+
+The specified long arm of `opening-drive-first-pullback-v001` is now bound to
+the unchanged frozen first-pullback evaluator, indicators, proposal lifecycle,
+cost model, discovery classifier, and Framework V001 archive. A reusable
+binding and conformance runtime verifies source, dataset, identity, causality,
+failure-path, and registered-executor invariants. The campaign uses only the
+already-committed synthetic fixture and produces no empirical edge claim; it
+executes two library entries and leaves 38 blocked. See
+`docs/EXECUTABLE_SPECIFICATION_IMPLEMENTATION_V001.md`.
