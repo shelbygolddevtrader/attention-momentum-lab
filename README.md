@@ -416,3 +416,12 @@ preregistration, implementation binding, conformance, the existing proposal
 pipeline, the existing discovery classifier, and immutable archive. It does not
 change or authorize any frozen strategy, validation, Olympics, or trading
 behavior. See `docs/BENCHMARK_STRATEGY_RESEARCH_FRAMEWORK_V001.md`.
+
+### Benchmark Hypothesis Library V001
+
+The immutable, hypothesis-only library freezes 40 literature- and
+market-structure-derived research questions before triage or implementation.
+Every record reproduces native Framework V001 observation and hypothesis
+identities, permanently contaminates its motivating source material, and grants
+no implementation, discovery, validation, Olympics, or trading authority. See
+`docs/BENCHMARK_HYPOTHESIS_LIBRARY_V001.md`.
