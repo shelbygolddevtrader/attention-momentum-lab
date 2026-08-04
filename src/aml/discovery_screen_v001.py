@@ -66,6 +66,7 @@ EXCLUSION_REASONS = (
     "UNEXPLAINED_REGULAR_GAP",
     "HALT_COVERAGE_MISSING",
     "POST_HALT_BLOCKED",
+    "HALT_INTERVAL_VALIDATOR_INCOMPATIBLE",
     "CORPORATE_ACTION_COVERAGE_MISSING",
     "CORPORATE_ACTION_UNRESOLVED",
     "SPY_PARTITION_MISSING",
@@ -100,6 +101,7 @@ class PartitionState:
     unexplained_missing: tuple[str, ...]
     starts_at_scheduled_open: bool
     halts: tuple[HaltInterval, ...]
+    incompatible_halt_minutes: tuple[str, ...]
     action_unresolved: bool
 
 
@@ -251,7 +253,39 @@ def load_action_exclusions(path: Path) -> tuple[str, dict[str, tuple[date, ...]]
 
 
 def _minute_overlaps_halt(timestamp: datetime, halt: HaltInterval) -> bool:
+    """Return whether left-labeled ``[t,t+1m)`` overlaps ``[start,resume)``."""
+
     return timestamp < halt.resume and timestamp + timedelta(minutes=1) > halt.start
+
+
+def _incompatible_halt_minutes(
+    opened: datetime,
+    closed: datetime,
+    halts: tuple[HaltInterval, ...],
+) -> tuple[str, ...]:
+    """Find halt-overlap minutes the unchanged frozen validator cannot represent.
+
+    The frozen executor validator classifies a missing minute by its left label.
+    The discovery adapter conservatively removes the whole one-minute interval
+    when any part overlaps an official halt.  A minute is incompatible exactly
+    when interval overlap is true but no official halt contains its left label.
+    Excluding that symbol-session preserves both semantics without rewriting an
+    official timestamp or changing the frozen validator identity.
+    """
+
+    incompatible: list[str] = []
+    cursor = opened
+    while cursor < closed:
+        interval_covered = any(
+            _minute_overlaps_halt(cursor, halt) for halt in halts
+        )
+        point_covered = any(
+            halt.start <= cursor < halt.resume for halt in halts
+        )
+        if interval_covered and not point_covered:
+            incompatible.append(cursor.isoformat())
+        cursor += timedelta(minutes=1)
+    return tuple(incompatible)
 
 
 def _read_timestamps(path: Path) -> tuple[datetime, ...]:
@@ -279,7 +313,9 @@ def inspect_partition(
     if not csv_path.is_file() or not metadata_path.is_file():
         return PartitionState(
             symbol, calendar.session, csv_path, "", 0, expected, expected,
-            False, (), False, halts, False,
+            False, (), False, halts,
+            _incompatible_halt_minutes(calendar.opened, calendar.closed, halts),
+            False,
         )
     metadata = _load_json(metadata_path)
     if (
@@ -309,6 +345,9 @@ def inspect_partition(
     # A retroactively adjusted partition before/on a non-cash action cannot be
     # reconstructed point-in-time without historical revision timestamps.
     action_unresolved = any(calendar.session <= action_date for action_date in action_dates)
+    incompatible_halt_minutes = _incompatible_halt_minutes(
+        calendar.opened, calendar.closed, halts
+    )
     return PartitionState(
         symbol,
         calendar.session,
@@ -327,6 +366,7 @@ def inspect_partition(
             )
         ),
         halts,
+        incompatible_halt_minutes,
         action_unresolved,
     )
 
@@ -344,6 +384,38 @@ def _needs_liquidity(strategy_id: str) -> bool:
 
 def _needs_spy(strategy_id: str) -> bool:
     return _needs_liquidity(strategy_id)
+
+
+def _preflight_exclusion_reason(
+    state: PartitionState,
+    strategy_id: str,
+    spy: PartitionState | None,
+    history_count: int,
+) -> str:
+    if not state.csv_path.is_file():
+        return "REGULAR_PARTITION_MISSING"
+    if state.unexplained_missing:
+        return "UNEXPLAINED_REGULAR_GAP"
+    if state.incompatible_halt_minutes:
+        return "HALT_INTERVAL_VALIDATOR_INCOMPATIBLE"
+    if not state.starts_at_scheduled_open:
+        return "STRATEGY_INPUT_UNAVAILABLE"
+    if state.action_unresolved:
+        return "CORPORATE_ACTION_UNRESOLVED"
+    if _needs_spy(strategy_id) and (
+        spy is None
+        or not spy.csv_path.is_file()
+        or not spy.complete_or_halt_explained
+        or bool(spy.incompatible_halt_minutes)
+        or not spy.starts_at_scheduled_open
+        or spy.action_unresolved
+    ):
+        return "SPY_PARTITION_MISSING"
+    if (_needs_same_clock(strategy_id) or _needs_liquidity(strategy_id)) and (
+        history_count < 20
+    ):
+        return "WARMUP_INCOMPLETE"
+    return ""
 
 
 def build_preflight(
@@ -378,24 +450,10 @@ def build_preflight(
         for symbol in symbols:
             state = states[(symbol, calendar.session)]
             for strategy_id in INCLUDED_STRATEGIES:
-                reason = ""
                 history = eligible_history[symbol][-40:]
-                if not state.csv_path.is_file():
-                    reason = "REGULAR_PARTITION_MISSING"
-                elif state.unexplained_missing:
-                    reason = "UNEXPLAINED_REGULAR_GAP"
-                elif not state.starts_at_scheduled_open:
-                    reason = "STRATEGY_INPUT_UNAVAILABLE"
-                elif state.action_unresolved:
-                    reason = "CORPORATE_ACTION_UNRESOLVED"
-                elif _needs_spy(strategy_id) and (
-                    spy is None or not spy.csv_path.is_file() or not spy.complete_or_halt_explained
-                ):
-                    reason = "SPY_PARTITION_MISSING"
-                elif _needs_same_clock(strategy_id) and len(history) < 20:
-                    reason = "WARMUP_INCOMPLETE"
-                elif _needs_liquidity(strategy_id) and len(history) < 20:
-                    reason = "WARMUP_INCOMPLETE"
+                reason = _preflight_exclusion_reason(
+                    state, strategy_id, spy, len(history)
+                )
                 rows.append({
                     "strategy_id": strategy_id,
                     "strategy_identity": STRATEGIES[strategy_id]["strategy_identity"],
@@ -405,6 +463,14 @@ def build_preflight(
                     "regular_complete": state.complete_or_halt_explained,
                     "missing_minute_count": state.missing_count,
                     "halt_status": "positive" if state.halts else "negative_complete",
+                    "halt_interval_validation_status": (
+                        "incompatible"
+                        if state.incompatible_halt_minutes
+                        else "compatible"
+                    ),
+                    "incompatible_halt_minutes": ";".join(
+                        state.incompatible_halt_minutes
+                    ),
                     "halt_intervals": ";".join(
                         f"{item.start.isoformat()}/{item.resume.isoformat()}" for item in state.halts
                     ),
@@ -425,6 +491,7 @@ def build_preflight(
             if (
                 state.csv_path.is_file()
                 and state.complete_or_halt_explained
+                and not state.incompatible_halt_minutes
                 and not state.action_unresolved
                 and not calendar.early_close
                 and not state.halts
@@ -959,6 +1026,139 @@ def artifact_manifest(root: Path, metadata: Mapping[str, Any]) -> dict[str, Any]
     return value
 
 
+def evaluation_accounting(
+    failure_rows: Sequence[Mapping[str, Any]],
+    evaluation_totals: Mapping[str, int],
+    proposal_counts: Mapping[str, int],
+) -> dict[str, Any]:
+    """Reconcile every post-preflight evaluation to one explicit status."""
+
+    allowed_statuses = {
+        "integrity_failure",
+        "no_signal",
+        "no_trade",
+        "proposal",
+        "unavailable",
+    }
+    by_strategy_status: Counter[tuple[str, str]] = Counter()
+    preflight_exclusions: Counter[str] = Counter()
+    for row in failure_rows:
+        strategy_id = str(row["strategy_id"])
+        if strategy_id not in INCLUDED_STRATEGIES:
+            raise DiscoveryIntegrityError(
+                f"unknown_evaluation_accounting_strategy:{strategy_id}"
+            )
+        count = int(row["count"])
+        if count < 0:
+            raise DiscoveryIntegrityError("negative_evaluation_accounting_count")
+        if row["stage"] == "evaluation":
+            status = str(row["status"])
+            if status not in allowed_statuses:
+                raise DiscoveryIntegrityError(
+                    f"unknown_evaluation_accounting_status:{status}"
+                )
+            by_strategy_status[(strategy_id, status)] += count
+        elif row["stage"] == "preflight":
+            if row["status"] != "excluded" or row["reason"] not in EXCLUSION_REASONS:
+                raise DiscoveryIntegrityError("invalid_preflight_accounting_row")
+            preflight_exclusions[strategy_id] += count
+        else:
+            raise DiscoveryIntegrityError("unknown_evaluation_accounting_stage")
+    for strategy_id in INCLUDED_STRATEGIES:
+        accounted = sum(
+            count
+            for (item_strategy, _), count in by_strategy_status.items()
+            if item_strategy == strategy_id
+        )
+        if accounted != int(evaluation_totals.get(strategy_id, 0)):
+            raise DiscoveryIntegrityError(
+                f"evaluation_accounting_mismatch:{strategy_id}:"
+                f"expected={evaluation_totals.get(strategy_id, 0)}:actual={accounted}"
+            )
+        proposal_status_count = by_strategy_status.get((strategy_id, "proposal"), 0)
+        if proposal_status_count != int(proposal_counts.get(strategy_id, 0)):
+            raise DiscoveryIntegrityError(
+                f"proposal_status_accounting_mismatch:{strategy_id}"
+            )
+    integrity_count = sum(
+        count
+        for (_, status), count in by_strategy_status.items()
+        if status == "integrity_failure"
+    )
+    return {
+        "evaluation_totals": dict(sorted(
+            (key, int(value)) for key, value in evaluation_totals.items()
+        )),
+        "preflight_exclusion_counts": dict(sorted(preflight_exclusions.items())),
+        "status_counts": {
+            f"{strategy_id}|{status}": count
+            for (strategy_id, status), count in sorted(by_strategy_status.items())
+        },
+        "executor_integrity_failure_count": integrity_count,
+    }
+
+
+def _publish_integrity_failure_bundle(
+    output_root: Path,
+    failure_rows: Sequence[Mapping[str, Any]],
+    accounting: Mapping[str, Any],
+) -> None:
+    """Publish diagnostics, never performance, for a failed executor run."""
+
+    integrity_rows = [
+        dict(row)
+        for row in failure_rows
+        if row["stage"] == "evaluation" and row["status"] == "integrity_failure"
+    ]
+    if not integrity_rows:
+        raise DiscoveryIntegrityError("integrity_failure_bundle_without_failures")
+    output_root.parent.mkdir(parents=True, exist_ok=True)
+    publication_root = Path(tempfile.mkdtemp(
+        prefix=f".{output_root.name}-failed-", dir=output_root.parent
+    ))
+    try:
+        write_csv_exclusive(
+            publication_root / "executor_integrity_failures.csv", integrity_rows
+        )
+        summary = {
+            "schema": "aml.nine-strategy-discovery-screen.failure.v001",
+            "status": "FAILED_EXECUTOR_INTEGRITY",
+            "classification": "FAILED_EXECUTOR_INTEGRITY",
+            "executor_integrity_failure_count": int(
+                accounting["executor_integrity_failure_count"]
+            ),
+            "evaluation_accounting": dict(accounting),
+            "performance_artifacts_published": False,
+        }
+        summary["identity"] = canonical_hash(summary)
+        write_json_exclusive(publication_root / "failure_summary.json", summary)
+        manifest = artifact_manifest(publication_root, {
+            "publication_status": "FAILED_EXECUTOR_INTEGRITY",
+            "failure_summary_identity": summary["identity"],
+        })
+        write_json_exclusive(publication_root / "manifest.json", manifest)
+        os.replace(publication_root, output_root)
+    except Exception:
+        shutil.rmtree(publication_root, ignore_errors=True)
+        raise
+
+
+def enforce_zero_executor_integrity_failures(
+    output_root: Path,
+    failure_rows: Sequence[Mapping[str, Any]],
+    accounting: Mapping[str, Any],
+) -> None:
+    """Fail before performance publication while retaining diagnostics."""
+
+    count = int(accounting["executor_integrity_failure_count"])
+    if count == 0:
+        return
+    _publish_integrity_failure_bundle(output_root, failure_rows, accounting)
+    raise DiscoveryIntegrityError(
+        f"executor_integrity_failures_prevent_publication:{count}"
+    )
+
+
 def _state_map(
     dataset_root: Path,
     sessions: Sequence[CalendarSession],
@@ -1052,7 +1252,12 @@ def run_discovery_screen(
         session_bars: dict[str, tuple[MinuteBar, ...]] = {}
         for symbol in symbols:
             state = states[(symbol, calendar.session)]
-            if state.csv_path.is_file() and state.complete_or_halt_explained and not state.action_unresolved:
+            if (
+                state.csv_path.is_file()
+                and state.complete_or_halt_explained
+                and not state.incompatible_halt_minutes
+                and not state.action_unresolved
+            ):
                 session_bars[symbol] = load_minute_bars(state)
         spy = session_bars.get("SPY", ())
         spy_lookup = {item.timestamp: index for index, item in enumerate(spy)}
@@ -1062,19 +1267,12 @@ def run_discovery_screen(
             features = _session_features(bars) if bars is not None else None
             history_dates = baseline_dates[symbol][-40:]
             for strategy_id in INCLUDED_STRATEGIES:
-                reason = ""
-                if not state.csv_path.is_file():
-                    reason = "REGULAR_PARTITION_MISSING"
-                elif state.unexplained_missing:
-                    reason = "UNEXPLAINED_REGULAR_GAP"
-                elif not state.starts_at_scheduled_open:
-                    reason = "STRATEGY_INPUT_UNAVAILABLE"
-                elif state.action_unresolved:
-                    reason = "CORPORATE_ACTION_UNRESOLVED"
-                elif _needs_spy(strategy_id) and not spy:
-                    reason = "SPY_PARTITION_MISSING"
-                elif (_needs_same_clock(strategy_id) or _needs_liquidity(strategy_id)) and len(history_dates) < 20:
-                    reason = "WARMUP_INCOMPLETE"
+                reason = _preflight_exclusion_reason(
+                    state,
+                    strategy_id,
+                    states.get(("SPY", calendar.session)),
+                    len(history_dates),
+                )
                 if reason:
                     failure_rows.append({
                         "strategy_id": strategy_id,
@@ -1191,6 +1389,16 @@ def run_discovery_screen(
                     )
                 )
 
+    proposal_counts = {
+        key: len(value) for key, value in sorted(proposals_by_strategy.items())
+    }
+    accounting = evaluation_accounting(
+        failure_rows, evaluation_totals, proposal_counts
+    )
+    enforce_zero_executor_integrity_failures(
+        output_root, failure_rows, accounting
+    )
+
     # Only proposal-bearing sessions are reloaded for exit simulation.
     needed = {
         (proposal.symbol, date.fromisoformat(proposal.session))
@@ -1202,6 +1410,7 @@ def run_discovery_screen(
     metrics: dict[str, Any] = {}
     classifications: dict[str, str] = {}
     scenario_trades: list[CompletedTrade] = []
+    lifecycle_reconciliation: dict[str, Any] = {}
     for strategy_id in INCLUDED_STRATEGIES:
         trades, rejects = simulate_strategy(
             strategy_id,
@@ -1229,6 +1438,29 @@ def run_discovery_screen(
             {"trade_count": len(trades), **strategy_metrics},
             material_data_limitation=material,
         )
+        accepted_count = len(trades)
+        rejected_count = len(rejects)
+        proposal_count = proposal_counts.get(strategy_id, 0)
+        if proposal_count != accepted_count + rejected_count:
+            raise DiscoveryIntegrityError(
+                f"proposal_trade_rejection_reconciliation_failed:{strategy_id}"
+            )
+        scenario_counts = {
+            "base": accepted_count,
+            "cost_1_5x": len(projected_15),
+            "cost_2x": len(projected_20),
+        }
+        if len(set(scenario_counts.values())) != 1:
+            raise DiscoveryIntegrityError(
+                f"cost_scenario_trade_count_mismatch:{strategy_id}"
+            )
+        lifecycle_reconciliation[strategy_id] = {
+            "proposal_count": proposal_count,
+            "completed_trade_count": accepted_count,
+            "rejected_proposal_count": rejected_count,
+            "scenario_trade_counts": scenario_counts,
+            "reconciles": True,
+        }
     classifications[DEFERRED_STRATEGY] = "INCONCLUSIVE_DATA_LIMITATION"
 
     output_root.parent.mkdir(parents=True, exist_ok=True)
@@ -1267,12 +1499,15 @@ def run_discovery_screen(
         },
         "evaluation_totals": dict(sorted(evaluation_totals.items())),
         "executor_call_totals": dict(sorted(evaluator_calls.items())),
-        "proposal_counts": {
-            key: len(value) for key, value in sorted(proposals_by_strategy.items())
-        },
+        "proposal_counts": proposal_counts,
         "completed_trade_counts": dict(sorted(Counter(
             item.strategy_id for item in base_trades
         ).items())),
+        "executor_integrity_failure_count": int(
+            accounting["executor_integrity_failure_count"]
+        ),
+        "evaluation_accounting": accounting,
+        "lifecycle_reconciliation": lifecycle_reconciliation,
         "classifications": dict(sorted(classifications.items())),
         "corporate_action_counts": dict(sorted(action_counts.items())),
         "fixed_universe_survivorship_bias": True,
@@ -1312,13 +1547,34 @@ def publish_derived_analysis(
         if _sha256(path) != record["sha256"] or path.stat().st_size != record["bytes"]:
             raise DiscoveryIntegrityError("screen_artifact_hash_mismatch")
     summary = _load_json(screen_root / "summary.json")
+    summary_payload = dict(summary)
+    summary_identity = summary_payload.pop("identity", None)
+    if summary_identity != canonical_hash(summary_payload):
+        raise DiscoveryIntegrityError("screen_summary_identity_mismatch")
     metrics = _load_json(screen_root / "metrics.json")
     preflight = _load_json(preflight_summary_path)
+    preflight_payload = dict(preflight)
+    preflight_identity = preflight_payload.pop("identity", None)
+    if preflight_identity != canonical_hash(preflight_payload):
+        raise DiscoveryIntegrityError("preflight_summary_identity_mismatch")
     proposals = pd.read_csv(screen_root / "proposals.csv")
     trades = pd.read_csv(screen_root / "completed_trades.csv")
     rejections = pd.read_csv(screen_root / "execution_rejections.csv")
     failures = pd.read_csv(screen_root / "failures_and_exclusions.csv")
     base = trades[trades["cost_scenario"] == "base"].copy()
+    integrity_failures = failures[
+        (failures["stage"] == "evaluation")
+        & (failures["status"] == "integrity_failure")
+    ]
+    integrity_failure_count = int(integrity_failures["count"].sum())
+    if summary.get("executor_integrity_failure_count") != integrity_failure_count:
+        raise DiscoveryIntegrityError(
+            "summary_executor_integrity_failure_count_mismatch"
+        )
+    if integrity_failure_count:
+        raise DiscoveryIntegrityError(
+            f"executor_integrity_failures_prevent_analysis:{integrity_failure_count}"
+        )
 
     symbol_rows: list[dict[str, Any]] = []
     month_rows: list[dict[str, Any]] = []
@@ -1361,17 +1617,13 @@ def publish_derived_analysis(
             "top_date_net_pnl": None if by_date.empty else float(by_date.max()),
         }
 
-    integrity_failures = failures[
-        (failures["stage"] == "evaluation")
-        & (failures["status"] == "integrity_failure")
-    ]
     data_quality = {
         "schema": "aml.discovery-data-quality-report.v001",
         "preflight_identity": preflight["identity"],
         "preflight_row_count": preflight["row_count"],
         "included_by_strategy": preflight["included_by_strategy"],
         "excluded_by_strategy_reason": preflight["excluded_by_strategy_reason"],
-        "evaluation_integrity_failure_count": int(integrity_failures["count"].sum()),
+        "evaluation_integrity_failure_count": integrity_failure_count,
         "fixed_universe_survivorship_bias": True,
         "corporate_action_point_in_time_revision_limitation": True,
     }
@@ -1461,3 +1713,220 @@ def publish_derived_analysis(
         shutil.rmtree(publication_root, ignore_errors=True)
         raise
     return analysis_manifest
+
+
+def reconcile_integrity_claims(
+    *,
+    raw_count: int,
+    summary_count: Any,
+    data_quality_count: Any,
+    metadata_count: Any,
+    documentation: str,
+) -> None:
+    """Require one zero count across raw, derived, metadata, and prose claims."""
+
+    declared_counts = {
+        "raw": raw_count,
+        "summary": summary_count,
+        "data_quality": data_quality_count,
+        "metadata": metadata_count,
+    }
+    if len(set(declared_counts.values())) != 1:
+        raise DiscoveryIntegrityError(
+            f"published_integrity_failure_count_mismatch:{declared_counts}"
+        )
+    if raw_count != 0:
+        raise DiscoveryIntegrityError(
+            f"accepted_publication_has_integrity_failures:{raw_count}"
+        )
+    expected_claim = (
+        f"The corrected accepted screen has `{raw_count}` executor "
+        "integrity failures."
+    )
+    if expected_claim not in documentation:
+        raise DiscoveryIntegrityError("documentation_integrity_claim_mismatch")
+
+
+def verify_published_discovery_claims(
+    *,
+    screen_root: Path,
+    preflight_summary_path: Path,
+    analysis_root: Path,
+    metadata_path: Path,
+    documentation_path: Path,
+) -> dict[str, Any]:
+    """Reconcile accepted machine and human claims to immutable artifacts."""
+
+    screen_manifest = _load_json(screen_root / "manifest.json")
+    screen_artifact_identity = screen_manifest.pop("identity", None)
+    if screen_artifact_identity != canonical_hash(screen_manifest):
+        raise DiscoveryIntegrityError("screen_manifest_identity_mismatch")
+    for record in screen_manifest["files"]:
+        path = screen_root / record["path"]
+        if _sha256(path) != record["sha256"] or path.stat().st_size != record["bytes"]:
+            raise DiscoveryIntegrityError("screen_artifact_hash_mismatch")
+    summary = _load_json(screen_root / "summary.json")
+    summary_payload = dict(summary)
+    screen_identity = summary_payload.pop("identity", None)
+    if screen_identity != canonical_hash(summary_payload):
+        raise DiscoveryIntegrityError("screen_summary_identity_mismatch")
+    preflight = _load_json(preflight_summary_path)
+    preflight_payload = dict(preflight)
+    preflight_identity = preflight_payload.pop("identity", None)
+    if preflight_identity != canonical_hash(preflight_payload):
+        raise DiscoveryIntegrityError("preflight_summary_identity_mismatch")
+    analysis_manifest = _load_json(analysis_root / "manifest.json")
+    analysis_identity = analysis_manifest.pop("identity", None)
+    if analysis_identity != canonical_hash(analysis_manifest):
+        raise DiscoveryIntegrityError("analysis_manifest_identity_mismatch")
+    for record in analysis_manifest["files"]:
+        path = analysis_root / record["path"]
+        if _sha256(path) != record["sha256"] or path.stat().st_size != record["bytes"]:
+            raise DiscoveryIntegrityError("analysis_artifact_hash_mismatch")
+
+    failures = pd.read_csv(screen_root / "failures_and_exclusions.csv")
+    integrity_count = int(failures.loc[
+        (failures["stage"] == "evaluation")
+        & (failures["status"] == "integrity_failure"),
+        "count",
+    ].sum())
+    data_quality = _load_json(analysis_root / "data_quality_report.json")
+    metadata = _load_json(metadata_path)
+    documentation = documentation_path.read_text(encoding="utf-8")
+    reconcile_integrity_claims(
+        raw_count=integrity_count,
+        summary_count=summary.get("executor_integrity_failure_count"),
+        data_quality_count=data_quality.get("evaluation_integrity_failure_count"),
+        metadata_count=metadata.get("integrity_failure_count"),
+        documentation=documentation,
+    )
+    identity_claims = {
+        "preflight_identity": preflight_identity,
+        "screen_identity": screen_identity,
+        "screen_artifact_identity": screen_artifact_identity,
+        "analysis_artifact_identity": analysis_identity,
+    }
+    for field, expected in identity_claims.items():
+        if metadata.get(field) != expected:
+            raise DiscoveryIntegrityError(f"metadata_{field}_mismatch")
+
+    proposals = pd.read_csv(screen_root / "proposals.csv")
+    trades = pd.read_csv(screen_root / "completed_trades.csv")
+    rejections = pd.read_csv(screen_root / "execution_rejections.csv")
+    metrics = _load_json(screen_root / "metrics.json")
+    base = trades[trades["cost_scenario"] == "base"]
+    if len(proposals) != len(base) + len(rejections):
+        raise DiscoveryIntegrityError(
+            "proposal_trade_rejection_reconciliation_failed"
+        )
+    proposal_by_strategy = dict(sorted(
+        (str(key), int(value))
+        for key, value in proposals.groupby("strategy_id").size().items()
+    ))
+    rejected_by_strategy = dict(sorted(
+        (str(key), int(value))
+        for key, value in rejections.groupby("strategy_id").size().items()
+    ))
+    completed_by_strategy = dict(sorted(
+        (str(key), int(value))
+        for key, value in base.groupby("strategy_id").size().items()
+    ))
+    if summary.get("proposal_counts") != proposal_by_strategy:
+        raise DiscoveryIntegrityError("summary_proposal_counts_mismatch")
+    if summary.get("completed_trade_counts") != completed_by_strategy:
+        raise DiscoveryIntegrityError("summary_trade_counts_mismatch")
+    if metadata.get("base_completed_trades") != completed_by_strategy:
+        raise DiscoveryIntegrityError("metadata_trade_counts_mismatch")
+    if metadata.get("classifications") != summary.get("classifications"):
+        raise DiscoveryIntegrityError("metadata_classifications_mismatch")
+
+    expected_accounting = evaluation_accounting(
+        failures.to_dict("records"),
+        summary.get("evaluation_totals", {}),
+        proposal_by_strategy,
+    )
+    if summary.get("evaluation_accounting") != expected_accounting:
+        raise DiscoveryIntegrityError("summary_evaluation_accounting_mismatch")
+
+    preflight_exclusions = failures[failures["stage"] == "preflight"]
+    grouped_exclusions = dict(sorted(
+        (
+            f"{strategy_id}|{reason}",
+            int(group["count"].sum()),
+        )
+        for (strategy_id, reason), group in preflight_exclusions.groupby(
+            ["strategy_id", "reason"]
+        )
+    ))
+    if preflight.get("excluded_by_strategy_reason") != grouped_exclusions:
+        raise DiscoveryIntegrityError("preflight_exclusion_counts_mismatch")
+    if data_quality.get("excluded_by_strategy_reason") != grouped_exclusions:
+        raise DiscoveryIntegrityError("data_quality_exclusion_counts_mismatch")
+    if data_quality.get("included_by_strategy") != preflight.get(
+        "included_by_strategy"
+    ):
+        raise DiscoveryIntegrityError("data_quality_inclusion_counts_mismatch")
+
+    for strategy_id in INCLUDED_STRATEGIES:
+        proposal_count = proposal_by_strategy.get(strategy_id, 0)
+        completed_count = completed_by_strategy.get(strategy_id, 0)
+        rejected_count = rejected_by_strategy.get(strategy_id, 0)
+        if proposal_count != completed_count + rejected_count:
+            raise DiscoveryIntegrityError(
+                f"strategy_lifecycle_reconciliation_failed:{strategy_id}"
+            )
+        lifecycle = summary.get("lifecycle_reconciliation", {}).get(strategy_id)
+        if lifecycle != {
+            "proposal_count": proposal_count,
+            "completed_trade_count": completed_count,
+            "rejected_proposal_count": rejected_count,
+            "scenario_trade_counts": {
+                scenario: int(len(trades[
+                    (trades["strategy_id"] == strategy_id)
+                    & (trades["cost_scenario"] == scenario)
+                ]))
+                for scenario in ("base", "cost_1_5x", "cost_2x")
+            },
+            "reconciles": True,
+        }:
+            raise DiscoveryIntegrityError(
+                f"summary_lifecycle_reconciliation_mismatch:{strategy_id}"
+            )
+
+    metric_fields = (
+        "trade_count",
+        "gross_pnl",
+        "net_pnl",
+        "net_expectancy",
+        "win_rate",
+        "payoff_ratio",
+        "profit_factor",
+        "maximum_drawdown",
+    )
+    expected_base_metrics = {
+        strategy_id: {
+            field: metrics[strategy_id]["base"][field]
+            for field in metric_fields
+        }
+        for strategy_id in INCLUDED_STRATEGIES
+    }
+    if metadata.get("base_metrics") != expected_base_metrics:
+        raise DiscoveryIntegrityError("metadata_base_metrics_mismatch")
+
+    for field, identity in identity_claims.items():
+        label = field.replace("_", " ").title()
+        if f"- Corrected {label}: `{identity}`" not in documentation:
+            raise DiscoveryIntegrityError(
+                f"documentation_{field}_mismatch"
+            )
+    return {
+        "schema": "aml.discovery-publication-verification.v001",
+        "executor_integrity_failure_count": integrity_count,
+        "proposal_count": len(proposals),
+        "completed_trade_count": len(base),
+        "rejected_proposal_count": len(rejections),
+        "preflight_exclusion_count": int(preflight_exclusions["count"].sum()),
+        "evaluation_status_counts": expected_accounting["status_counts"],
+        "identities": identity_claims,
+        "verified": True,
+    }
