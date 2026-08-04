@@ -36,6 +36,8 @@ from aml.professional_strategy_olympics_operator_interface_v006 import (
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/validate_professional_strategy_olympics_operator_interface_v006.py"
+V006_DESIGN_SOURCE_COMMIT = "8350c4b30c8c9b7b040c336e456dc434b858c77b"
+V006_AUDITED_MERGE_COMMIT = "303306b0d2eef4e6fd86ae88dc03ddea5585e210"
 
 
 def contract() -> dict[str, object]:
@@ -228,8 +230,27 @@ def test_v004_and_v005_bytes_are_unchanged() -> None:
 
 def test_design_milestone_contains_no_runner_or_authorization() -> None:
     assert not (ROOT / "scripts/run_professional_strategy_olympics_v005.py").exists()
+    parents = subprocess.run(
+        ["git", "show", "-s", "--format=%P", V006_AUDITED_MERGE_COMMIT],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert parents == f"{DESIGN_BASE_COMMIT} {V006_DESIGN_SOURCE_COMMIT}"
+    subprocess.run(
+        ["git", "merge-base", "--is-ancestor", V006_AUDITED_MERGE_COMMIT, "HEAD"],
+        cwd=ROOT,
+        check=True,
+    )
     changed = subprocess.run(
-        ["git", "diff", "--name-only", "origin/main...HEAD"],
+        [
+            "git",
+            "diff",
+            "--name-only",
+            DESIGN_BASE_COMMIT,
+            V006_AUDITED_MERGE_COMMIT,
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,
