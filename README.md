@@ -436,3 +436,15 @@ specification, implementation binding, conformance evidence, permitted
 discovery dataset, and registered executor. It creates no strategy rules and
 does not cross validation, holdout, forward, Olympics, paper, live, or broker
 boundaries. See `docs/BENCHMARK_DISCOVERY_CAMPAIGN_V001.md`.
+
+### Executable Benchmark Candidate V001
+
+The first Library V001 entry now has a complete executable research chain.
+`high-of-day-breakout-continuation-v001` is bound to one prospective numeric
+specification, a point-in-time implementation, conformance evidence, one
+synthetic-only dataset identity, a code-owned executor, the unchanged proposal
+and discovery pipeline, and an immutable archive. Its synthetic classification
+is `INCONCLUSIVE_INSUFFICIENT_SAMPLE`; this is pipeline evidence, not evidence
+of a trading edge. The successor campaign executes exactly this one hypothesis
+and leaves the other 39 canonically blocked. See
+`docs/EXECUTABLE_BENCHMARK_CANDIDATE_V001.md`.
