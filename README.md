@@ -11,7 +11,10 @@ Opening Range Expansion Continuation V001 creates a revision-2 child of the
 underspecified library hypothesis and binds it exactly to the unchanged frozen
 five-minute ORB long V002 contract. Its synthetic conformance evidence and
 bounded contaminated-data exercise publish trigger, availability, lifecycle,
-and integrity diagnostics only. See
+and integrity diagnostics only. Its candidate verifier now binds a closed
+evidence/publication role inventory and rejects prohibited claims across every
+configuration, evidence, result, summary, run, and manifest object even after a
+complete rehash, while allowing non-claim engineering prose. See
 [`docs/OPENING_RANGE_EXPANSION_CONTINUATION_V001.md`](docs/OPENING_RANGE_EXPANSION_CONTINUATION_V001.md).
 
 The corrected non-authoritative nine-strategy V002 discovery screen is

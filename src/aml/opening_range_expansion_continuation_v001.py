@@ -90,6 +90,9 @@ CANDIDATE_SPECIFIC_LABELS = (CANDIDATE_SPECIFIC_LABEL,)
 CANDIDATE_PROHIBITED_CLAIM_SCHEMA = (
     "aml.opening-range-expansion-prohibited-claims.v001"
 )
+CANDIDATE_REQUIRED_INVENTORY_SCHEMA = (
+    "aml.opening-range-expansion-required-inventory.v001"
+)
 CANDIDATE_PROHIBITED_FIELDS = frozenset(
     {
         "alpha",
@@ -209,13 +212,43 @@ CANDIDATE_CLAIM_CONTEXT_KEYS = frozenset(
         "classification",
         "conclusion",
         "decision",
+        "evidence",
+        "metrics",
+        "performance",
         "recommendation",
+        "readiness",
+        "result",
         "status",
     }
 )
-CANDIDATE_PROHIBITED_CLAIM_VALUE_TOKENS = frozenset(
-    set(CANDIDATE_PROHIBITED_KEY_TOKENS)
-    | {"broker", "empirical", "significant"}
+CANDIDATE_PROHIBITED_AFFIRMATIVE_PHRASES = frozenset(
+    {
+        "allocate capital",
+        "broker ready",
+        "capital allocation is recommended",
+        "capital allocation recommended",
+        "capital efficient",
+        "capital eligible",
+        "deployment ready",
+        "empirical edge",
+        "evidence of edge",
+        "evidence of profitability",
+        "has an empirical edge",
+        "holdout passed",
+        "live trading ready",
+        "paper trading ready",
+        "production ready",
+        "profitability confirmed",
+        "profitable",
+        "ready for production",
+        "statistically significant",
+        "is robust",
+        "is validated",
+        "positive expectancy",
+        "repeatable edge",
+        "validation passed",
+        "validated edge",
+    }
 )
 CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES = {
     ("claim_flags", "capital_eligible"): False,
@@ -225,9 +258,26 @@ CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES = {
     ("claim_flags", "validation"): False,
     ("economic_metrics_published",): False,
     ("empirical_conclusion_authorized",): False,
+    ("policy", "profitability_metrics_published"): False,
 }
+CANDIDATE_PROSPECTIVE_DESIGN_ALLOWANCES = frozenset(
+    {
+        ("02-child-hypothesis.json", "payload.expected_edge"),
+        ("04-specification.json", "payload.rules.opening_range.realized_volatility_proxy"),
+    }
+)
 CANDIDATE_PERMITTED_NEGATIVE_CLAIM_STRINGS = frozenset(
     (*LABELS, CANDIDATE_SPECIFIC_LABEL, EVIDENCE_CLASS)
+)
+CANDIDATE_SAFE_ENGINEERING_PROSE = frozenset(
+    {
+        "The edge-case parser branch was exercised.",
+        "The frozen evaluator emitted no proposal.",
+        "The production flag was not present.",
+        "The validation field was absent from the input.",
+        "No empirical edge claim was made.",
+        "No validation outcome was accessed.",
+    }
 )
 _CAMEL_ACRONYM_BOUNDARY = re.compile(r"([A-Z]+)([A-Z][a-z])")
 _CAMEL_WORD_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
@@ -297,6 +347,113 @@ EVALUATION_SESSIONS = (
     "2023-08-25",
 )
 SYMBOLS = ("AAPL", "AMD", "NVDA", "PLTR", "TSLA")
+
+EVIDENCE_REQUIRED_ROLES = {
+    "01-observation.json": "observation",
+    "02-child-hypothesis.json": "child_hypothesis",
+    "03-triage.json": "triage",
+    "04-specification.json": "specification",
+    "05-preregistration.json": "preregistration",
+    "06-implementation-binding.json": "implementation_binding",
+    "07-conformance.json": "conformance_evidence",
+    "08-executor-registration.json": "executor_registration",
+}
+EVIDENCE_ARTIFACT_TYPES = {
+    "01-observation.json": "observation",
+    "02-child-hypothesis.json": "hypothesis",
+    "03-triage.json": "triage",
+    "04-specification.json": "specification",
+    "05-preregistration.json": "preregistration",
+    "06-implementation-binding.json": "implementation_binding",
+    "07-conformance.json": "conformance",
+    "08-executor-registration.json": "implementation_binding",
+}
+EXPLORATORY_RESULT_PATH = f"01-{CHILD_HYPOTHESIS_ID}.json"
+EXPLORATORY_REQUIRED_ROLES = {
+    EXPLORATORY_RESULT_PATH: "candidate_result",
+    "run.json": "exploratory_run",
+    "summary.json": "candidate_summary",
+}
+RESULT_REQUIRED_FIELDS = frozenset(
+    {
+        "candidate_artifact_role",
+        "candidate_prohibited_claim_contract_identity",
+        "candidate_required_inventory_contract_identity",
+        "candidate_specific_labels",
+        "claim_ceiling",
+        "claim_flags",
+        "confidence_warnings",
+        "config_identity",
+        "counts",
+        "dataset_binding_identity",
+        "decision_reason_counts",
+        "decision_status_counts",
+        "evidence_class",
+        "evidence_manifest_identity",
+        "hypothesis",
+        "identity",
+        "implementation_binding_identity",
+        "implementation_notes",
+        "integrity_diagnostic_count",
+        "labels",
+        "missing_data_summary",
+        "obvious_anomalies",
+        "partition_count",
+        "partition_inspection",
+        "qualitative_observations",
+        "run_identity",
+        "schema_version",
+        "status",
+    }
+)
+SUMMARY_REQUIRED_FIELDS = frozenset(
+    {
+        "candidate_artifact_role",
+        "candidate_prohibited_claim_contract_identity",
+        "candidate_required_inventory_contract_identity",
+        "candidate_specific_labels",
+        "claim_ceiling",
+        "config_identity",
+        "counts",
+        "dataset_binding_identity",
+        "decision_reason_counts",
+        "decision_status_counts",
+        "economic_metrics_published",
+        "empirical_conclusion_authorized",
+        "evidence_binding",
+        "evidence_class",
+        "identity",
+        "labels",
+        "partition_bindings",
+        "result_identity",
+        "result_path",
+        "run_identity",
+        "schema_version",
+        "source_sha256",
+    }
+)
+RUN_REQUIRED_FIELDS = frozenset(
+    {
+        "candidate_artifact_role",
+        "candidate_prohibited_claim_contract_identity",
+        "candidate_required_inventory_contract_identity",
+        "candidate_specific_labels",
+        "claim_ceiling",
+        "config_identity",
+        "counts",
+        "dataset_binding_identity",
+        "economic_metrics_published",
+        "empirical_conclusion_authorized",
+        "evidence_class",
+        "evidence_manifest_identity",
+        "identity",
+        "labels",
+        "result_references",
+        "run_identity",
+        "schema_version",
+        "summary_reference",
+    }
+)
 
 
 class OpeningRangeExpansionError(ValueError):
@@ -452,6 +609,62 @@ def specification_identity() -> str:
     )
 
 
+def candidate_required_inventory_contract() -> dict[str, object]:
+    """Return the closed, candidate-specific artifact-role contract."""
+
+    return {
+        "schema_version": CANDIDATE_REQUIRED_INVENTORY_SCHEMA,
+        "closed_inventory": True,
+        "optional_roles": [],
+        "file_type": "canonical_json_only",
+        "evidence": [
+            {"path": path, "role": role, "cardinality": 1}
+            for path, role in sorted(EVIDENCE_REQUIRED_ROLES.items())
+        ],
+        "exploratory_publication": [
+            {"path": path, "role": role, "cardinality": 1}
+            for path, role in sorted(EXPLORATORY_REQUIRED_ROLES.items())
+        ],
+        "manifest_roles": {
+            "evidence": "evidence_manifest",
+            "exploratory_publication": "exploratory_manifest",
+        },
+        "exploratory_artifact_fields": {
+            "candidate_result": sorted(RESULT_REQUIRED_FIELDS),
+            "candidate_summary": sorted(SUMMARY_REQUIRED_FIELDS),
+            "exploratory_run": sorted(RUN_REQUIRED_FIELDS),
+        },
+        "identity_and_hash_rules": [
+            "every non-manifest artifact carries a canonical content identity",
+            "every inventory record binds exact role path identity and sha256",
+            "each required role and path occurs exactly once",
+            "manifest identity binds the complete canonically ordered inventory",
+        ],
+        "lineage_graph": [
+            "specification -> implementation_binding",
+            "implementation_binding -> conformance_evidence",
+            "conformance_evidence -> executor_registration",
+            "evidence_manifest -> every evidence role",
+            "exploratory_run -> candidate_result + candidate_summary",
+            "candidate_summary -> candidate_result",
+            "exploratory_manifest -> exploratory_run + candidate_result + candidate_summary",
+        ],
+        "invariant": (
+            "A hash-consistent bundle is incomplete unless every required canonical "
+            "role is present exactly once."
+        ),
+    }
+
+
+def candidate_required_inventory_contract_identity() -> str:
+    return canonical_hash(
+        {
+            "domain": CANDIDATE_REQUIRED_INVENTORY_SCHEMA,
+            "contract": candidate_required_inventory_contract(),
+        }
+    )
+
+
 def _config_identity(value: Mapping[str, object]) -> str:
     projection = {key: value[key] for key in sorted(set(value) - {"config_identity"})}
     return canonical_hash({"domain": SCHEMA, "config": projection})
@@ -481,6 +694,7 @@ def finalize_config(value: Mapping[str, object]) -> dict[str, object]:
 
 
 def validate_config(value: Mapping[str, object], repository_root: Path) -> dict[str, object]:
+    _reject_candidate_prohibited_claims(value, artifact_name="configuration.json")
     required = {
         "schema_version",
         "milestone_version",
@@ -495,6 +709,7 @@ def validate_config(value: Mapping[str, object], repository_root: Path) -> dict[
         "policy",
         "config_identity",
         "candidate_prohibited_claim_contract_identity",
+        "candidate_required_inventory_contract_identity",
     }
     if not isinstance(value, Mapping) or set(value) != required:
         raise OpeningRangeExpansionError("campaign config schema is invalid")
@@ -504,6 +719,8 @@ def validate_config(value: Mapping[str, object], repository_root: Path) -> dict[
         or value["specification_identity"] != specification_identity()
         or value["candidate_prohibited_claim_contract_identity"]
         != candidate_prohibited_claim_contract_identity()
+        or value["candidate_required_inventory_contract_identity"]
+        != candidate_required_inventory_contract_identity()
     ):
         raise OpeningRangeExpansionError("campaign version or specification changed")
     if value["parent"] != {
@@ -760,6 +977,22 @@ def build_evidence(
         source_paths=config["source_paths"],
         dataset_authorization=config["synthetic_dataset_authorization"],
     )
+    binding_payload = dict(binding["payload"])
+    binding_payload.update(
+        {
+            "candidate_prohibited_claim_contract_identity": (
+                candidate_prohibited_claim_contract_identity()
+            ),
+            "candidate_required_inventory_contract_identity": (
+                candidate_required_inventory_contract_identity()
+            ),
+        }
+    )
+    binding = make_artifact(
+        "implementation_binding",
+        binding_payload,
+        parent_identities=tuple(binding["parent_identities"]),
+    )
     inputs = conformance_inputs()
     conformance = run_conformance(
         implementation_binding=binding,
@@ -790,6 +1023,22 @@ def build_evidence(
         no_lookahead_check=no_lookahead_conformance,
         proposal_pipeline_check=proposal_pipeline_conformance,
     )
+    conformance_payload = dict(conformance["payload"])
+    conformance_payload.update(
+        {
+            "candidate_prohibited_claim_contract_identity": (
+                candidate_prohibited_claim_contract_identity()
+            ),
+            "candidate_required_inventory_contract_identity": (
+                candidate_required_inventory_contract_identity()
+            ),
+        }
+    )
+    conformance = make_artifact(
+        "conformance",
+        conformance_payload,
+        parent_identities=(binding["identity"],),
+    )
     registration = make_artifact(
         "implementation_binding",
         {
@@ -805,6 +1054,12 @@ def build_evidence(
             "reference_executor_identity": REFERENCE_EXECUTOR_IDENTITY,
             "empirical_execution_permitted": False,
             "exploratory_execution_permitted": True,
+            "candidate_prohibited_claim_contract_identity": (
+                candidate_prohibited_claim_contract_identity()
+            ),
+            "candidate_required_inventory_contract_identity": (
+                candidate_required_inventory_contract_identity()
+            ),
         },
         parent_identities=(binding["identity"], conformance["identity"]),
     )
@@ -827,20 +1082,14 @@ def verify_evidence_objects(
     repository_root: Path,
     config: Mapping[str, object],
 ) -> None:
-    expected = {
-        "01-observation.json": "observation",
-        "02-child-hypothesis.json": "hypothesis",
-        "03-triage.json": "triage",
-        "04-specification.json": "specification",
-        "05-preregistration.json": "preregistration",
-        "06-implementation-binding.json": "implementation_binding",
-        "07-conformance.json": "conformance",
-        "08-executor-registration.json": "implementation_binding",
-    }
-    if set(artifacts) != set(expected):
+    if set(artifacts) != set(EVIDENCE_REQUIRED_ROLES):
         raise OpeningRangeExpansionError("evidence file inventory changed")
-    for name, artifact_type in expected.items():
+    _reject_candidate_prohibited_claims(
+        config, artifact_name="configuration.json"
+    )
+    for name, artifact_type in EVIDENCE_ARTIFACT_TYPES.items():
         validate_artifact(artifacts[name], artifact_type)
+        _reject_candidate_prohibited_claims(artifacts[name], artifact_name=name)
     binding = artifacts["06-implementation-binding.json"]
     verify_implementation_binding(
         binding,
@@ -848,6 +1097,21 @@ def verify_evidence_objects(
         source_paths=config["source_paths"],
         dataset_authorization=config["synthetic_dataset_authorization"],
     )
+    for artifact_name in (
+        "06-implementation-binding.json",
+        "07-conformance.json",
+        "08-executor-registration.json",
+    ):
+        payload = artifacts[artifact_name]["payload"]
+        if (
+            payload.get("candidate_prohibited_claim_contract_identity")
+            != candidate_prohibited_claim_contract_identity()
+            or payload.get("candidate_required_inventory_contract_identity")
+            != candidate_required_inventory_contract_identity()
+        ):
+            raise OpeningRangeExpansionError(
+                f"candidate verification contract changed:{artifact_name}"
+            )
     conformance = artifacts["07-conformance.json"]
     if (
         conformance["payload"].get("all_checks_passed") is not True
@@ -863,12 +1127,22 @@ def verify_evidence_objects(
         is not evaluate_opening_range_expansion
     ):
         raise OpeningRangeExpansionError("executor registration changed")
+    if artifacts["07-conformance.json"]["parent_identities"] != [binding["identity"]]:
+        raise OpeningRangeExpansionError("conformance lineage changed")
+    if set(artifacts["08-executor-registration.json"]["parent_identities"]) != {
+        binding["identity"],
+        artifacts["07-conformance.json"]["identity"],
+    }:
+        raise OpeningRangeExpansionError("executor registration lineage changed")
 
 
 def _evidence_manifest(artifacts: Mapping[str, Mapping[str, object]]) -> dict[str, object]:
+    if set(artifacts) != set(EVIDENCE_REQUIRED_ROLES):
+        raise OpeningRangeExpansionError("evidence file inventory changed")
     files = [
         {
             "path": name,
+            "role": EVIDENCE_REQUIRED_ROLES[name],
             "sha256": hashlib.sha256(canonical_json(value)).hexdigest(),
             "identity": value["identity"],
         }
@@ -878,11 +1152,22 @@ def _evidence_manifest(artifacts: Mapping[str, Mapping[str, object]]) -> dict[st
         "schema_version": EVIDENCE_MANIFEST_SCHEMA,
         "milestone_version": MILESTONE_VERSION,
         "specification_identity": specification_identity(),
+        "candidate_prohibited_claim_contract_identity": (
+            candidate_prohibited_claim_contract_identity()
+        ),
+        "candidate_required_inventory_contract_identity": (
+            candidate_required_inventory_contract_identity()
+        ),
+        "candidate_artifact_role": "evidence_manifest",
         "files": files,
         "immutable": True,
         "empirical_result_count": 0,
     }
-    return {**base, "identity": canonical_hash(base)}
+    manifest = {**base, "identity": canonical_hash(base)}
+    _reject_candidate_prohibited_claims(
+        manifest, artifact_name="evidence-manifest.json"
+    )
+    return manifest
 
 
 def write_evidence(
@@ -913,34 +1198,100 @@ def verify_evidence_directory(
     config: Mapping[str, object],
 ) -> dict[str, object]:
     root = Path(output_root)
-    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file() or manifest_path.is_symlink():
+        raise OpeningRangeExpansionError("evidence manifest is missing or unsafe")
+    manifest = _strict_json(manifest_path)
+    if not isinstance(manifest, Mapping):
+        raise OpeningRangeExpansionError("evidence manifest schema is invalid")
+    _reject_candidate_prohibited_claims(manifest, artifact_name="evidence-manifest.json")
+    if set(manifest) != {
+        "candidate_artifact_role",
+        "candidate_prohibited_claim_contract_identity",
+        "candidate_required_inventory_contract_identity",
+        "empirical_result_count",
+        "files",
+        "identity",
+        "immutable",
+        "milestone_version",
+        "schema_version",
+        "specification_identity",
+    }:
+        raise OpeningRangeExpansionError("evidence manifest schema changed")
     identity = manifest.get("identity")
     base = {key: value for key, value in manifest.items() if key != "identity"}
     if (
         manifest.get("schema_version") != EVIDENCE_MANIFEST_SCHEMA
         or identity != canonical_hash(base)
         or manifest.get("empirical_result_count") != 0
+        or manifest.get("candidate_artifact_role") != "evidence_manifest"
+        or manifest.get("candidate_prohibited_claim_contract_identity")
+        != candidate_prohibited_claim_contract_identity()
+        or manifest.get("candidate_required_inventory_contract_identity")
+        != candidate_required_inventory_contract_identity()
     ):
         raise OpeningRangeExpansionError("evidence manifest changed")
+    records = manifest.get("files")
+    if not isinstance(records, list) or not all(
+        isinstance(record, Mapping) for record in records
+    ):
+        raise OpeningRangeExpansionError("evidence manifest inventory is invalid")
+    if not all(
+        set(record) == {"identity", "path", "role", "sha256"}
+        for record in records
+    ):
+        raise OpeningRangeExpansionError("evidence manifest record schema is invalid")
+    expected_pairs = sorted(EVIDENCE_REQUIRED_ROLES.items())
+    actual_pairs = [(record.get("path"), record.get("role")) for record in records]
+    if actual_pairs != expected_pairs:
+        raise OpeningRangeExpansionError("evidence required role inventory changed")
     artifacts: dict[str, dict[str, object]] = {}
     expected = {"manifest.json"}
-    for record in manifest.get("files", []):
+    for record in records:
         relative = Path(str(record.get("path", "")))
-        if relative.is_absolute() or ".." in relative.parts:
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or relative.suffix != ".json"
+            or relative.as_posix() not in EVIDENCE_REQUIRED_ROLES
+        ):
             raise OpeningRangeExpansionError("unsafe evidence path")
         path = root / relative
+        if not path.is_file() or path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+            raise OpeningRangeExpansionError("evidence file is missing or unsafe")
         if hashlib.sha256(path.read_bytes()).hexdigest() != record.get("sha256"):
             raise OpeningRangeExpansionError("evidence hash changed")
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = _strict_json(path)
+        if not isinstance(value, Mapping):
+            raise OpeningRangeExpansionError("evidence artifact schema is invalid")
         if value.get("identity") != record.get("identity"):
             raise OpeningRangeExpansionError("evidence identity changed")
+        _reject_candidate_prohibited_claims(
+            value, artifact_name=relative.as_posix()
+        )
         artifacts[relative.as_posix()] = value
         expected.add(relative.as_posix())
     actual = {item.relative_to(root).as_posix() for item in root.rglob("*") if item.is_file()}
     if actual != expected:
         raise OpeningRangeExpansionError("evidence directory contains extra files")
     verify_evidence_objects(artifacts, repository_root, config)
-    return {"manifest_identity": identity, "verified": True}
+    canonical_artifacts = build_evidence(
+        repository_root=repository_root,
+        config=config,
+        library_path=repository_root / "config/benchmark_hypothesis_library_v001.json",
+    )
+    if artifacts != canonical_artifacts:
+        raise OpeningRangeExpansionError("evidence artifacts differ from canonical graph")
+    if manifest != _evidence_manifest(artifacts):
+        raise OpeningRangeExpansionError("evidence manifest does not bind exact role graph")
+    return {
+        "artifact_identities": {
+            EVIDENCE_REQUIRED_ROLES[path]: artifact["identity"]
+            for path, artifact in sorted(artifacts.items())
+        },
+        "manifest_identity": identity,
+        "verified": True,
+    }
 
 
 def _load_partitions(
@@ -1124,14 +1475,14 @@ def candidate_prohibited_claim_contract() -> dict[str, object]:
             "spaces, hyphens, underscores, and punctuation collapse to underscores",
             "Unicode-independent ASCII case folding",
             "explicit relevant plural-token aliases",
-            "exact normalized-field or prohibited-token matching; no fuzzy matching",
+            "exact normalized-field and contiguous token-sequence matching; no fuzzy matching",
         ],
         "prohibited_fields": sorted(CANDIDATE_PROHIBITED_FIELDS),
-        "prohibited_key_tokens": sorted(CANDIDATE_PROHIBITED_KEY_TOKENS),
         "claim_context_keys": sorted(CANDIDATE_CLAIM_CONTEXT_KEYS),
-        "prohibited_claim_value_tokens": sorted(
-            CANDIDATE_PROHIBITED_CLAIM_VALUE_TOKENS
+        "prohibited_affirmative_phrases": sorted(
+            CANDIDATE_PROHIBITED_AFFIRMATIVE_PHRASES
         ),
+        "safe_engineering_prose": sorted(CANDIDATE_SAFE_ENGINEERING_PROSE),
         "negative_claim_allowances": [
             {"path": ".".join(path), "required_value": required}
             for path, required in sorted(CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES.items())
@@ -1141,8 +1492,14 @@ def candidate_prohibited_claim_contract() -> dict[str, object]:
             "every manifest file record",
             "every manifested artifact",
             "all nested mappings and sequences",
-            "all string values, with exact frozen negative-label allowances",
+            "all string values for exact affirmative phrases",
+            "claim-bearing values for prohibited normalized claim terms",
+            "schema-permitted engineering prose with exact negative allowances",
         ],
+        "vocabulary_is_not_a_claim": (
+            "isolated technical vocabulary is allowed outside structured claim fields; "
+            "explicit affirmative claim phrases remain prohibited everywhere"
+        ),
         "fully_rehashed_prohibited_claims_remain_prohibited": True,
     }
 
@@ -1157,10 +1514,32 @@ def candidate_prohibited_claim_contract_identity() -> str:
 
 
 def _candidate_key_is_prohibited(normalized: str) -> bool:
-    tokens = frozenset(normalized.split("_"))
-    return normalized in CANDIDATE_PROHIBITED_FIELDS or bool(
-        tokens & CANDIDATE_PROHIBITED_KEY_TOKENS
-    )
+    tokens = normalized.split("_")
+    for field in CANDIDATE_PROHIBITED_FIELDS:
+        field_tokens = field.split("_")
+        if any(
+            tokens[index : index + len(field_tokens)] == field_tokens
+            for index in range(len(tokens) - len(field_tokens) + 1)
+        ):
+            return True
+    return False
+
+
+def _contains_prohibited_affirmative_phrase(value: str) -> bool:
+    normalized = normalize_candidate_claim_name(value)
+    tokens = normalized.split("_")
+    for phrase in CANDIDATE_PROHIBITED_AFFIRMATIVE_PHRASES:
+        phrase_tokens = normalize_candidate_claim_name(phrase).split("_")
+        if any(
+            tokens[index : index + len(phrase_tokens)] == phrase_tokens
+            for index in range(len(tokens) - len(phrase_tokens) + 1)
+        ):
+            return True
+    return False
+
+
+def _claim_context(path: tuple[str, ...]) -> bool:
+    return any(part in CANDIDATE_CLAIM_CONTEXT_KEYS for part in path if not part.startswith("["))
 
 
 def _reject_candidate_prohibited_claims(
@@ -1175,6 +1554,14 @@ def _reject_candidate_prohibited_claims(
         for key, item in value.items():
             normalized = normalize_candidate_claim_name(str(key))
             child_path = (*path, normalized)
+            dotted = ".".join(child_path)
+            if (artifact_name, dotted) in CANDIDATE_PROSPECTIVE_DESIGN_ALLOWANCES:
+                _reject_candidate_prohibited_claims(
+                    item,
+                    artifact_name=artifact_name,
+                    path=child_path,
+                )
+                continue
             if child_path in CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES:
                 if item is not CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES[child_path]:
                     raise OpeningRangeExpansionError(
@@ -1200,13 +1587,13 @@ def _reject_candidate_prohibited_claims(
                 path=(*path, f"[{index}]"),
             )
     elif isinstance(value, str):
-        if value in CANDIDATE_PERMITTED_NEGATIVE_CLAIM_STRINGS:
+        if value in CANDIDATE_PERMITTED_NEGATIVE_CLAIM_STRINGS or value in (
+            CANDIDATE_SAFE_ENGINEERING_PROSE
+        ):
             return
         normalized = normalize_candidate_claim_name(value)
-        tokens = frozenset(normalized.split("_"))
-        if (
-            normalized in CANDIDATE_PROHIBITED_FIELDS
-            or tokens & CANDIDATE_PROHIBITED_CLAIM_VALUE_TOKENS
+        if _contains_prohibited_affirmative_phrase(value) or (
+            _claim_context(path) and _candidate_key_is_prohibited(normalized)
         ):
             raise OpeningRangeExpansionError(
                 "prohibited candidate claim value:"
@@ -1268,6 +1655,17 @@ def run_bounded_exploratory(
             for warning in item.warning_codes
         }
     )
+    source_sha256 = _source_hashes(repository_root)
+    run_identity = canonical_hash(
+        {
+            "domain": "aml.opening-range-expansion-exploratory-run.v001",
+            "config_identity": config["config_identity"],
+            "dataset_binding_identity": binding["binding_identity"],
+            "evidence_manifest_identity": evidence_manifest["identity"],
+            "partitions": partition_records,
+            "source_sha256": source_sha256,
+        }
+    )
     base_result = _result_payload(
         binding={
             "evaluator_binding": (
@@ -1295,6 +1693,15 @@ def run_bounded_exploratory(
     result_base["candidate_prohibited_claim_contract_identity"] = (
         candidate_prohibited_claim_contract_identity()
     )
+    result_base["candidate_required_inventory_contract_identity"] = (
+        candidate_required_inventory_contract_identity()
+    )
+    result_base["candidate_artifact_role"] = "candidate_result"
+    result_base["run_identity"] = run_identity
+    result_base["config_identity"] = config["config_identity"]
+    result_base["dataset_binding_identity"] = binding["binding_identity"]
+    result_base["evidence_manifest_identity"] = evidence_manifest["identity"]
+    result_base["implementation_binding_identity"] = implementation_binding_identity
     result_base["partition_inspection"] = {
         "warmup_partition_count": len(WARMUP_SESSIONS) * len(SYMBOLS),
         "evaluated_partition_count": len(EVALUATION_SESSIONS) * len(SYMBOLS),
@@ -1308,17 +1715,6 @@ def run_bounded_exploratory(
     from aml.exploratory_research_mode_v001 import validate_result
 
     validate_result(result)
-    source_sha256 = _source_hashes(repository_root)
-    run_identity = canonical_hash(
-        {
-            "domain": "aml.opening-range-expansion-exploratory-run.v001",
-            "config_identity": config["config_identity"],
-            "dataset_binding_identity": binding["binding_identity"],
-            "evidence_manifest_identity": evidence_manifest["identity"],
-            "partitions": partition_records,
-            "source_sha256": source_sha256,
-        }
-    )
     target = _output_path(output_root)
     target.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".opening-range-v001-", dir=target.parent))
@@ -1332,9 +1728,15 @@ def run_bounded_exploratory(
             "candidate_prohibited_claim_contract_identity": (
                 candidate_prohibited_claim_contract_identity()
             ),
+            "candidate_required_inventory_contract_identity": (
+                candidate_required_inventory_contract_identity()
+            ),
+            "candidate_artifact_role": "candidate_summary",
             "evidence_class": EVIDENCE_CLASS,
             "claim_ceiling": CLAIM_CEILING,
             "run_identity": run_identity,
+            "result_identity": result["identity"],
+            "result_path": result_path.name,
             "config_identity": config["config_identity"],
             "dataset_binding_identity": binding["binding_identity"],
             "evidence_binding": {
@@ -1358,9 +1760,57 @@ def run_bounded_exploratory(
         summary = {**summary_base, "identity": canonical_hash(summary_base)}
         summary_path = staging / "summary.json"
         summary_path.write_bytes(canonical_json(summary))
+        run_base = {
+            "schema_version": EXPLORATORY_SUMMARY_SCHEMA,
+            "labels": list(LABELS),
+            "candidate_specific_labels": list(CANDIDATE_SPECIFIC_LABELS),
+            "candidate_prohibited_claim_contract_identity": (
+                candidate_prohibited_claim_contract_identity()
+            ),
+            "candidate_required_inventory_contract_identity": (
+                candidate_required_inventory_contract_identity()
+            ),
+            "candidate_artifact_role": "exploratory_run",
+            "evidence_class": EVIDENCE_CLASS,
+            "claim_ceiling": CLAIM_CEILING,
+            "run_identity": run_identity,
+            "config_identity": config["config_identity"],
+            "dataset_binding_identity": binding["binding_identity"],
+            "evidence_manifest_identity": evidence_manifest["identity"],
+            "result_references": [
+                {"path": result_path.name, "identity": result["identity"]}
+            ],
+            "summary_reference": {
+                "path": summary_path.name,
+                "identity": summary["identity"],
+            },
+            "counts": counts,
+            "economic_metrics_published": False,
+            "empirical_conclusion_authorized": False,
+        }
+        _reject_prohibited_keys(run_base)
+        run = {**run_base, "identity": canonical_hash(run_base)}
+        run_path = staging / "run.json"
+        run_path.write_bytes(canonical_json(run))
         files = [
-            {"path": result_path.name, "sha256": _sha256(result_path)},
-            {"path": summary_path.name, "sha256": _sha256(summary_path)},
+            {
+                "path": result_path.name,
+                "role": "candidate_result",
+                "identity": result["identity"],
+                "sha256": _sha256(result_path),
+            },
+            {
+                "path": run_path.name,
+                "role": "exploratory_run",
+                "identity": run["identity"],
+                "sha256": _sha256(run_path),
+            },
+            {
+                "path": summary_path.name,
+                "role": "candidate_summary",
+                "identity": summary["identity"],
+                "sha256": _sha256(summary_path),
+            },
         ]
         manifest_base = {
             "schema_version": MANIFEST_SCHEMA,
@@ -1369,6 +1819,10 @@ def run_bounded_exploratory(
             "candidate_prohibited_claim_contract_identity": (
                 candidate_prohibited_claim_contract_identity()
             ),
+            "candidate_required_inventory_contract_identity": (
+                candidate_required_inventory_contract_identity()
+            ),
+            "candidate_artifact_role": "exploratory_manifest",
             "run_identity": run_identity,
             "plan_identity": config["config_identity"],
             "write_once": True,
@@ -1396,53 +1850,140 @@ def run_bounded_exploratory(
     }
 
 
-def verify_opening_range_exploratory_bundle(path: Path) -> dict[str, object]:
+def verify_opening_range_exploratory_bundle(
+    path: Path,
+    *,
+    repository_root: Path = ROOT,
+    config: Mapping[str, object] | None = None,
+    evidence_root: Path | None = None,
+) -> dict[str, object]:
     root = Path(path).resolve()
-    manifest = _strict_json(root / "manifest.json")
+    repository = Path(repository_root).resolve()
+    active_config = (
+        dict(config)
+        if config is not None
+        else load_config(
+            repository / "config/opening_range_expansion_continuation_v001.json",
+            repository,
+        )
+    )
+    validate_config(active_config, repository)
+    evidence_verification = verify_evidence_directory(
+        evidence_root
+        or repository / "manifests/opening_range_expansion_continuation_v001",
+        repository_root=repository,
+        config=active_config,
+    )
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file() or manifest_path.is_symlink():
+        raise OpeningRangeExpansionError("candidate manifest is missing or unsafe")
+    manifest = _strict_json(manifest_path)
+    if not isinstance(manifest, Mapping):
+        raise OpeningRangeExpansionError("candidate manifest schema is invalid")
     _require_candidate_specific_label(manifest, artifact_name="manifest.json")
-    if manifest.get("candidate_prohibited_claim_contract_identity") != (
-        candidate_prohibited_claim_contract_identity()
+    if (
+        manifest.get("candidate_prohibited_claim_contract_identity")
+        != candidate_prohibited_claim_contract_identity()
+        or manifest.get("candidate_required_inventory_contract_identity")
+        != candidate_required_inventory_contract_identity()
+        or manifest.get("candidate_artifact_role") != "exploratory_manifest"
     ):
         raise OpeningRangeExpansionError(
-            "candidate prohibited-claim contract changed:manifest.json"
+            "candidate verification contract changed:manifest.json"
         )
     _reject_candidate_prohibited_claims(manifest, artifact_name="manifest.json")
+    if set(manifest) != {
+        "candidate_artifact_role",
+        "candidate_prohibited_claim_contract_identity",
+        "candidate_required_inventory_contract_identity",
+        "candidate_specific_labels",
+        "files",
+        "identity",
+        "labels",
+        "plan_identity",
+        "run_identity",
+        "schema_version",
+        "write_once",
+    }:
+        raise OpeningRangeExpansionError("candidate manifest schema changed")
     records = manifest.get("files")
     if not isinstance(records, list):
         raise OpeningRangeExpansionError("candidate manifest file inventory is invalid")
     if not all(isinstance(record, Mapping) for record in records):
         raise OpeningRangeExpansionError("candidate manifest file record is invalid")
-    record_paths = [str(record.get("path", "")) for record in records]
-    if record_paths != sorted(set(record_paths)):
+    if not all(
+        set(record) == {"identity", "path", "role", "sha256"}
+        for record in records
+    ):
+        raise OpeningRangeExpansionError("candidate manifest file record schema is invalid")
+    record_pairs = [(record.get("path"), record.get("role")) for record in records]
+    if record_pairs != sorted(EXPLORATORY_REQUIRED_ROLES.items()):
         raise OpeningRangeExpansionError(
-            "candidate manifest file inventory is duplicated or nondeterministic"
+            "candidate required role inventory changed"
         )
-    manifested_paths: set[str] = set()
+    artifacts_by_role: dict[str, Mapping[str, object]] = {}
+    expected_files = {"manifest.json"}
     for record in records:
         relative = Path(str(record.get("path", "")))
-        if relative.is_absolute() or ".." in relative.parts:
+        role = str(record.get("role", ""))
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or relative.suffix != ".json"
+            or relative.as_posix() not in EXPLORATORY_REQUIRED_ROLES
+            or EXPLORATORY_REQUIRED_ROLES[relative.as_posix()] != role
+        ):
             raise OpeningRangeExpansionError("unsafe candidate artifact path")
         artifact_path = (root / relative).resolve()
-        if not artifact_path.is_relative_to(root):
+        if (
+            not artifact_path.is_relative_to(root)
+            or not artifact_path.is_file()
+            or artifact_path.is_symlink()
+        ):
             raise OpeningRangeExpansionError("unsafe candidate artifact path")
         value = _strict_json(artifact_path)
         if not isinstance(value, Mapping):
             raise OpeningRangeExpansionError("candidate artifact schema is invalid")
         _require_candidate_specific_label(value, artifact_name=relative.as_posix())
-        if value.get("candidate_prohibited_claim_contract_identity") != (
-            candidate_prohibited_claim_contract_identity()
+        if (
+            value.get("candidate_prohibited_claim_contract_identity")
+            != candidate_prohibited_claim_contract_identity()
+            or value.get("candidate_required_inventory_contract_identity")
+            != candidate_required_inventory_contract_identity()
+            or value.get("candidate_artifact_role") != role
         ):
             raise OpeningRangeExpansionError(
-                "candidate prohibited-claim contract changed:"
+                "candidate verification contract changed:"
                 f"{relative.as_posix()}"
             )
         _reject_candidate_prohibited_claims(
             value, artifact_name=relative.as_posix()
         )
-        manifested_paths.add(relative.as_posix())
-    if "summary.json" not in manifested_paths:
-        raise OpeningRangeExpansionError("candidate summary is not manifested")
-    summary = _strict_json(root / "summary.json")
+        if _sha256(artifact_path) != record.get("sha256"):
+            raise OpeningRangeExpansionError("candidate artifact hash changed")
+        if value.get("identity") != record.get("identity"):
+            raise OpeningRangeExpansionError("candidate artifact identity changed")
+        if role in artifacts_by_role:
+            raise OpeningRangeExpansionError("candidate required role is duplicated")
+        artifacts_by_role[role] = value
+        expected_files.add(relative.as_posix())
+    actual_files = {
+        item.relative_to(root).as_posix() for item in root.rglob("*") if item.is_file()
+    }
+    if actual_files != expected_files:
+        raise OpeningRangeExpansionError("candidate closed inventory contains extra files")
+    result = artifacts_by_role["candidate_result"]
+    summary = artifacts_by_role["candidate_summary"]
+    run = artifacts_by_role["exploratory_run"]
+    for artifact_name, value, required_fields in (
+        (EXPLORATORY_RESULT_PATH, result, RESULT_REQUIRED_FIELDS),
+        ("summary.json", summary, SUMMARY_REQUIRED_FIELDS),
+        ("run.json", run, RUN_REQUIRED_FIELDS),
+    ):
+        if set(value) != required_fields:
+            raise OpeningRangeExpansionError(
+                f"candidate artifact schema changed:{artifact_name}"
+            )
     if (
         summary.get("schema_version") != EXPLORATORY_SUMMARY_SCHEMA
         or summary.get("labels") != list(LABELS)
@@ -1450,6 +1991,80 @@ def verify_opening_range_exploratory_bundle(path: Path) -> dict[str, object]:
         or summary.get("empirical_conclusion_authorized") is not False
     ):
         raise OpeningRangeExpansionError("exploratory summary boundary changed")
+    expected_run_identity = canonical_hash(
+        {
+            "domain": "aml.opening-range-expansion-exploratory-run.v001",
+            "config_identity": active_config["config_identity"],
+            "dataset_binding_identity": active_config["exploratory_dataset_binding"][
+                "binding_identity"
+            ],
+            "evidence_manifest_identity": evidence_verification["manifest_identity"],
+            "partitions": summary.get("partition_bindings"),
+            "source_sha256": summary.get("source_sha256"),
+        }
+    )
+    if not all(
+        item.get("run_identity") == expected_run_identity
+        for item in (manifest, result, summary, run)
+    ):
+        raise OpeningRangeExpansionError("candidate run lineage changed")
+    if (
+        manifest.get("plan_identity") != active_config["config_identity"]
+        or result.get("config_identity") != active_config["config_identity"]
+        or summary.get("config_identity") != active_config["config_identity"]
+        or run.get("config_identity") != active_config["config_identity"]
+        or result.get("dataset_binding_identity")
+        != active_config["exploratory_dataset_binding"]["binding_identity"]
+        or summary.get("dataset_binding_identity")
+        != result.get("dataset_binding_identity")
+        or run.get("dataset_binding_identity") != result.get("dataset_binding_identity")
+        or result.get("evidence_manifest_identity")
+        != evidence_verification["manifest_identity"]
+        or summary.get("evidence_binding", {}).get("evidence_manifest_identity")
+        != evidence_verification["manifest_identity"]
+        or run.get("evidence_manifest_identity")
+        != evidence_verification["manifest_identity"]
+    ):
+        raise OpeningRangeExpansionError("candidate authority lineage changed")
+    evidence_identities = evidence_verification["artifact_identities"]
+    expected_evidence_binding = {
+        "child_hypothesis_identity": evidence_identities["child_hypothesis"],
+        "conformance_identity": evidence_identities["conformance_evidence"],
+        "evidence_manifest_identity": evidence_verification["manifest_identity"],
+        "implementation_binding_identity": evidence_identities[
+            "implementation_binding"
+        ],
+        "preregistration_identity": evidence_identities["preregistration"],
+        "registration_identity": evidence_identities["executor_registration"],
+        "specification_identity": specification_identity(),
+    }
+    if (
+        result.get("hypothesis")
+        != {
+            "evaluator_binding": (
+                "aml.benchmark_candidate_opening_range_expansion_v001."
+                "evaluate_opening_range_expansion"
+            ),
+            "framework_hypothesis_identity": evidence_identities["child_hypothesis"],
+            "library_entry_id": CHILD_HYPOTHESIS_ID,
+            "registration_identity": evidence_identities["executor_registration"],
+        }
+        or result.get("implementation_binding_identity")
+        != evidence_identities["implementation_binding"]
+        or summary.get("evidence_binding") != expected_evidence_binding
+    ):
+        raise OpeningRangeExpansionError("candidate evidence lineage changed")
+    if (
+        summary.get("result_identity") != result.get("identity")
+        or summary.get("result_path") != EXPLORATORY_RESULT_PATH
+        or run.get("result_references")
+        != [{"path": EXPLORATORY_RESULT_PATH, "identity": result.get("identity")}]
+        or run.get("summary_reference")
+        != {"path": "summary.json", "identity": summary.get("identity")}
+        or run.get("counts") != result.get("counts")
+        or summary.get("counts") != result.get("counts")
+    ):
+        raise OpeningRangeExpansionError("candidate result-summary-run graph changed")
     verified = verify_bundle(root)
     _reject_prohibited_keys(summary)
     return verified

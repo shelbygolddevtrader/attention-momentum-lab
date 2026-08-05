@@ -17,7 +17,7 @@ global labels unchanged:
 - `NOT PRODUCTION`
 - `NOT CAPITAL ELIGIBLE`
 
-In addition, every candidate result, run summary, and manifest carries the
+In addition, every candidate result, summary, run artifact, and manifest carries the
 candidate-specific, identity-bound singleton field
 `candidate_specific_labels: ["NOT EMPIRICAL EVIDENCE"]`. This additive field
 does not rename or extend the frozen global label contract. The candidate
@@ -25,10 +25,12 @@ verifier requires the exact capitalization and spelling on every manifested
 artifact and rejects missing, synonymous, inconsistent, stale, or tampered
 values.
 
-The candidate also binds prohibited-claim contract
-`570f78c5fd89e9e7558ea46d11b700f06d45c37c2724e691da7aa8131edf06ab`
-to its configuration, result, summary, and manifest. The exact prohibited field
-vocabulary is:
+The candidate binds prohibited-claim contract
+`c2ab0ba48db8f912e648ae642b11d0d088a178177fda8e340c3a6ed6ad0f503c`
+and closed-inventory contract
+`5c16aa965099582a02c96c25323d617ca1f645a3054858667a96b1562f8f6cde`
+to its configuration, evidence, result, summary, run, and manifest. The exact
+prohibited field vocabulary is:
 
 - economic: `pnl`, `gross_pnl`, `net_pnl`, `realized_pnl`,
   `unrealized_pnl`, `profit`, `loss`, `expectancy`, `expected_value`,
@@ -57,13 +59,18 @@ vocabulary is:
 Keys are normalized deterministically with Unicode NFKC, camelCase and
 PascalCase boundary splitting, ASCII case folding, separator collapse, and an
 explicit relevant plural-token table. Verification uses exact normalized fields
-and explicit prohibited tokens; it does not use fuzzy matching. String values
-are scanned everywhere, including under unexpected wrappers and in nested
-sequences. Exact frozen negative labels and the non-empirical evidence-class
-value are the only permitted strings containing otherwise prohibited tokens.
+and contiguous exact token sequences; it does not use fuzzy matching. String
+values are checked for explicit affirmative claim phrases everywhere, including
+under unexpected wrappers and in nested sequences. Values under structured
+claim-bearing keys receive the stricter prohibited-term check. Isolated words
+such as `validation`, `edge`, or `production` are not claims by themselves, so
+negative and implementation-oriented prose remains valid. Direct assertions
+such as `Validation passed`, `This candidate has an empirical edge`, or `Ready
+for production` fail even in an engineering-observation field.
 
-The complete manifest object and every manifested artifact are scanned through
-all nested mappings and sequences before bundle acceptance. The only negative
+The complete configuration, evidence manifest, eight evidence artifacts,
+exploratory manifest, result, summary, and run artifact are scanned through all
+nested mappings and sequences before bundle acceptance. The only negative
 claim exceptions are the frozen `claim_flags` fields `capital_eligible`,
 `empirical_evidence`, `holdout`, `production`, and `validation`, each requiring
 the exact value `false`, plus the summary fields `economic_metrics_published`
@@ -72,6 +79,19 @@ affirmative value fails closed. The scanner applies independently of labels and
 hashes:
 
 > A fully rehashed prohibited claim remains prohibited.
+
+The evidence inventory is closed at exactly eight fixed role/path pairs:
+observation, child hypothesis, triage, specification, implementation binding,
+conformance evidence, executor registration, and their evidence manifest. The
+exploratory inventory is closed at exactly one candidate result, one candidate
+summary, one run artifact, and their manifest. Every inventory record binds the
+exact role, path, content identity, and SHA-256. Result, summary, run, config,
+dataset, implementation, and evidence identities reconcile across the graph.
+Deleting, renaming, duplicating, replacing, or adding a file fails even after a
+complete canonical rehash:
+
+> A hash-consistent bundle is incomplete unless every required canonical role
+> is present exactly once.
 
 Economic metrics—including P&L, returns, expectancy, profit factor, Sharpe, and
 win rate—are recursively prohibited from the published bundle. The exercise
@@ -182,16 +202,18 @@ made 2,125 causal decision evaluations. It recorded:
 
 These counts are engineering diagnostics only. They say that the implementation
 triggers and reconciles under this bounded contaminated input; they say nothing
-about economic quality. The write-once run identity is
-`7cc0d67b68a2d21a47d030f00a96cd236c777631fde8bb8efb39f3e2ef367b9e`
+about economic quality. The corrected write-once run identity is
+`230aa3c08d41b89cccff2d3bb9c56a157f4070168946dcc076653daff1f0476f`
 and its manifest identity is
-`783031da7d6f369feb3cf5e2e53c0124bc178e5e19b74ef0976ba8cec19d00cb`.
+`3a288d4781138ff39773a665438379d4e9b007b34a158c13a4fefc06e74c830e`.
 The candidate result identity is
-`2bf0ad58926f01f8d00ddb9f1f5bda61b543db33630cc51c784df44f3a540126`
+`102ba9b52280f52415decf9ef0cb894307457f5369081a7e4728179c4f879b78`
 and the run-summary identity is
-`6517f0901c7ccbb2ad1d3e7aa73bfa19cf46214ca1cf6cdd81c72add6322eeca`.
+`2e5b38a0384e1f7f54c47508f9baad83e6f3b3fce35ea38161d5de05eb52361d`.
+The explicit run-artifact identity is
+`07d9c81216af3936b4ec5d3dbc64599619631d64c10ef7134cf0f11c6ae3ef98`.
 The run binds evidence manifest
-`0ee1a4dfd9d1ecd3bef9a92dc09f475d4af1aa236d120f408c4a6f5889459a41`
+`7533ce919759811777083250595c1463a28cc4d2ead5816cb4e2da0604681dc8`
 and its exact child, preregistration, implementation, conformance, and executor
 registration identities.
 Independent runs under `PYTHONHASHSEED=1, TZ=UTC` and

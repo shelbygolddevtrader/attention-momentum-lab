@@ -5,6 +5,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import shutil
 from types import SimpleNamespace
 
 import pytest
@@ -32,6 +33,7 @@ from aml.exploratory_research_mode_v001 import (
 )
 from aml.opening_range_expansion_continuation_v001 import (
     CANDIDATE_PROHIBITED_FIELDS,
+    CANDIDATE_SAFE_ENGINEERING_PROSE,
     CANDIDATE_SPECIFIC_LABEL,
     CANDIDATE_SPECIFIC_LABELS,
     DATASET_VINTAGE,
@@ -43,6 +45,8 @@ from aml.opening_range_expansion_continuation_v001 import (
     _source_hashes,
     build_evidence,
     candidate_prohibited_claim_contract_identity,
+    candidate_required_inventory_contract,
+    candidate_required_inventory_contract_identity,
     finalize_config,
     load_config,
     normalize_candidate_claim_name,
@@ -128,6 +132,7 @@ def _rehash_artifact_and_manifest(output: Path, artifact_name: str) -> None:
     manifest_path = output / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     record = next(item for item in manifest["files"] if item["path"] == artifact_name)
+    record["identity"] = value["identity"]
     record["sha256"] = hashlib.sha256(artifact.read_bytes()).hexdigest()
     manifest["identity"] = canonical_hash(
         {key: item for key, item in manifest.items() if key != "identity"}
@@ -137,6 +142,39 @@ def _rehash_artifact_and_manifest(output: Path, artifact_name: str) -> None:
 
 def _rehash_manifest(output: Path) -> None:
     path = output / "manifest.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["identity"] = canonical_hash(
+        {key: item for key, item in value.items() if key != "identity"}
+    )
+    path.write_bytes(canonical_json(value))
+
+
+def _evidence_copy(tmp_path: Path, *, name: str) -> Path:
+    target = tmp_path / name
+    shutil.copytree(ROOT / "manifests/opening_range_expansion_continuation_v001", target)
+    return target
+
+
+def _rehash_evidence_artifact(root: Path, artifact_name: str) -> None:
+    artifact = root / artifact_name
+    value = json.loads(artifact.read_text(encoding="utf-8"))
+    value["identity"] = canonical_hash(
+        {key: item for key, item in value.items() if key != "identity"}
+    )
+    artifact.write_bytes(canonical_json(value))
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    record = next(item for item in manifest["files"] if item["path"] == artifact_name)
+    record["identity"] = value["identity"]
+    record["sha256"] = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    manifest["identity"] = canonical_hash(
+        {key: item for key, item in manifest.items() if key != "identity"}
+    )
+    manifest_path.write_bytes(canonical_json(manifest))
+
+
+def _rehash_evidence_manifest(root: Path) -> None:
+    path = root / "manifest.json"
     value = json.loads(path.read_text(encoding="utf-8"))
     value["identity"] = canonical_hash(
         {key: item for key, item in value.items() if key != "identity"}
@@ -172,10 +210,13 @@ def test_specification_and_config_identities_are_frozen() -> None:
         "13611f02dcb749c0f8f13ffae5485dfa87df8b469baf9e59044c9d4b698a5494"
     )
     assert config["config_identity"] == (
-        "a8074fc2cc5836e81d53e7a7e1d543cc474e31614a4a26822fb634894441b8b5"
+        "baea73f4e62bd8a11340b05e5b6964e75651d9b18ca7e8e7b9b440800a91c1df"
     )
     assert config["candidate_prohibited_claim_contract_identity"] == (
-        "570f78c5fd89e9e7558ea46d11b700f06d45c37c2724e691da7aa8131edf06ab"
+        "c2ab0ba48db8f912e648ae642b11d0d088a178177fda8e340c3a6ed6ad0f503c"
+    )
+    assert config["candidate_required_inventory_contract_identity"] == (
+        "5c16aa965099582a02c96c25323d617ca1f645a3054858667a96b1562f8f6cde"
     )
     assert config["exploratory_dataset_binding"]["binding_identity"] == (
         "21c33ab375b57f4b9b3804068c5dedd56321befa47cbdb44fec5e0cb23bcd17c"
@@ -294,6 +335,18 @@ def test_evidence_chain_is_complete_and_reconciled() -> None:
         "07-conformance.json",
         "08-executor-registration.json",
     ]
+    assert evidence["06-implementation-binding.json"]["identity"] == (
+        "8a372dcc3fe647ba1efe9ca485d9fdc7cff5cbfc699a0ba001c46eb954f3fbdb"
+    )
+    assert evidence["07-conformance.json"]["identity"] == (
+        "56c57f587ef5a19a590cb844a5a93a9bd644785a00f6e61b140a4c27a00c47cb"
+    )
+    assert evidence["08-executor-registration.json"]["identity"] == (
+        "cae99c0b523c19280f16925d44cdd5637645594e8b8f2846f8fcb658f5e1b361"
+    )
+    assert _evidence_manifest(evidence)["identity"] == (
+        "7533ce919759811777083250595c1463a28cc4d2ead5816cb4e2da0604681dc8"
+    )
     preregistration = evidence["05-preregistration.json"]["payload"]
     assert preregistration["permitted_empirical_dataset_identities"] == []
     assert preregistration["research_definitions_locked"] is True
@@ -699,7 +752,7 @@ def test_every_manifested_candidate_artifact_is_scanned(
     manifest["files"] = sorted(manifest["files"], key=lambda item: item["path"])
     manifest_path.write_bytes(canonical_json(manifest))
     _rehash_manifest(output)
-    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
+    with pytest.raises(OpeningRangeExpansionError, match="candidate manifest"):
         verify_opening_range_exploratory_bundle(output)
 
 
@@ -864,6 +917,193 @@ def test_exploratory_bundle_rejects_prohibited_metric_tampering(
     )
     summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
     summary["net_pnl"] = 1
-    (output / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    (output / "summary.json").write_bytes(canonical_json(summary))
+    _rehash_artifact_and_manifest(output, "summary.json")
     with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
         verify_opening_range_exploratory_bundle(output)
+
+
+def test_required_inventory_contract_is_closed_and_identity_bound() -> None:
+    contract = candidate_required_inventory_contract()
+    assert contract["closed_inventory"] is True
+    assert contract["optional_roles"] == []
+    assert {item["role"] for item in contract["exploratory_publication"]} == {
+        "candidate_result",
+        "candidate_summary",
+        "exploratory_run",
+    }
+    assert len(contract["evidence"]) == 8
+    assert candidate_required_inventory_contract_identity() == (
+        _config()["candidate_required_inventory_contract_identity"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("artifact_name", "retain_record"),
+    [
+        (f"01-{CHILD_HYPOTHESIS_ID}.json", False),
+        (f"01-{CHILD_HYPOTHESIS_ID}.json", True),
+        ("summary.json", False),
+        ("run.json", False),
+    ],
+)
+def test_fully_rehashed_missing_required_exploratory_role_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    artifact_name: str,
+    retain_record: bool,
+) -> None:
+    output = _publish_stub_bundle(
+        tmp_path,
+        monkeypatch,
+        name=f"missing-{artifact_name.split('.')[0]}-{retain_record}",
+    )
+    (output / artifact_name).unlink()
+    if not retain_record:
+        manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+        manifest["files"] = [
+            item for item in manifest["files"] if item["path"] != artifact_name
+        ]
+        (output / "manifest.json").write_bytes(canonical_json(manifest))
+        _rehash_manifest(output)
+    with pytest.raises(OpeningRangeExpansionError):
+        verify_opening_range_exploratory_bundle(output)
+
+
+@pytest.mark.parametrize(
+    "artifact_name",
+    [
+        "06-implementation-binding.json",
+        "07-conformance.json",
+        "08-executor-registration.json",
+    ],
+)
+def test_fully_rehashed_missing_required_evidence_role_fails(
+    tmp_path: Path, artifact_name: str
+) -> None:
+    evidence = _evidence_copy(tmp_path, name=f"missing-{artifact_name}")
+    (evidence / artifact_name).unlink()
+    manifest = json.loads((evidence / "manifest.json").read_text(encoding="utf-8"))
+    manifest["files"] = [
+        item for item in manifest["files"] if item["path"] != artifact_name
+    ]
+    (evidence / "manifest.json").write_bytes(canonical_json(manifest))
+    _rehash_evidence_manifest(evidence)
+    with pytest.raises(OpeningRangeExpansionError, match="required role inventory"):
+        verify_evidence_directory(evidence, repository_root=ROOT, config=_config())
+
+
+def test_duplicate_renamed_replaced_and_unlisted_artifacts_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for case in ("duplicate", "renamed", "replaced", "unlisted"):
+        output = _publish_stub_bundle(tmp_path, monkeypatch, name=f"inventory-{case}")
+        manifest_path = output / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        result_name = f"01-{CHILD_HYPOTHESIS_ID}.json"
+        if case == "duplicate":
+            manifest["files"].append(copy.deepcopy(manifest["files"][0]))
+            manifest["files"] = sorted(manifest["files"], key=lambda item: item["path"])
+        elif case == "renamed":
+            next(item for item in manifest["files"] if item["path"] == result_name)[
+                "role"
+            ] = "renamed_result"
+        elif case == "replaced":
+            result = output / result_name
+            result.write_bytes((output / "summary.json").read_bytes())
+            record = next(item for item in manifest["files"] if item["path"] == result_name)
+            replacement = json.loads(result.read_text(encoding="utf-8"))
+            record["identity"] = replacement["identity"]
+            record["sha256"] = hashlib.sha256(result.read_bytes()).hexdigest()
+        else:
+            (output / "unlisted.json").write_bytes(canonical_json({"diagnostic": 1}))
+        manifest_path.write_bytes(canonical_json(manifest))
+        _rehash_manifest(output)
+        with pytest.raises(OpeningRangeExpansionError):
+            verify_opening_range_exploratory_bundle(output)
+
+
+@pytest.mark.parametrize(
+    ("artifact_name", "payload"),
+    [
+        ("06-implementation-binding.json", {"net_pnl": 1}),
+        ("07-conformance.json", {"net_pnl": 1}),
+        ("08-executor-registration.json", {"net_pnl": 1}),
+        ("07-conformance.json", {"statistical_significance": True}),
+        ("06-implementation-binding.json", {"validation_passed": True}),
+        ("08-executor-registration.json", {"deployment_ready": True}),
+        ("07-conformance.json", {"metadata": {"claims": {"empirical_edge": True}}}),
+    ],
+)
+def test_fully_rehashed_evidence_layer_claim_fails_semantically(
+    tmp_path: Path, artifact_name: str, payload: dict[str, object]
+) -> None:
+    evidence = _evidence_copy(
+        tmp_path,
+        name=f"claim-{artifact_name}-{canonical_hash(payload)[:8]}",
+    )
+    artifact = evidence / artifact_name
+    value = json.loads(artifact.read_text(encoding="utf-8"))
+    value["payload"].update(payload)
+    artifact.write_bytes(canonical_json(value))
+    _rehash_evidence_artifact(evidence, artifact_name)
+    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
+        verify_evidence_directory(evidence, repository_root=ROOT, config=_config())
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"net_pnl": 1},
+        {"capital_allocation_recommended": True},
+    ],
+)
+def test_fully_rehashed_evidence_manifest_claim_fails_semantically(
+    tmp_path: Path, payload: dict[str, object]
+) -> None:
+    evidence = _evidence_copy(tmp_path, name=f"manifest-claim-{canonical_hash(payload)[:8]}")
+    manifest_path = evidence / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.update(payload)
+    manifest_path.write_bytes(canonical_json(manifest))
+    _rehash_evidence_manifest(evidence)
+    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
+        verify_evidence_directory(evidence, repository_root=ROOT, config=_config())
+
+
+def test_fully_rehashed_run_claim_fails_semantically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="run-net-pnl")
+    run_path = output / "run.json"
+    run = json.loads(run_path.read_text(encoding="utf-8"))
+    run["net_pnl"] = 1
+    run_path.write_bytes(canonical_json(run))
+    _rehash_artifact_and_manifest(output, "run.json")
+    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+@pytest.mark.parametrize("sentence", sorted(CANDIDATE_SAFE_ENGINEERING_PROSE))
+def test_safe_engineering_prose_is_not_a_claim(sentence: str) -> None:
+    _reject_candidate_prohibited_claims(
+        {"qualitative_engineering_observations": [sentence]},
+        artifact_name="synthetic.json",
+    )
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "This candidate has an empirical edge.",
+        "Validation passed.",
+        "Ready for production.",
+        "Capital allocation is recommended.",
+    ],
+)
+def test_affirmative_claim_hidden_in_observation_is_rejected(sentence: str) -> None:
+    with pytest.raises(OpeningRangeExpansionError, match="claim value"):
+        _reject_candidate_prohibited_claims(
+            {"qualitative_engineering_observations": [sentence]},
+            artifact_name="synthetic.json",
+        )
