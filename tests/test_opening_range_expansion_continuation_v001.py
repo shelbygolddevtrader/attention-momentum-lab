@@ -25,8 +25,13 @@ from aml.benchmark_candidate_opening_range_expansion_v001 import (
 )
 from aml.benchmark_hypothesis_library_v001 import load_library
 from aml.benchmark_strategy_research_v001 import canonical_hash, canonical_json
-from aml.exploratory_research_mode_v001 import LABELS, ExploratoryResearchError
+from aml.exploratory_research_mode_v001 import (
+    LABELS,
+    ExploratoryResearchError,
+    verify_bundle,
+)
 from aml.opening_range_expansion_continuation_v001 import (
+    CANDIDATE_PROHIBITED_FIELDS,
     CANDIDATE_SPECIFIC_LABEL,
     CANDIDATE_SPECIFIC_LABELS,
     DATASET_VINTAGE,
@@ -34,10 +39,13 @@ from aml.opening_range_expansion_continuation_v001 import (
     FROZEN_SPECIFICATION,
     OpeningRangeExpansionError,
     _evidence_manifest,
+    _reject_candidate_prohibited_claims,
     _source_hashes,
     build_evidence,
+    candidate_prohibited_claim_contract_identity,
     finalize_config,
     load_config,
+    normalize_candidate_claim_name,
     run_bounded_exploratory,
     specification_identity,
     validate_config,
@@ -164,7 +172,10 @@ def test_specification_and_config_identities_are_frozen() -> None:
         "13611f02dcb749c0f8f13ffae5485dfa87df8b469baf9e59044c9d4b698a5494"
     )
     assert config["config_identity"] == (
-        "7c1e5f8327a742f64bd8d12ffadf468efd0c28890027d03a64a88cf578969126"
+        "a8074fc2cc5836e81d53e7a7e1d543cc474e31614a4a26822fb634894441b8b5"
+    )
+    assert config["candidate_prohibited_claim_contract_identity"] == (
+        "570f78c5fd89e9e7558ea46d11b700f06d45c37c2724e691da7aa8131edf06ab"
     )
     assert config["exploratory_dataset_binding"]["binding_identity"] == (
         "21c33ab375b57f4b9b3804068c5dedd56321befa47cbdb44fec5e0cb23bcd17c"
@@ -383,6 +394,9 @@ def test_exploratory_bundle_is_write_once_and_non_economic(
         assert value["candidate_specific_labels"] == list(
             CANDIDATE_SPECIFIC_LABELS
         )
+        assert value["candidate_prohibited_claim_contract_identity"] == (
+            candidate_prohibited_claim_contract_identity()
+        )
         for prohibited in (
             '"expectancy"',
             '"gross_pnl"',
@@ -471,6 +485,281 @@ def test_duplicate_candidate_label_is_rejected(
         verify_opening_range_exploratory_bundle(output)
 
 
+def test_candidate_prohibited_contract_covers_required_fields() -> None:
+    required = {
+        "alpha",
+        "annualized_return",
+        "authorized_empirical_evidence",
+        "average_loss",
+        "average_win",
+        "beta",
+        "broker_ready",
+        "buy_recommendation",
+        "cagr",
+        "calmar",
+        "capital_allocation",
+        "capital_allocation_recommended",
+        "capital_efficiency",
+        "capital_eligible",
+        "confidence_interval",
+        "deployment_ready",
+        "drawdown",
+        "edge",
+        "empirical_edge",
+        "empirical_evidence",
+        "evidence_of_edge",
+        "expectancy",
+        "expected_value",
+        "gross_pnl",
+        "holdout_passed",
+        "information_ratio",
+        "invest",
+        "live_trading_ready",
+        "loss",
+        "loss_rate",
+        "max_drawdown",
+        "maximum_drawdown",
+        "net_pnl",
+        "out_of_sample_passed",
+        "paper_trading_ready",
+        "payoff_ratio",
+        "pnl",
+        "position_size_recommendation",
+        "production_ready",
+        "profit",
+        "profit_factor",
+        "profitability",
+        "profitable",
+        "p_value",
+        "ready_for_production",
+        "realized_pnl",
+        "recommended_capital",
+        "repeatable_edge",
+        "return",
+        "returns",
+        "risk_adjusted_return",
+        "robust",
+        "robustness",
+        "sell_recommendation",
+        "sharpe",
+        "sharpe_ratio",
+        "sortino",
+        "sortino_ratio",
+        "statistical_significance",
+        "statistically_significant",
+        "total_return",
+        "trade_recommendation",
+        "t_stat",
+        "unrealized_pnl",
+        "validated",
+        "validation_passed",
+        "volatility",
+        "win_rate",
+    }
+    assert required <= CANDIDATE_PROHIBITED_FIELDS
+
+
+@pytest.mark.parametrize(
+    ("variant", "normalized"),
+    [
+        ("profitFactor", "profit_factor"),
+        ("Maximum Drawdown", "maximum_drawdown"),
+        ("sharpe-ratio", "sharpe_ratio"),
+        ("validationPassed", "validation_passed"),
+        ("ProductionReady", "production_ready"),
+        ("TOTAL RETURNS", "total_return"),
+        ("CapitalEfficiencies", "capital_efficiency"),
+    ],
+)
+def test_candidate_claim_normalization_is_explicit_and_deterministic(
+    variant: str, normalized: str
+) -> None:
+    assert normalize_candidate_claim_name(variant) == normalized
+
+
+@pytest.mark.parametrize("field", sorted(CANDIDATE_PROHIBITED_FIELDS))
+def test_every_explicit_candidate_claim_field_is_rejected(field: str) -> None:
+    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
+        _reject_candidate_prohibited_claims(
+            {field: "SYNTHETIC_HOSTILE_FIELD"}, artifact_name="synthetic.json"
+        )
+
+
+@pytest.mark.parametrize(
+    ("artifact_kind", "hostile_payload"),
+    [
+        ("manifest", {"net_pnl": "SYNTHETIC_HOSTILE_FIELD"}),
+        ("manifest", {"maximum_drawdown": "SYNTHETIC_HOSTILE_FIELD"}),
+        ("result", {"capital_efficiency": "SYNTHETIC_HOSTILE_FIELD"}),
+        (
+            "summary",
+            {"metadata": {"statistical_significance": True}},
+        ),
+        ("summary", {"deployment_ready": True}),
+        ("manifest", {"capital_allocation_recommended": True}),
+        ("result", {"profitFactor": "SYNTHETIC_HOSTILE_FIELD"}),
+        ("manifest", {"Maximum Drawdown": "SYNTHETIC_HOSTILE_FIELD"}),
+        ("summary", {"sharpe-ratio": "SYNTHETIC_HOSTILE_FIELD"}),
+        ("result", {"validationPassed": True}),
+        ("summary", {"productionReady": True}),
+        ("result", {"claims": {"empirical_edge": True}}),
+        ("summary", {"diagnostics": [{"p_value": "0.01"}]}),
+        (
+            "summary",
+            {"optional_metadata": {"capital_efficiency": "synthetic"}},
+        ),
+        (
+            "result",
+            {"claims": [{"validated": False}, {"validated": True}]},
+        ),
+    ],
+)
+def test_fully_rehashed_hostile_claim_matrix_fails_semantically(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    artifact_kind: str,
+    hostile_payload: dict[str, object],
+) -> None:
+    case = canonical_hash(
+        {"artifact_kind": artifact_kind, "payload": hostile_payload}
+    )[:12]
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name=f"claims-{case}")
+    artifact_name = (
+        next(output.glob("01-*.json")).name
+        if artifact_kind == "result"
+        else f"{artifact_kind}.json"
+    )
+    path = output / artifact_name
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value.update(hostile_payload)
+    path.write_bytes(canonical_json(value))
+    if artifact_kind == "manifest":
+        _rehash_manifest(output)
+    else:
+        _rehash_artifact_and_manifest(output, artifact_name)
+    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"claims": {"assertion": "This candidate is profitable"}},
+        {"unexpected_wrapper": "deployment ready"},
+        {"nested": [{"arbitrary_note": "statistically significant"}]},
+    ],
+)
+def test_claim_value_hidden_under_unexpected_wrapper_is_rejected(
+    payload: dict[str, object],
+) -> None:
+    with pytest.raises(OpeningRangeExpansionError, match="claim value"):
+        _reject_candidate_prohibited_claims(
+            payload, artifact_name="synthetic.json"
+        )
+
+
+def test_complete_fully_rehashed_hostile_bundle_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="complete-rehash")
+    for path in [next(output.glob("01-*.json")), output / "summary.json"]:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["claims"] = {"empirical_edge": True}
+        path.write_bytes(canonical_json(value))
+        _rehash_artifact_and_manifest(output, path.name)
+    manifest_path = output / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["claims"] = {"empirical_edge": True}
+    manifest_path.write_bytes(canonical_json(manifest))
+    _rehash_manifest(output)
+    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_every_manifested_candidate_artifact_is_scanned(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="derived-artifact")
+    source = next(output.glob("01-*.json"))
+    derived = output / "02-derived-diagnostic.json"
+    value = json.loads(source.read_text(encoding="utf-8"))
+    value["optional_metadata"] = {"capital_efficiency": "synthetic"}
+    value["identity"] = canonical_hash(
+        {key: item for key, item in value.items() if key != "identity"}
+    )
+    derived.write_bytes(canonical_json(value))
+    manifest_path = output / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"].append(
+        {
+            "path": derived.name,
+            "sha256": hashlib.sha256(derived.read_bytes()).hexdigest(),
+        }
+    )
+    manifest["files"] = sorted(manifest["files"], key=lambda item: item["path"])
+    manifest_path.write_bytes(canonical_json(manifest))
+    _rehash_manifest(output)
+    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_candidate_verifier_closes_frozen_global_manifest_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="global-gap")
+    manifest_path = output / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["maximum_drawdown"] = "SYNTHETIC_HOSTILE_FIELD"
+    manifest_path.write_bytes(canonical_json(manifest))
+    _rehash_manifest(output)
+    assert verify_bundle(output)["verified"] is True
+    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_negative_claim_flags_are_allowed_only_as_exact_false_boundaries() -> None:
+    valid = {
+        "claim_flags": {
+            "capital_eligible": False,
+            "empirical_evidence": False,
+            "holdout": False,
+            "production": False,
+            "validation": False,
+        }
+    }
+    _reject_candidate_prohibited_claims(valid, artifact_name="synthetic.json")
+    invalid = copy.deepcopy(valid)
+    invalid["claim_flags"]["capital_eligible"] = True
+    with pytest.raises(OpeningRangeExpansionError, match="became affirmative"):
+        _reject_candidate_prohibited_claims(invalid, artifact_name="synthetic.json")
+
+
+def test_legitimate_diagnostic_fields_remain_allowed() -> None:
+    _reject_candidate_prohibited_claims(
+        {
+            "partitions_inspected": 125,
+            "warm_up_partitions": 100,
+            "evaluated_partitions": 25,
+            "causal_decisions": 2125,
+            "no_signal_counts": 1948,
+            "no_signal_reasons": {"threshold_not_met": 1948},
+            "trigger_count": 177,
+            "proposal_count": 177,
+            "completed_lifecycle_count": 10,
+            "rejection_count": 167,
+            "unavailable_counts": 0,
+            "unavailable_reasons": {},
+            "integrity_failure_count": 0,
+            "implementation_anomalies": [],
+            "missing_data_summary": {},
+            "qualitative_engineering_observations": ["No anomaly observed."],
+            "contamination_labels": list(LABELS),
+            "non_evidence_labels": list(CANDIDATE_SPECIFIC_LABELS),
+        },
+        artifact_name="synthetic.json",
+    )
+
+
 def test_prose_only_candidate_label_is_rejected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -512,7 +801,7 @@ def test_label_tampering_cannot_retain_identity_or_hash(
         {key: item for key, item in value.items() if key != "identity"}
     ) != old_identity
     artifact.write_bytes(canonical_json(value))
-    with pytest.raises(ExploratoryResearchError, match="hash mismatch"):
+    with pytest.raises(OpeningRangeExpansionError, match="label changed"):
         verify_opening_range_exploratory_bundle(output)
 
 
@@ -576,5 +865,5 @@ def test_exploratory_bundle_rejects_prohibited_metric_tampering(
     summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
     summary["net_pnl"] = 1
     (output / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
-    with pytest.raises(ExploratoryResearchError):
+    with pytest.raises(OpeningRangeExpansionError, match="prohibited candidate claim"):
         verify_opening_range_exploratory_bundle(output)

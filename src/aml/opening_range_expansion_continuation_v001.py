@@ -17,6 +17,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+import unicodedata
 from zoneinfo import ZoneInfo
 
 from aml.benchmark_candidate_opening_range_expansion_v001 import (
@@ -86,6 +87,163 @@ EVIDENCE_MANIFEST_SCHEMA = "aml.opening-range-expansion-evidence-manifest.v001"
 EXPLORATORY_SUMMARY_SCHEMA = "aml.exploratory-research-summary.v001"
 CANDIDATE_SPECIFIC_LABEL = "NOT EMPIRICAL EVIDENCE"
 CANDIDATE_SPECIFIC_LABELS = (CANDIDATE_SPECIFIC_LABEL,)
+CANDIDATE_PROHIBITED_CLAIM_SCHEMA = (
+    "aml.opening-range-expansion-prohibited-claims.v001"
+)
+CANDIDATE_PROHIBITED_FIELDS = frozenset(
+    {
+        "alpha",
+        "annualized_return",
+        "authorized_empirical_evidence",
+        "average_loss",
+        "average_win",
+        "beta",
+        "broker_ready",
+        "buy_recommendation",
+        "cagr",
+        "calmar",
+        "capital_allocation",
+        "capital_allocation_recommended",
+        "capital_efficiency",
+        "capital_eligible",
+        "confidence_interval",
+        "deployment_ready",
+        "drawdown",
+        "edge",
+        "empirical_edge",
+        "empirical_evidence",
+        "evidence_of_edge",
+        "expectancy",
+        "expected_value",
+        "gross_pnl",
+        "holdout_passed",
+        "information_ratio",
+        "invest",
+        "live_trading_ready",
+        "loss",
+        "loss_rate",
+        "max_drawdown",
+        "maximum_drawdown",
+        "net_pnl",
+        "out_of_sample_passed",
+        "paper_trading_ready",
+        "payoff_ratio",
+        "pnl",
+        "p_value",
+        "position_size_recommendation",
+        "production_ready",
+        "profit",
+        "profit_factor",
+        "profitability",
+        "profitable",
+        "ready_for_production",
+        "realized_pnl",
+        "recommended_capital",
+        "recommendation",
+        "repeatable_edge",
+        "return",
+        "returns",
+        "risk_adjusted_return",
+        "robust",
+        "robustness",
+        "sell_recommendation",
+        "sharpe",
+        "sharpe_ratio",
+        "sortino",
+        "sortino_ratio",
+        "statistical_significance",
+        "statistically_significant",
+        "total_return",
+        "trade_recommendation",
+        "t_stat",
+        "unrealized_pnl",
+        "validated",
+        "validation_passed",
+        "volatility",
+        "win_rate",
+    }
+)
+CANDIDATE_PROHIBITED_KEY_TOKENS = frozenset(
+    {
+        "alpha",
+        "beta",
+        "calmar",
+        "capital",
+        "cagr",
+        "deployment",
+        "drawdown",
+        "economic",
+        "edge",
+        "empirical",
+        "expectancy",
+        "holdout",
+        "invest",
+        "live",
+        "loss",
+        "paper",
+        "payoff",
+        "pnl",
+        "production",
+        "profit",
+        "profitability",
+        "profitable",
+        "recommendation",
+        "return",
+        "robust",
+        "robustness",
+        "sharpe",
+        "sortino",
+        "statistical",
+        "statistically",
+        "validated",
+        "validation",
+        "volatility",
+        "win",
+    }
+)
+CANDIDATE_CLAIM_CONTEXT_KEYS = frozenset(
+    {
+        "assessment",
+        "claim",
+        "claims",
+        "classification",
+        "conclusion",
+        "decision",
+        "recommendation",
+        "status",
+    }
+)
+CANDIDATE_PROHIBITED_CLAIM_VALUE_TOKENS = frozenset(
+    set(CANDIDATE_PROHIBITED_KEY_TOKENS)
+    | {"broker", "empirical", "significant"}
+)
+CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES = {
+    ("claim_flags", "capital_eligible"): False,
+    ("claim_flags", "empirical_evidence"): False,
+    ("claim_flags", "holdout"): False,
+    ("claim_flags", "production"): False,
+    ("claim_flags", "validation"): False,
+    ("economic_metrics_published",): False,
+    ("empirical_conclusion_authorized",): False,
+}
+CANDIDATE_PERMITTED_NEGATIVE_CLAIM_STRINGS = frozenset(
+    (*LABELS, CANDIDATE_SPECIFIC_LABEL, EVIDENCE_CLASS)
+)
+_CAMEL_ACRONYM_BOUNDARY = re.compile(r"([A-Z]+)([A-Z][a-z])")
+_CAMEL_WORD_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
+_NON_ALPHANUMERIC = re.compile(r"[^0-9A-Za-z]+")
+_TOKEN_ALIASES = {
+    "drawdowns": "drawdown",
+    "edges": "edge",
+    "efficiencies": "efficiency",
+    "intervals": "interval",
+    "losses": "loss",
+    "profits": "profit",
+    "ratios": "ratio",
+    "recommendations": "recommendation",
+    "returns": "return",
+    "wins": "win",
+}
 HASH = re.compile(r"^[0-9a-f]{64}$")
 LIBRARY_IDENTITY = "6d9b4c8f1f279805240ac53c01de98906fb6c7853121a57350dff3395ae85003"
 DATASET_FINGERPRINT = "fe830c09317d3264fc8f73b2ab19ca1513d67d36dd367fbf4710c624940a959d"
@@ -336,6 +494,7 @@ def validate_config(value: Mapping[str, object], repository_root: Path) -> dict[
         "frozen_downstream_paths",
         "policy",
         "config_identity",
+        "candidate_prohibited_claim_contract_identity",
     }
     if not isinstance(value, Mapping) or set(value) != required:
         raise OpeningRangeExpansionError("campaign config schema is invalid")
@@ -343,6 +502,8 @@ def validate_config(value: Mapping[str, object], repository_root: Path) -> dict[
         value["schema_version"] != SCHEMA
         or value["milestone_version"] != MILESTONE_VERSION
         or value["specification_identity"] != specification_identity()
+        or value["candidate_prohibited_claim_contract_identity"]
+        != candidate_prohibited_claim_contract_identity()
     ):
         raise OpeningRangeExpansionError("campaign version or specification changed")
     if value["parent"] != {
@@ -940,6 +1101,119 @@ def _source_hashes(repository_root: Path) -> dict[str, str]:
     )
 
 
+def normalize_candidate_claim_name(value: str) -> str:
+    """Normalize reviewable key variants without fuzzy or substring matching."""
+
+    normalized = unicodedata.normalize("NFKC", value)
+    normalized = _CAMEL_ACRONYM_BOUNDARY.sub(r"\1_\2", normalized)
+    normalized = _CAMEL_WORD_BOUNDARY.sub(r"\1_\2", normalized)
+    tokens = [
+        _TOKEN_ALIASES.get(token, token)
+        for token in _NON_ALPHANUMERIC.sub("_", normalized).casefold().split("_")
+        if token
+    ]
+    return "_".join(tokens)
+
+
+def candidate_prohibited_claim_contract() -> dict[str, object]:
+    return {
+        "schema_version": CANDIDATE_PROHIBITED_CLAIM_SCHEMA,
+        "normalization": [
+            "Unicode NFKC normalization",
+            "camelCase and PascalCase boundary splitting",
+            "spaces, hyphens, underscores, and punctuation collapse to underscores",
+            "Unicode-independent ASCII case folding",
+            "explicit relevant plural-token aliases",
+            "exact normalized-field or prohibited-token matching; no fuzzy matching",
+        ],
+        "prohibited_fields": sorted(CANDIDATE_PROHIBITED_FIELDS),
+        "prohibited_key_tokens": sorted(CANDIDATE_PROHIBITED_KEY_TOKENS),
+        "claim_context_keys": sorted(CANDIDATE_CLAIM_CONTEXT_KEYS),
+        "prohibited_claim_value_tokens": sorted(
+            CANDIDATE_PROHIBITED_CLAIM_VALUE_TOKENS
+        ),
+        "negative_claim_allowances": [
+            {"path": ".".join(path), "required_value": required}
+            for path, required in sorted(CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES.items())
+        ],
+        "recursive_scope": [
+            "complete manifest object",
+            "every manifest file record",
+            "every manifested artifact",
+            "all nested mappings and sequences",
+            "all string values, with exact frozen negative-label allowances",
+        ],
+        "fully_rehashed_prohibited_claims_remain_prohibited": True,
+    }
+
+
+def candidate_prohibited_claim_contract_identity() -> str:
+    return canonical_hash(
+        {
+            "domain": CANDIDATE_PROHIBITED_CLAIM_SCHEMA,
+            "contract": candidate_prohibited_claim_contract(),
+        }
+    )
+
+
+def _candidate_key_is_prohibited(normalized: str) -> bool:
+    tokens = frozenset(normalized.split("_"))
+    return normalized in CANDIDATE_PROHIBITED_FIELDS or bool(
+        tokens & CANDIDATE_PROHIBITED_KEY_TOKENS
+    )
+
+
+def _reject_candidate_prohibited_claims(
+    value: object,
+    *,
+    artifact_name: str,
+    path: tuple[str, ...] = (),
+) -> None:
+    """Reject prohibited claim semantics regardless of hash consistency."""
+
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            normalized = normalize_candidate_claim_name(str(key))
+            child_path = (*path, normalized)
+            if child_path in CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES:
+                if item is not CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES[child_path]:
+                    raise OpeningRangeExpansionError(
+                        "candidate negative claim allowance became affirmative:"
+                        f"{artifact_name}:{'.'.join(child_path)}"
+                    )
+                continue
+            if _candidate_key_is_prohibited(normalized):
+                raise OpeningRangeExpansionError(
+                    "prohibited candidate claim field:"
+                    f"{artifact_name}:{'.'.join(child_path)}"
+                )
+            _reject_candidate_prohibited_claims(
+                item,
+                artifact_name=artifact_name,
+                path=child_path,
+            )
+    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        for index, item in enumerate(value):
+            _reject_candidate_prohibited_claims(
+                item,
+                artifact_name=artifact_name,
+                path=(*path, f"[{index}]"),
+            )
+    elif isinstance(value, str):
+        if value in CANDIDATE_PERMITTED_NEGATIVE_CLAIM_STRINGS:
+            return
+        normalized = normalize_candidate_claim_name(value)
+        tokens = frozenset(normalized.split("_"))
+        if (
+            normalized in CANDIDATE_PROHIBITED_FIELDS
+            or tokens & CANDIDATE_PROHIBITED_CLAIM_VALUE_TOKENS
+        ):
+            raise OpeningRangeExpansionError(
+                "prohibited candidate claim value:"
+                f"{artifact_name}:{'.'.join(path)}"
+            )
+
+
 def _require_candidate_specific_label(
     value: Mapping[str, object], *, artifact_name: str
 ) -> None:
@@ -1018,6 +1292,9 @@ def run_bounded_exploratory(
     )
     result_base = {key: value for key, value in base_result.items() if key != "identity"}
     result_base["candidate_specific_labels"] = list(CANDIDATE_SPECIFIC_LABELS)
+    result_base["candidate_prohibited_claim_contract_identity"] = (
+        candidate_prohibited_claim_contract_identity()
+    )
     result_base["partition_inspection"] = {
         "warmup_partition_count": len(WARMUP_SESSIONS) * len(SYMBOLS),
         "evaluated_partition_count": len(EVALUATION_SESSIONS) * len(SYMBOLS),
@@ -1052,6 +1329,9 @@ def run_bounded_exploratory(
             "schema_version": EXPLORATORY_SUMMARY_SCHEMA,
             "labels": list(LABELS),
             "candidate_specific_labels": list(CANDIDATE_SPECIFIC_LABELS),
+            "candidate_prohibited_claim_contract_identity": (
+                candidate_prohibited_claim_contract_identity()
+            ),
             "evidence_class": EVIDENCE_CLASS,
             "claim_ceiling": CLAIM_CEILING,
             "run_identity": run_identity,
@@ -1086,6 +1366,9 @@ def run_bounded_exploratory(
             "schema_version": MANIFEST_SCHEMA,
             "labels": list(LABELS),
             "candidate_specific_labels": list(CANDIDATE_SPECIFIC_LABELS),
+            "candidate_prohibited_claim_contract_identity": (
+                candidate_prohibited_claim_contract_identity()
+            ),
             "run_identity": run_identity,
             "plan_identity": config["config_identity"],
             "write_once": True,
@@ -1101,6 +1384,10 @@ def run_bounded_exploratory(
     return {
         "run_identity": run_identity,
         "manifest_identity": verified["manifest_identity"],
+        "candidate_specific_labels": list(CANDIDATE_SPECIFIC_LABELS),
+        "candidate_prohibited_claim_contract_identity": (
+            candidate_prohibited_claim_contract_identity()
+        ),
         "evidence_manifest_identity": evidence_manifest["identity"],
         "counts": counts,
         "partition_count": len(partition_records),
@@ -1111,16 +1398,47 @@ def run_bounded_exploratory(
 
 def verify_opening_range_exploratory_bundle(path: Path) -> dict[str, object]:
     root = Path(path).resolve()
-    verified = verify_bundle(root)
     manifest = _strict_json(root / "manifest.json")
     _require_candidate_specific_label(manifest, artifact_name="manifest.json")
+    if manifest.get("candidate_prohibited_claim_contract_identity") != (
+        candidate_prohibited_claim_contract_identity()
+    ):
+        raise OpeningRangeExpansionError(
+            "candidate prohibited-claim contract changed:manifest.json"
+        )
+    _reject_candidate_prohibited_claims(manifest, artifact_name="manifest.json")
+    records = manifest.get("files")
+    if not isinstance(records, list):
+        raise OpeningRangeExpansionError("candidate manifest file inventory is invalid")
+    if not all(isinstance(record, Mapping) for record in records):
+        raise OpeningRangeExpansionError("candidate manifest file record is invalid")
+    record_paths = [str(record.get("path", "")) for record in records]
+    if record_paths != sorted(set(record_paths)):
+        raise OpeningRangeExpansionError(
+            "candidate manifest file inventory is duplicated or nondeterministic"
+        )
     manifested_paths: set[str] = set()
-    for record in manifest.get("files", []):
+    for record in records:
         relative = Path(str(record.get("path", "")))
         if relative.is_absolute() or ".." in relative.parts:
             raise OpeningRangeExpansionError("unsafe candidate artifact path")
-        value = _strict_json(root / relative)
+        artifact_path = (root / relative).resolve()
+        if not artifact_path.is_relative_to(root):
+            raise OpeningRangeExpansionError("unsafe candidate artifact path")
+        value = _strict_json(artifact_path)
+        if not isinstance(value, Mapping):
+            raise OpeningRangeExpansionError("candidate artifact schema is invalid")
         _require_candidate_specific_label(value, artifact_name=relative.as_posix())
+        if value.get("candidate_prohibited_claim_contract_identity") != (
+            candidate_prohibited_claim_contract_identity()
+        ):
+            raise OpeningRangeExpansionError(
+                "candidate prohibited-claim contract changed:"
+                f"{relative.as_posix()}"
+            )
+        _reject_candidate_prohibited_claims(
+            value, artifact_name=relative.as_posix()
+        )
         manifested_paths.add(relative.as_posix())
     if "summary.json" not in manifested_paths:
         raise OpeningRangeExpansionError("candidate summary is not manifested")
@@ -1132,5 +1450,6 @@ def verify_opening_range_exploratory_bundle(path: Path) -> dict[str, object]:
         or summary.get("empirical_conclusion_authorized") is not False
     ):
         raise OpeningRangeExpansionError("exploratory summary boundary changed")
+    verified = verify_bundle(root)
     _reject_prohibited_keys(summary)
     return verified

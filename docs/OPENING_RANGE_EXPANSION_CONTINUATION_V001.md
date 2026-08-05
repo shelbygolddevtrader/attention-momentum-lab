@@ -25,6 +25,54 @@ verifier requires the exact capitalization and spelling on every manifested
 artifact and rejects missing, synonymous, inconsistent, stale, or tampered
 values.
 
+The candidate also binds prohibited-claim contract
+`570f78c5fd89e9e7558ea46d11b700f06d45c37c2724e691da7aa8131edf06ab`
+to its configuration, result, summary, and manifest. The exact prohibited field
+vocabulary is:
+
+- economic: `pnl`, `gross_pnl`, `net_pnl`, `realized_pnl`,
+  `unrealized_pnl`, `profit`, `loss`, `expectancy`, `expected_value`,
+  `profit_factor`, `return`, `returns`, `total_return`, `annualized_return`,
+  `cagr`, `win_rate`, `loss_rate`, `payoff_ratio`, `average_win`, and
+  `average_loss`;
+- risk and performance: `drawdown`, `maximum_drawdown`, `max_drawdown`,
+  `volatility`, `sharpe`, `sharpe_ratio`, `sortino`, `sortino_ratio`, `calmar`,
+  `information_ratio`, `alpha`, `beta`, `capital_efficiency`, and
+  `risk_adjusted_return`;
+- statistical and edge claims: `statistical_significance`,
+  `statistically_significant`, `p_value`, `t_stat`, `confidence_interval`,
+  `edge`, `empirical_edge`, `profitable`, `profitability`, `robust`,
+  `robustness`, and `repeatable_edge`;
+- evidence claims: `validation_passed`, `validated`, `holdout_passed`,
+  `out_of_sample_passed`, `empirical_evidence`,
+  `authorized_empirical_evidence`, and `evidence_of_edge`;
+- deployment claims: `deployment_ready`, `production_ready`,
+  `ready_for_production`, `paper_trading_ready`, `live_trading_ready`, and
+  `broker_ready`;
+- capital and recommendations: `capital_eligible`, `capital_allocation`,
+  `capital_allocation_recommended`, `recommended_capital`,
+  `position_size_recommendation`, `trade_recommendation`, `recommendation`,
+  `invest`, `buy_recommendation`, and `sell_recommendation`.
+
+Keys are normalized deterministically with Unicode NFKC, camelCase and
+PascalCase boundary splitting, ASCII case folding, separator collapse, and an
+explicit relevant plural-token table. Verification uses exact normalized fields
+and explicit prohibited tokens; it does not use fuzzy matching. String values
+are scanned everywhere, including under unexpected wrappers and in nested
+sequences. Exact frozen negative labels and the non-empirical evidence-class
+value are the only permitted strings containing otherwise prohibited tokens.
+
+The complete manifest object and every manifested artifact are scanned through
+all nested mappings and sequences before bundle acceptance. The only negative
+claim exceptions are the frozen `claim_flags` fields `capital_eligible`,
+`empirical_evidence`, `holdout`, `production`, and `validation`, each requiring
+the exact value `false`, plus the summary fields `economic_metrics_published`
+and `empirical_conclusion_authorized` with the exact value `false`; an
+affirmative value fails closed. The scanner applies independently of labels and
+hashes:
+
+> A fully rehashed prohibited claim remains prohibited.
+
 Economic metrics—including P&L, returns, expectancy, profit factor, Sharpe, and
 win rate—are recursively prohibited from the published bundle. The exercise
 cannot authorize validation, holdout, paper trading, live trading, an Olympics
@@ -135,15 +183,15 @@ made 2,125 causal decision evaluations. It recorded:
 These counts are engineering diagnostics only. They say that the implementation
 triggers and reconciles under this bounded contaminated input; they say nothing
 about economic quality. The write-once run identity is
-`04a518c1a40f36da96e1b43fc82b99790a5d982b28d6052946f5140919839bc1`
+`7cc0d67b68a2d21a47d030f00a96cd236c777631fde8bb8efb39f3e2ef367b9e`
 and its manifest identity is
-`3f5d2ab9bb794a5a5fcece25098d628a46300ba16c318874679d74ed19ce3ae1`.
+`783031da7d6f369feb3cf5e2e53c0124bc178e5e19b74ef0976ba8cec19d00cb`.
 The candidate result identity is
-`07e0eb6cd2d2c48fcc7753c540f1c6b8bb2fb07ddc13ab6107c1b34ee6b1b889`
+`2bf0ad58926f01f8d00ddb9f1f5bda61b543db33630cc51c784df44f3a540126`
 and the run-summary identity is
-`3b64c56c7120170b193b48c2373e6f6697ae84a7c7da478137548a555735727d`.
+`6517f0901c7ccbb2ad1d3e7aa73bfa19cf46214ca1cf6cdd81c72add6322eeca`.
 The run binds evidence manifest
-`d9e03a066a393b85da5a7be31c9e4036edd86b0c032179f57d45d4f4e4889675`
+`0ee1a4dfd9d1ecd3bef9a92dc09f475d4af1aa236d120f408c4a6f5889459a41`
 and its exact child, preregistration, implementation, conformance, and executor
 registration identities.
 Independent runs under `PYTHONHASHSEED=1, TZ=UTC` and
