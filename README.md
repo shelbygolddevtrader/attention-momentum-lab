@@ -14,7 +14,9 @@ bounded contaminated-data exercise publish trigger, availability, lifecycle,
 and integrity diagnostics only. Its candidate verifier now binds a closed
 evidence/publication role inventory and rejects prohibited claims across every
 configuration, evidence, result, summary, run, and manifest object even after a
-complete rehash, while allowing non-claim engineering prose. See
+complete rehash. Human-readable diagnostic notes are exact renderings of a
+closed, identity-bound structured-observation vocabulary; unrestricted result
+prose is rejected. See
 [`docs/OPENING_RANGE_EXPANSION_CONTINUATION_V001.md`](docs/OPENING_RANGE_EXPANSION_CONTINUATION_V001.md).
 
 The corrected non-authoritative nine-strategy V002 discovery screen is

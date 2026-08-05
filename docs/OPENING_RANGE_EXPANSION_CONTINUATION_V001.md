@@ -26,9 +26,13 @@ artifact and rejects missing, synonymous, inconsistent, stale, or tampered
 values.
 
 The candidate binds prohibited-claim contract
-`c2ab0ba48db8f912e648ae642b11d0d088a178177fda8e340c3a6ed6ad0f503c`
+`90535566580282d3746af19b2511059018a92120ad94d090526f9881ec36cc17`,
+structured-observation contract
+`571d9d773b615cc4e46ee9dad997cb1e602d9a18fa7a4a709b78cf54ce9f91aa`,
+free-text-domain contract
+`2530347c729e5baaab4b1ba9697d1e4a256e2ecd4b7518364aa47946321127c7`,
 and closed-inventory contract
-`5c16aa965099582a02c96c25323d617ca1f645a3054858667a96b1562f8f6cde`
+`95cc8aa48dffa373daa612cba90162856087d745e4d9222be622e08aff5532b7`
 to its configuration, evidence, result, summary, run, and manifest. The exact
 prohibited field vocabulary is:
 
@@ -59,14 +63,76 @@ prohibited field vocabulary is:
 Keys are normalized deterministically with Unicode NFKC, camelCase and
 PascalCase boundary splitting, ASCII case folding, separator collapse, and an
 explicit relevant plural-token table. Verification uses exact normalized fields
-and contiguous exact token sequences; it does not use fuzzy matching. String
-values are checked for explicit affirmative claim phrases everywhere, including
-under unexpected wrappers and in nested sequences. Values under structured
-claim-bearing keys receive the stricter prohibited-term check. Isolated words
-such as `validation`, `edge`, or `production` are not claims by themselves, so
-negative and implementation-oriented prose remains valid. Direct assertions
-such as `Validation passed`, `This candidate has an empirical edge`, or `Ready
-for production` fail even in an engineering-observation field.
+and contiguous exact token sequences; it does not use fuzzy matching.
+
+Candidate results contain no unrestricted observation strings. Every item in
+`qualitative_observations` is a canonical object with exactly
+`observation_type`, `subject`, `outcome`, `reason_code`, `details`,
+`assertion_scope`, and `identity`. Type, subject, outcome, and reason are drawn
+from closed registries; `assertion_scope` is exactly `ENGINEERING_ONLY`; and
+`details` must be the exact one-sentence rendering registered for that tuple,
+with a 160-byte maximum. The details text does not control acceptance. Unknown
+enums, arbitrary subjects, altered prose, additional wrappers, and inconsistent
+tuple/detail combinations fail closed even after every dependent identity is
+rebuilt.
+
+The result's former implementation-note prose is now a closed list of codes:
+`EVALUATOR_BINDING_VERIFIED`, `EVALUATOR_INVOCATION_REFUSED`,
+`FROZEN_COMPONENTS_REUSED`, and `MISSING_INPUT_NOT_SUBSTITUTED`. Warning codes,
+decision statuses, decision reasons, missing-field identifiers, anomaly codes,
+labels, paths, and identities likewise have closed or exactly validated
+domains. Evidence-design prose is exact frozen content and is reconstructed
+canonically during verification. Consequently, there is no accepted arbitrary
+publication-prose channel.
+
+The exact observation vocabularies are:
+
+- types: `ARTIFACT_VERIFICATION`, `DATA_AVAILABILITY`, `DATA_QUALITY`,
+  `DETERMINISM`, `EVALUATOR_PATH`, `IMPLEMENTATION_BEHAVIOR`,
+  `INTEGRITY_BEHAVIOR`, `LIFECYCLE_BEHAVIOR`, `MISSING_INPUT`,
+  `NO_SIGNAL_REASON`, `PARSER_PATH`, `RECONCILIATION`, and
+  `UNAVAILABLE_REASON`;
+- outcomes: `ABSENT`, `ACCEPTED_AS_DIAGNOSTIC`, `BYTE_IDENTICAL`, `EXERCISED`,
+  `INTEGRITY_FAILURE`, `MALFORMED`, `MATCHED`, `MISSING`, `NOT_EXERCISED`,
+  `NO_SIGNAL`, `PRESENT`, `RECONCILED`, `REJECTED`, and `UNAVAILABLE`;
+- subjects: `breakout_condition`, `candidate_result`,
+  `edge_case_parser_branch`, `empirical_edge_claim`, `frozen_evaluator`,
+  `frozen_evaluator_and_lifecycle`, `historical_spread_input`,
+  `production_flag`, `proposal_lifecycle`, `range_invalidation`,
+  `relative_volume_threshold`, `required_source_field`,
+  `same_clock_volume_warmup`, `validation_input_field`, and
+  `validation_outcome_access`;
+- reasons: `BRANCH_COVERAGE`, `CONDITION_NOT_MET`, `COUNTS_RECONCILED`,
+  `DETERMINISM_CONFIRMED`, `FIELD_NOT_PRESENT`, `FROZEN_COMPONENT_REUSED`,
+  `INPUT_UNAVAILABLE`, `INSUFFICIENT_WARMUP`, `INTEGRITY_REJECTED`,
+  `NO_EMPIRICAL_CLAIM`, `NO_PROPOSAL_EMITTED`, `NO_VALIDATION_ACCESS`, and
+  `PROPOSAL_EMITTED`;
+- scope: exactly `ENGINEERING_ONLY`.
+
+Only prospectively registered tuple/detail combinations are valid. Adding an
+enum value, subject, reason, or prose template changes the structured contract
+identity and therefore requires an explicit successor contract.
+
+The free-text-domain inventory classifies every candidate string as one of:
+controlled enum, controlled identifier, exact frozen label, exact frozen text,
+identity/hash, safe relative path, closed warning/reason code, or bounded
+structured engineering details. `unrestricted_string_channels` is the empty
+list. This distinction permits exact negative engineering statements such as
+`No validation outcome was accessed.` while preventing open-ended assertions
+such as `This strategy earns positive returns.`.
+
+| Artifact domain | String treatment |
+| --- | --- |
+| Configuration | Exact canonical schema; frozen enums, identifiers, labels, paths, and selection text |
+| Observation, child, triage, specification, preregistration | Exact frozen text reconstructed from the immutable source graph |
+| Implementation binding, conformance, executor registration | Closed schemas containing controlled identifiers, booleans, hashes, and enum values |
+| Evidence manifest | Closed role/path inventory with exact identities and hashes |
+| Candidate result | Structured observations, controlled note/anomaly/warning/reason/status registries, exact labels, identifiers, and hashes |
+| Candidate summary and run | Closed schemas; exact result/observation references, controlled counts, paths, labels, identities, and hashes |
+| Exploratory manifest | Closed role/path inventory with exact labels, identities, and hashes |
+
+No domain permits an arbitrary string that can independently assert candidate
+performance, evidence status, validation, deployment readiness, or capital use.
 
 The complete configuration, evidence manifest, eight evidence artifacts,
 exploratory manifest, result, summary, and run artifact are scanned through all
@@ -79,6 +145,11 @@ affirmative value fails closed. The scanner applies independently of labels and
 hashes:
 
 > A fully rehashed prohibited claim remains prohibited.
+
+The result, summary, and run repeat the exact observation count and ordered
+observation identities. Any mismatch fails lineage verification. Manifests bind
+the exact files containing those identities, so derived artifacts cannot add,
+remove, or replace observations independently.
 
 The evidence inventory is closed at exactly eight fixed role/path pairs:
 observation, child hypothesis, triage, specification, implementation binding,
@@ -159,6 +230,15 @@ binds:
 Canonical evidence is written as immutable JSON beneath
 `manifests/opening_range_expansion_continuation_v001/`.
 
+The current candidate configuration identity is
+`c832be1b9b92a2b58906a597e7bfd95dee3a10aba664b6f201868d243f1e89da`.
+The implementation binding is
+`9c3c42e5ccd38a6eb58a8db01ae35a7b928c84cfc2fac246768faf8415b8a661`,
+conformance is
+`84023264f928dfc63d68001785006b807b5c0ae7e58078cd997fa8b6f1d258b0`,
+and executor registration is
+`d33e589fae8a4fb46fc513ad8335ba83611783d119ef032d18ea0d594f728af4`.
+
 ## Bounded exploratory dataset
 
 The diagnostic plan is frozen before outcome access. It uses the already
@@ -202,18 +282,19 @@ made 2,125 causal decision evaluations. It recorded:
 
 These counts are engineering diagnostics only. They say that the implementation
 triggers and reconciles under this bounded contaminated input; they say nothing
-about economic quality. The corrected write-once run identity is
-`230aa3c08d41b89cccff2d3bb9c56a157f4070168946dcc076653daff1f0476f`
+about economic quality. The persisted non-economic bundle was structurally
+migrated without rerunning external market data. Its write-once run identity is
+`e85c407578c94484b54a4fde04e57a47baa6346980004f6c8b29ef8998f3426e`
 and its manifest identity is
-`3a288d4781138ff39773a665438379d4e9b007b34a158c13a4fefc06e74c830e`.
+`aa3d0f3c9747a1dcc9b4e10d4b3ecebb69fae3e151fceb52e80ad756b89389ac`.
 The candidate result identity is
-`102ba9b52280f52415decf9ef0cb894307457f5369081a7e4728179c4f879b78`
+`8dcaf85125255321a5b7b8a83d204c7264aac4095760d8286baeba7bd69e4245`
 and the run-summary identity is
-`2e5b38a0384e1f7f54c47508f9baad83e6f3b3fce35ea38161d5de05eb52361d`.
+`9010fc6e6b9ff602c6bd06a2440fe4fdac1a8d7845af25183898797af271001f`.
 The explicit run-artifact identity is
-`07d9c81216af3936b4ec5d3dbc64599619631d64c10ef7134cf0f11c6ae3ef98`.
+`ce6ceadc177c806f79b3d34613992c95e997908f566e6f303e7226503df6fdcc`.
 The run binds evidence manifest
-`7533ce919759811777083250595c1463a28cc4d2ead5816cb4e2da0604681dc8`
+`5e42cbae714035ce64dbdc455e542e5e761f4d8d6b12dc777785f758121a452e`
 and its exact child, preregistration, implementation, conformance, and executor
 registration identities.
 Independent runs under `PYTHONHASHSEED=1, TZ=UTC` and

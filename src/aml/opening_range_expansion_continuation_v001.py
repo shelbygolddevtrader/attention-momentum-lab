@@ -93,6 +93,12 @@ CANDIDATE_PROHIBITED_CLAIM_SCHEMA = (
 CANDIDATE_REQUIRED_INVENTORY_SCHEMA = (
     "aml.opening-range-expansion-required-inventory.v001"
 )
+CANDIDATE_STRUCTURED_OBSERVATION_SCHEMA = (
+    "aml.opening-range-expansion-structured-observation.v001"
+)
+CANDIDATE_FREE_TEXT_DOMAIN_SCHEMA = (
+    "aml.opening-range-expansion-free-text-domain.v001"
+)
 CANDIDATE_PROHIBITED_FIELDS = frozenset(
     {
         "alpha",
@@ -269,15 +275,201 @@ CANDIDATE_PROSPECTIVE_DESIGN_ALLOWANCES = frozenset(
 CANDIDATE_PERMITTED_NEGATIVE_CLAIM_STRINGS = frozenset(
     (*LABELS, CANDIDATE_SPECIFIC_LABEL, EVIDENCE_CLASS)
 )
-CANDIDATE_SAFE_ENGINEERING_PROSE = frozenset(
+CANDIDATE_OBSERVATION_TYPES = frozenset(
     {
-        "The edge-case parser branch was exercised.",
-        "The frozen evaluator emitted no proposal.",
-        "The production flag was not present.",
-        "The validation field was absent from the input.",
-        "No empirical edge claim was made.",
-        "No validation outcome was accessed.",
+        "ARTIFACT_VERIFICATION",
+        "DATA_AVAILABILITY",
+        "DATA_QUALITY",
+        "DETERMINISM",
+        "EVALUATOR_PATH",
+        "IMPLEMENTATION_BEHAVIOR",
+        "INTEGRITY_BEHAVIOR",
+        "LIFECYCLE_BEHAVIOR",
+        "MISSING_INPUT",
+        "NO_SIGNAL_REASON",
+        "PARSER_PATH",
+        "RECONCILIATION",
+        "UNAVAILABLE_REASON",
     }
+)
+CANDIDATE_OBSERVATION_OUTCOMES = frozenset(
+    {
+        "ABSENT",
+        "ACCEPTED_AS_DIAGNOSTIC",
+        "BYTE_IDENTICAL",
+        "EXERCISED",
+        "INTEGRITY_FAILURE",
+        "MALFORMED",
+        "MATCHED",
+        "MISSING",
+        "NOT_EXERCISED",
+        "NO_SIGNAL",
+        "PRESENT",
+        "RECONCILED",
+        "REJECTED",
+        "UNAVAILABLE",
+    }
+)
+CANDIDATE_OBSERVATION_SUBJECTS = frozenset(
+    {
+        "breakout_condition",
+        "candidate_result",
+        "edge_case_parser_branch",
+        "frozen_evaluator",
+        "frozen_evaluator_and_lifecycle",
+        "historical_spread_input",
+        "proposal_lifecycle",
+        "range_invalidation",
+        "relative_volume_threshold",
+        "required_source_field",
+        "same_clock_volume_warmup",
+        "validation_input_field",
+        "validation_outcome_access",
+        "empirical_edge_claim",
+        "production_flag",
+    }
+)
+CANDIDATE_OBSERVATION_REASON_CODES = frozenset(
+    {
+        "BRANCH_COVERAGE",
+        "CONDITION_NOT_MET",
+        "COUNTS_RECONCILED",
+        "DETERMINISM_CONFIRMED",
+        "FIELD_NOT_PRESENT",
+        "FROZEN_COMPONENT_REUSED",
+        "INPUT_UNAVAILABLE",
+        "INSUFFICIENT_WARMUP",
+        "INTEGRITY_REJECTED",
+        "NO_EMPIRICAL_CLAIM",
+        "NO_PROPOSAL_EMITTED",
+        "NO_VALIDATION_ACCESS",
+        "PROPOSAL_EMITTED",
+    }
+)
+CANDIDATE_OBSERVATION_ASSERTION_SCOPE = "ENGINEERING_ONLY"
+CANDIDATE_OBSERVATION_DETAILS = {
+    (
+        "IMPLEMENTATION_BEHAVIOR",
+        "validation_input_field",
+        "ABSENT",
+        "FIELD_NOT_PRESENT",
+    ): "The validation field was absent from the input.",
+    (
+        "PARSER_PATH",
+        "edge_case_parser_branch",
+        "EXERCISED",
+        "BRANCH_COVERAGE",
+    ): "The edge-case parser branch was exercised.",
+    (
+        "IMPLEMENTATION_BEHAVIOR",
+        "validation_outcome_access",
+        "ABSENT",
+        "NO_VALIDATION_ACCESS",
+    ): "No validation outcome was accessed.",
+    (
+        "IMPLEMENTATION_BEHAVIOR",
+        "empirical_edge_claim",
+        "ABSENT",
+        "NO_EMPIRICAL_CLAIM",
+    ): "No empirical edge claim was made.",
+    (
+        "IMPLEMENTATION_BEHAVIOR",
+        "production_flag",
+        "ABSENT",
+        "FIELD_NOT_PRESENT",
+    ): "The production flag was not present.",
+    (
+        "EVALUATOR_PATH",
+        "frozen_evaluator",
+        "NOT_EXERCISED",
+        "NO_PROPOSAL_EMITTED",
+    ): "The frozen evaluator emitted no proposal in the bounded exercise.",
+    (
+        "EVALUATOR_PATH",
+        "frozen_evaluator",
+        "EXERCISED",
+        "PROPOSAL_EMITTED",
+    ): "The frozen evaluator emitted at least one proposal in the bounded exercise.",
+    (
+        "IMPLEMENTATION_BEHAVIOR",
+        "frozen_evaluator_and_lifecycle",
+        "MATCHED",
+        "FROZEN_COMPONENT_REUSED",
+    ): "Frozen downstream evaluator and lifecycle code were reused unchanged.",
+    (
+        "DATA_AVAILABILITY",
+        "same_clock_volume_warmup",
+        "UNAVAILABLE",
+        "INSUFFICIENT_WARMUP",
+    ): "Same-clock volume warm-up was incomplete.",
+    (
+        "NO_SIGNAL_REASON",
+        "breakout_condition",
+        "NO_SIGNAL",
+        "CONDITION_NOT_MET",
+    ): "The breakout condition was not met.",
+    (
+        "RECONCILIATION",
+        "candidate_result",
+        "RECONCILED",
+        "COUNTS_RECONCILED",
+    ): "The candidate result reconciled with the run summary.",
+    (
+        "MISSING_INPUT",
+        "required_source_field",
+        "ABSENT",
+        "FIELD_NOT_PRESENT",
+    ): "A required source field was absent from the input.",
+    (
+        "INTEGRITY_BEHAVIOR",
+        "proposal_lifecycle",
+        "INTEGRITY_FAILURE",
+        "INTEGRITY_REJECTED",
+    ): "The integrity path rejected one or more diagnostic evaluations.",
+}
+CANDIDATE_IMPLEMENTATION_NOTE_CODES = frozenset(
+    {
+        "EVALUATOR_BINDING_VERIFIED",
+        "EVALUATOR_INVOCATION_REFUSED",
+        "FROZEN_COMPONENTS_REUSED",
+        "MISSING_INPUT_NOT_SUBSTITUTED",
+    }
+)
+CANDIDATE_WARNING_CODES = frozenset(
+    {
+        "CONTAMINATED_PARENT_DATASET",
+        "POINT_IN_TIME_CORPORATE_ACTION_LINEAGE_UNPROVEN",
+        "PROVIDER_FEED_IDENTITY_NOT_ECHOED",
+        "WRITTEN_LICENSE_RETENTION_EVIDENCE_MISSING",
+    }
+)
+CANDIDATE_DECISION_STATUSES = frozenset(
+    {"integrity_failure", "no_signal", "no_trade", "proposal", "unavailable"}
+)
+CANDIDATE_DECISION_REASON_KEYS = frozenset(
+    {
+        "integrity_failure:executor_integrity_rejected",
+        "no_signal:breakout_close_not_above_range",
+        "no_signal:cooldown_active",
+        "no_signal:maximum_entries_reached",
+        "no_signal:outside_observation_window",
+        "no_signal:post_halt_signal_block",
+        "no_signal:price_above_maximum",
+        "no_signal:price_below_minimum",
+        "no_signal:range_invalidated",
+        "no_signal:relative_volume_below_threshold",
+        "no_trade:entry_outside_window",
+        "no_trade:halt_before_entry",
+        "no_trade:nonpositive_risk",
+        "no_trade:target_not_above_entry",
+        "proposal:none",
+        "unavailable:missing_next_bar",
+        "unavailable:required_range_bar_missing",
+        "unavailable:unavailable_same_clock_history",
+    }
+)
+CANDIDATE_MISSING_FIELD_CODES = frozenset(
+    {"next_bar", "opening_range_bar", "same_clock_volume_history"}
 )
 _CAMEL_ACRONYM_BOUNDARY = re.compile(r"([A-Z]+)([A-Z][a-z])")
 _CAMEL_WORD_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
@@ -377,9 +569,11 @@ EXPLORATORY_REQUIRED_ROLES = {
 RESULT_REQUIRED_FIELDS = frozenset(
     {
         "candidate_artifact_role",
+        "candidate_free_text_domain_contract_identity",
         "candidate_prohibited_claim_contract_identity",
         "candidate_required_inventory_contract_identity",
         "candidate_specific_labels",
+        "candidate_structured_observation_contract_identity",
         "claim_ceiling",
         "claim_flags",
         "confidence_warnings",
@@ -398,6 +592,8 @@ RESULT_REQUIRED_FIELDS = frozenset(
         "labels",
         "missing_data_summary",
         "obvious_anomalies",
+        "observation_count",
+        "observation_identities",
         "partition_count",
         "partition_inspection",
         "qualitative_observations",
@@ -409,9 +605,11 @@ RESULT_REQUIRED_FIELDS = frozenset(
 SUMMARY_REQUIRED_FIELDS = frozenset(
     {
         "candidate_artifact_role",
+        "candidate_free_text_domain_contract_identity",
         "candidate_prohibited_claim_contract_identity",
         "candidate_required_inventory_contract_identity",
         "candidate_specific_labels",
+        "candidate_structured_observation_contract_identity",
         "claim_ceiling",
         "config_identity",
         "counts",
@@ -424,6 +622,8 @@ SUMMARY_REQUIRED_FIELDS = frozenset(
         "evidence_class",
         "identity",
         "labels",
+        "observation_count",
+        "observation_identities",
         "partition_bindings",
         "result_identity",
         "result_path",
@@ -435,9 +635,11 @@ SUMMARY_REQUIRED_FIELDS = frozenset(
 RUN_REQUIRED_FIELDS = frozenset(
     {
         "candidate_artifact_role",
+        "candidate_free_text_domain_contract_identity",
         "candidate_prohibited_claim_contract_identity",
         "candidate_required_inventory_contract_identity",
         "candidate_specific_labels",
+        "candidate_structured_observation_contract_identity",
         "claim_ceiling",
         "config_identity",
         "counts",
@@ -448,6 +650,8 @@ RUN_REQUIRED_FIELDS = frozenset(
         "evidence_manifest_identity",
         "identity",
         "labels",
+        "observation_count",
+        "observation_identities",
         "result_references",
         "run_identity",
         "schema_version",
@@ -609,6 +813,237 @@ def specification_identity() -> str:
     )
 
 
+def candidate_structured_observation_contract() -> dict[str, object]:
+    """Return the closed engineering-observation schema."""
+
+    detail_templates = [
+        {
+            "observation_type": signature[0],
+            "subject": signature[1],
+            "outcome": signature[2],
+            "reason_code": signature[3],
+            "details": details,
+        }
+        for signature, details in sorted(CANDIDATE_OBSERVATION_DETAILS.items())
+    ]
+    return {
+        "schema_version": CANDIDATE_STRUCTURED_OBSERVATION_SCHEMA,
+        "required_fields": [
+            "assertion_scope",
+            "details",
+            "identity",
+            "observation_type",
+            "outcome",
+            "reason_code",
+            "subject",
+        ],
+        "assertion_scopes": [CANDIDATE_OBSERVATION_ASSERTION_SCOPE],
+        "observation_types": sorted(CANDIDATE_OBSERVATION_TYPES),
+        "outcomes": sorted(CANDIDATE_OBSERVATION_OUTCOMES),
+        "subjects": sorted(CANDIDATE_OBSERVATION_SUBJECTS),
+        "reason_codes": sorted(CANDIDATE_OBSERVATION_REASON_CODES),
+        "detail_templates": detail_templates,
+        "details_policy": {
+            "maximum_utf8_bytes": 160,
+            "maximum_sentences": 1,
+            "rendering": "exact_template_for_structured_signature",
+            "acceptance_authority": "structured_fields_only",
+            "arbitrary_prose_permitted": False,
+        },
+        "prohibited_assertion_domains": [
+            "benchmark outperformance",
+            "capital eligibility or recommendation",
+            "deployment or production readiness",
+            "empirical edge",
+            "holdout or out-of-sample success",
+            "paper live or broker readiness",
+            "profitability pnl or returns",
+            "risk-adjusted performance",
+            "statistical significance",
+            "validation success",
+        ],
+    }
+
+
+def candidate_structured_observation_contract_identity() -> str:
+    return canonical_hash(
+        {
+            "domain": CANDIDATE_STRUCTURED_OBSERVATION_SCHEMA,
+            "contract": candidate_structured_observation_contract(),
+        }
+    )
+
+
+def _observation_identity(value: Mapping[str, object]) -> str:
+    projection = {key: value[key] for key in sorted(set(value) - {"identity"})}
+    return canonical_hash(
+        {
+            "domain": CANDIDATE_STRUCTURED_OBSERVATION_SCHEMA,
+            "observation": projection,
+        }
+    )
+
+
+def create_structured_observation(
+    observation_type: str,
+    subject: str,
+    outcome: str,
+    reason_code: str,
+) -> dict[str, object]:
+    """Create one exact, identity-bound engineering observation."""
+
+    signature = (observation_type, subject, outcome, reason_code)
+    details = CANDIDATE_OBSERVATION_DETAILS.get(signature)
+    if details is None:
+        raise OpeningRangeExpansionError("unknown structured observation signature")
+    base = {
+        "observation_type": observation_type,
+        "subject": subject,
+        "outcome": outcome,
+        "reason_code": reason_code,
+        "details": details,
+        "assertion_scope": CANDIDATE_OBSERVATION_ASSERTION_SCOPE,
+    }
+    value = {**base, "identity": _observation_identity(base)}
+    validate_structured_observation(value)
+    return value
+
+
+def validate_structured_observation(value: Mapping[str, object]) -> dict[str, object]:
+    """Validate one observation without accepting arbitrary prose."""
+
+    required = {
+        "assertion_scope",
+        "details",
+        "identity",
+        "observation_type",
+        "outcome",
+        "reason_code",
+        "subject",
+    }
+    if not isinstance(value, Mapping) or set(value) != required:
+        raise OpeningRangeExpansionError("structured observation schema changed")
+    observation_type = value.get("observation_type")
+    subject = value.get("subject")
+    outcome = value.get("outcome")
+    reason_code = value.get("reason_code")
+    if (
+        observation_type not in CANDIDATE_OBSERVATION_TYPES
+        or subject not in CANDIDATE_OBSERVATION_SUBJECTS
+        or outcome not in CANDIDATE_OBSERVATION_OUTCOMES
+        or reason_code not in CANDIDATE_OBSERVATION_REASON_CODES
+        or value.get("assertion_scope") != CANDIDATE_OBSERVATION_ASSERTION_SCOPE
+    ):
+        raise OpeningRangeExpansionError("structured observation vocabulary changed")
+    signature = (observation_type, subject, outcome, reason_code)
+    expected_details = CANDIDATE_OBSERVATION_DETAILS.get(signature)
+    details = value.get("details")
+    if (
+        not isinstance(details, str)
+        or details != expected_details
+        or len(details.encode("utf-8")) > 160
+        or details.count(".") != 1
+        or not details.endswith(".")
+    ):
+        raise OpeningRangeExpansionError("structured observation details changed")
+    if value.get("identity") != _observation_identity(value):
+        raise OpeningRangeExpansionError("structured observation identity changed")
+    return dict(value)
+
+
+def candidate_free_text_domain_contract() -> dict[str, object]:
+    """Classify every accepted candidate string channel."""
+
+    return {
+        "schema_version": CANDIDATE_FREE_TEXT_DOMAIN_SCHEMA,
+        "arbitrary_prose_permitted": False,
+        "prohibited_claim_contract_identity": (
+            candidate_prohibited_claim_contract_identity()
+        ),
+        "classes": {
+            "bounded_engineering_details": {
+                "paths": ["candidate_result.qualitative_observations[].details"],
+                "contract_identity": candidate_structured_observation_contract_identity(),
+            },
+            "controlled_enum": {
+                "paths": [
+                    "*.candidate_artifact_role",
+                    "candidate_result.implementation_notes[]",
+                    "candidate_result.obvious_anomalies[]",
+                    "candidate_result.status",
+                    "structured_observation.assertion_scope",
+                    "structured_observation.observation_type",
+                    "structured_observation.outcome",
+                    "structured_observation.reason_code",
+                ]
+            },
+            "controlled_identifier": {
+                "paths": [
+                    "*.schema_version",
+                    "candidate_result.decision_reason_counts.*",
+                    "candidate_result.decision_status_counts.*",
+                    "candidate_result.hypothesis.*",
+                    "structured_observation.subject",
+                ]
+            },
+            "exact_frozen_label": {
+                "paths": ["*.candidate_specific_labels[]", "*.labels[]"]
+            },
+            "exact_frozen_text": {
+                "paths": [
+                    "configuration.*",
+                    "evidence.01-observation.json.*",
+                    "evidence.02-child-hypothesis.json.*",
+                    "evidence.03-triage.json.*",
+                    "evidence.04-specification.json.*",
+                    "evidence.05-preregistration.json.*",
+                ],
+                "enforcement": "exact canonical reconstruction",
+            },
+            "hash_or_identity": {"pattern": "^[0-9a-f]{64}$"},
+            "path": {
+                "enforcement": "relative closed-inventory path without traversal or symlink"
+            },
+            "warning_or_reason_code": {
+                "warning_codes": sorted(CANDIDATE_WARNING_CODES),
+                "decision_statuses": sorted(CANDIDATE_DECISION_STATUSES),
+                "decision_reason_keys": sorted(CANDIDATE_DECISION_REASON_KEYS),
+                "missing_field_codes": sorted(CANDIDATE_MISSING_FIELD_CODES),
+                "closed_registry": True,
+            },
+        },
+        "publication_channels": [
+            "configuration",
+            "observation",
+            "child hypothesis metadata",
+            "triage",
+            "specification metadata",
+            "implementation binding",
+            "conformance evidence",
+            "executor registration",
+            "evidence manifest",
+            "candidate result",
+            "candidate summary",
+            "exploratory run",
+            "exploratory manifest",
+        ],
+        "unrestricted_string_channels": [],
+        "invariant": (
+            "Human-readable engineering details are subordinate exact renderings of "
+            "a closed structured observation and never control acceptance."
+        ),
+    }
+
+
+def candidate_free_text_domain_contract_identity() -> str:
+    return canonical_hash(
+        {
+            "domain": CANDIDATE_FREE_TEXT_DOMAIN_SCHEMA,
+            "contract": candidate_free_text_domain_contract(),
+        }
+    )
+
+
 def candidate_required_inventory_contract() -> dict[str, object]:
     """Return the closed, candidate-specific artifact-role contract."""
 
@@ -628,6 +1063,13 @@ def candidate_required_inventory_contract() -> dict[str, object]:
         "manifest_roles": {
             "evidence": "evidence_manifest",
             "exploratory_publication": "exploratory_manifest",
+        },
+        "semantic_contracts": {
+            "free_text_domain": candidate_free_text_domain_contract_identity(),
+            "prohibited_claims": candidate_prohibited_claim_contract_identity(),
+            "structured_observations": (
+                candidate_structured_observation_contract_identity()
+            ),
         },
         "exploratory_artifact_fields": {
             "candidate_result": sorted(RESULT_REQUIRED_FIELDS),
@@ -708,8 +1150,10 @@ def validate_config(value: Mapping[str, object], repository_root: Path) -> dict[
         "frozen_downstream_paths",
         "policy",
         "config_identity",
+        "candidate_free_text_domain_contract_identity",
         "candidate_prohibited_claim_contract_identity",
         "candidate_required_inventory_contract_identity",
+        "candidate_structured_observation_contract_identity",
     }
     if not isinstance(value, Mapping) or set(value) != required:
         raise OpeningRangeExpansionError("campaign config schema is invalid")
@@ -719,6 +1163,10 @@ def validate_config(value: Mapping[str, object], repository_root: Path) -> dict[
         or value["specification_identity"] != specification_identity()
         or value["candidate_prohibited_claim_contract_identity"]
         != candidate_prohibited_claim_contract_identity()
+        or value["candidate_structured_observation_contract_identity"]
+        != candidate_structured_observation_contract_identity()
+        or value["candidate_free_text_domain_contract_identity"]
+        != candidate_free_text_domain_contract_identity()
         or value["candidate_required_inventory_contract_identity"]
         != candidate_required_inventory_contract_identity()
     ):
@@ -986,6 +1434,12 @@ def build_evidence(
             "candidate_required_inventory_contract_identity": (
                 candidate_required_inventory_contract_identity()
             ),
+            "candidate_structured_observation_contract_identity": (
+                candidate_structured_observation_contract_identity()
+            ),
+            "candidate_free_text_domain_contract_identity": (
+                candidate_free_text_domain_contract_identity()
+            ),
         }
     )
     binding = make_artifact(
@@ -1032,6 +1486,12 @@ def build_evidence(
             "candidate_required_inventory_contract_identity": (
                 candidate_required_inventory_contract_identity()
             ),
+            "candidate_structured_observation_contract_identity": (
+                candidate_structured_observation_contract_identity()
+            ),
+            "candidate_free_text_domain_contract_identity": (
+                candidate_free_text_domain_contract_identity()
+            ),
         }
     )
     conformance = make_artifact(
@@ -1059,6 +1519,12 @@ def build_evidence(
             ),
             "candidate_required_inventory_contract_identity": (
                 candidate_required_inventory_contract_identity()
+            ),
+            "candidate_structured_observation_contract_identity": (
+                candidate_structured_observation_contract_identity()
+            ),
+            "candidate_free_text_domain_contract_identity": (
+                candidate_free_text_domain_contract_identity()
             ),
         },
         parent_identities=(binding["identity"], conformance["identity"]),
@@ -1108,6 +1574,10 @@ def verify_evidence_objects(
             != candidate_prohibited_claim_contract_identity()
             or payload.get("candidate_required_inventory_contract_identity")
             != candidate_required_inventory_contract_identity()
+            or payload.get("candidate_structured_observation_contract_identity")
+            != candidate_structured_observation_contract_identity()
+            or payload.get("candidate_free_text_domain_contract_identity")
+            != candidate_free_text_domain_contract_identity()
         ):
             raise OpeningRangeExpansionError(
                 f"candidate verification contract changed:{artifact_name}"
@@ -1154,6 +1624,12 @@ def _evidence_manifest(artifacts: Mapping[str, Mapping[str, object]]) -> dict[st
         "specification_identity": specification_identity(),
         "candidate_prohibited_claim_contract_identity": (
             candidate_prohibited_claim_contract_identity()
+        ),
+        "candidate_structured_observation_contract_identity": (
+            candidate_structured_observation_contract_identity()
+        ),
+        "candidate_free_text_domain_contract_identity": (
+            candidate_free_text_domain_contract_identity()
         ),
         "candidate_required_inventory_contract_identity": (
             candidate_required_inventory_contract_identity()
@@ -1207,8 +1683,10 @@ def verify_evidence_directory(
     _reject_candidate_prohibited_claims(manifest, artifact_name="evidence-manifest.json")
     if set(manifest) != {
         "candidate_artifact_role",
+        "candidate_free_text_domain_contract_identity",
         "candidate_prohibited_claim_contract_identity",
         "candidate_required_inventory_contract_identity",
+        "candidate_structured_observation_contract_identity",
         "empirical_result_count",
         "files",
         "identity",
@@ -1229,6 +1707,10 @@ def verify_evidence_directory(
         != candidate_prohibited_claim_contract_identity()
         or manifest.get("candidate_required_inventory_contract_identity")
         != candidate_required_inventory_contract_identity()
+        or manifest.get("candidate_structured_observation_contract_identity")
+        != candidate_structured_observation_contract_identity()
+        or manifest.get("candidate_free_text_domain_contract_identity")
+        != candidate_free_text_domain_contract_identity()
     ):
         raise OpeningRangeExpansionError("evidence manifest changed")
     records = manifest.get("files")
@@ -1392,7 +1874,7 @@ def _evaluate_exploratory(
                     )
                 except ExecutorIntegrityError as exc:
                     statuses["integrity_failure"] += 1
-                    reasons[f"integrity_failure:{exc}"] += 1
+                    reasons["integrity_failure:executor_integrity_rejected"] += 1
                     integrity.append(
                         {
                             "session": session,
@@ -1482,7 +1964,10 @@ def candidate_prohibited_claim_contract() -> dict[str, object]:
         "prohibited_affirmative_phrases": sorted(
             CANDIDATE_PROHIBITED_AFFIRMATIVE_PHRASES
         ),
-        "safe_engineering_prose": sorted(CANDIDATE_SAFE_ENGINEERING_PROSE),
+        "structured_observation_contract_identity": (
+            candidate_structured_observation_contract_identity()
+        ),
+        "unrestricted_observation_prose_permitted": False,
         "negative_claim_allowances": [
             {"path": ".".join(path), "required_value": required}
             for path, required in sorted(CANDIDATE_NEGATIVE_CLAIM_ALLOWANCES.items())
@@ -1494,11 +1979,11 @@ def candidate_prohibited_claim_contract() -> dict[str, object]:
             "all nested mappings and sequences",
             "all string values for exact affirmative phrases",
             "claim-bearing values for prohibited normalized claim terms",
-            "schema-permitted engineering prose with exact negative allowances",
+            "structured engineering details after exact observation validation",
         ],
         "vocabulary_is_not_a_claim": (
-            "isolated technical vocabulary is allowed outside structured claim fields; "
-            "explicit affirmative claim phrases remain prohibited everywhere"
+            "isolated technical vocabulary is allowed only in frozen or structured "
+            "channels; arbitrary publication prose is prohibited"
         ),
         "fully_rehashed_prohibited_claims_remain_prohibited": True,
     }
@@ -1587,8 +2072,8 @@ def _reject_candidate_prohibited_claims(
                 path=(*path, f"[{index}]"),
             )
     elif isinstance(value, str):
-        if value in CANDIDATE_PERMITTED_NEGATIVE_CLAIM_STRINGS or value in (
-            CANDIDATE_SAFE_ENGINEERING_PROSE
+        if value in CANDIDATE_PERMITTED_NEGATIVE_CLAIM_STRINGS or value in set(
+            CANDIDATE_OBSERVATION_DETAILS.values()
         ):
             return
         normalized = normalize_candidate_claim_name(value)
@@ -1610,6 +2095,129 @@ def _require_candidate_specific_label(
         raise OpeningRangeExpansionError(
             f"candidate-specific exploratory label changed:{artifact_name}"
         )
+
+
+def _structured_observations_for_result(
+    counts: Mapping[str, int], missing_fields: Sequence[str]
+) -> list[dict[str, object]]:
+    observations = [
+        create_structured_observation(
+            "IMPLEMENTATION_BEHAVIOR",
+            "frozen_evaluator_and_lifecycle",
+            "MATCHED",
+            "FROZEN_COMPONENT_REUSED",
+        ),
+        create_structured_observation(
+            "RECONCILIATION",
+            "candidate_result",
+            "RECONCILED",
+            "COUNTS_RECONCILED",
+        ),
+    ]
+    if missing_fields:
+        observations.append(
+            create_structured_observation(
+                "MISSING_INPUT",
+                "required_source_field",
+                "ABSENT",
+                "FIELD_NOT_PRESENT",
+            )
+        )
+    elif counts["proposal_count"]:
+        observations.append(
+            create_structured_observation(
+                "EVALUATOR_PATH",
+                "frozen_evaluator",
+                "EXERCISED",
+                "PROPOSAL_EMITTED",
+            )
+        )
+    else:
+        observations.append(
+            create_structured_observation(
+                "EVALUATOR_PATH",
+                "frozen_evaluator",
+                "NOT_EXERCISED",
+                "NO_PROPOSAL_EMITTED",
+            )
+        )
+    if counts["integrity_failure_count"]:
+        observations.append(
+            create_structured_observation(
+                "INTEGRITY_BEHAVIOR",
+                "proposal_lifecycle",
+                "INTEGRITY_FAILURE",
+                "INTEGRITY_REJECTED",
+            )
+        )
+    return sorted(observations, key=lambda item: str(item["identity"]))
+
+
+def _validate_candidate_result_string_domain(value: Mapping[str, object]) -> None:
+    observations = value.get("qualitative_observations")
+    if not isinstance(observations, list) or not observations:
+        raise OpeningRangeExpansionError("structured observations are missing")
+    if not all(isinstance(item, Mapping) for item in observations):
+        raise OpeningRangeExpansionError("unstructured observation prose is prohibited")
+    validated = [validate_structured_observation(item) for item in observations]
+    identities = [item["identity"] for item in validated]
+    if (
+        identities != sorted(identities)
+        or value.get("observation_count") != len(validated)
+        or value.get("observation_identities") != identities
+    ):
+        raise OpeningRangeExpansionError("structured observation reconciliation changed")
+    notes = value.get("implementation_notes")
+    if (
+        not isinstance(notes, list)
+        or notes != sorted(notes)
+        or not notes
+        or not all(item in CANDIDATE_IMPLEMENTATION_NOTE_CODES for item in notes)
+    ):
+        raise OpeningRangeExpansionError("implementation-note vocabulary changed")
+    if value.get("status") not in {
+        "EXPLORATORY_DIAGNOSTIC_ONLY",
+        "EXPLORATORY_EXERCISED",
+    }:
+        raise OpeningRangeExpansionError("candidate result status changed")
+    anomalies = value.get("obvious_anomalies")
+    if not isinstance(anomalies, list) or not set(anomalies).issubset(
+        {
+            "NONZERO_EXECUTOR_INTEGRITY_FAILURES",
+            "NO_TRIGGER_OBSERVED_IN_BOUNDED_EXERCISE",
+        }
+    ):
+        raise OpeningRangeExpansionError("candidate anomaly vocabulary changed")
+    warnings = value.get("confidence_warnings")
+    if (
+        not isinstance(warnings, list)
+        or warnings != sorted(warnings)
+        or not set(warnings).issubset(set(LABELS) | set(CANDIDATE_WARNING_CODES))
+    ):
+        raise OpeningRangeExpansionError("candidate warning vocabulary changed")
+    reasons = value.get("decision_reason_counts")
+    if (
+        not isinstance(reasons, Mapping)
+        or not set(reasons).issubset(CANDIDATE_DECISION_REASON_KEYS)
+        or not all(isinstance(item, int) and item >= 0 for item in reasons.values())
+    ):
+        raise OpeningRangeExpansionError("candidate decision-reason vocabulary changed")
+    statuses = value.get("decision_status_counts")
+    if (
+        not isinstance(statuses, Mapping)
+        or not set(statuses).issubset(CANDIDATE_DECISION_STATUSES)
+        or not all(isinstance(item, int) and item >= 0 for item in statuses.values())
+    ):
+        raise OpeningRangeExpansionError("candidate decision-status vocabulary changed")
+    missing = value.get("missing_data_summary")
+    if not isinstance(missing, Mapping):
+        raise OpeningRangeExpansionError("candidate missing-data schema changed")
+    missing_fields = missing.get("missing_required_fields")
+    if not isinstance(missing_fields, list) or not all(
+        isinstance(item, str) and item in CANDIDATE_MISSING_FIELD_CODES
+        for item in missing_fields
+    ):
+        raise OpeningRangeExpansionError("candidate missing-field vocabulary changed")
 
 
 def run_bounded_exploratory(
@@ -1689,12 +2297,26 @@ def run_bounded_exploratory(
         ),
     )
     result_base = {key: value for key, value in base_result.items() if key != "identity"}
+    observations = _structured_observations_for_result(counts, ())
+    result_base["qualitative_observations"] = observations
+    result_base["observation_count"] = len(observations)
+    result_base["observation_identities"] = [item["identity"] for item in observations]
+    result_base["implementation_notes"] = [
+        "EVALUATOR_BINDING_VERIFIED",
+        "FROZEN_COMPONENTS_REUSED",
+    ]
     result_base["candidate_specific_labels"] = list(CANDIDATE_SPECIFIC_LABELS)
     result_base["candidate_prohibited_claim_contract_identity"] = (
         candidate_prohibited_claim_contract_identity()
     )
     result_base["candidate_required_inventory_contract_identity"] = (
         candidate_required_inventory_contract_identity()
+    )
+    result_base["candidate_structured_observation_contract_identity"] = (
+        candidate_structured_observation_contract_identity()
+    )
+    result_base["candidate_free_text_domain_contract_identity"] = (
+        candidate_free_text_domain_contract_identity()
     )
     result_base["candidate_artifact_role"] = "candidate_result"
     result_base["run_identity"] = run_identity
@@ -1715,6 +2337,7 @@ def run_bounded_exploratory(
     from aml.exploratory_research_mode_v001 import validate_result
 
     validate_result(result)
+    _validate_candidate_result_string_domain(result)
     target = _output_path(output_root)
     target.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".opening-range-v001-", dir=target.parent))
@@ -1730,6 +2353,12 @@ def run_bounded_exploratory(
             ),
             "candidate_required_inventory_contract_identity": (
                 candidate_required_inventory_contract_identity()
+            ),
+            "candidate_structured_observation_contract_identity": (
+                candidate_structured_observation_contract_identity()
+            ),
+            "candidate_free_text_domain_contract_identity": (
+                candidate_free_text_domain_contract_identity()
             ),
             "candidate_artifact_role": "candidate_summary",
             "evidence_class": EVIDENCE_CLASS,
@@ -1753,6 +2382,8 @@ def run_bounded_exploratory(
             "decision_status_counts": dict(sorted(statuses.items())),
             "decision_reason_counts": dict(sorted(reasons.items())),
             "source_sha256": source_sha256,
+            "observation_count": result["observation_count"],
+            "observation_identities": result["observation_identities"],
             "economic_metrics_published": False,
             "empirical_conclusion_authorized": False,
         }
@@ -1770,6 +2401,12 @@ def run_bounded_exploratory(
             "candidate_required_inventory_contract_identity": (
                 candidate_required_inventory_contract_identity()
             ),
+            "candidate_structured_observation_contract_identity": (
+                candidate_structured_observation_contract_identity()
+            ),
+            "candidate_free_text_domain_contract_identity": (
+                candidate_free_text_domain_contract_identity()
+            ),
             "candidate_artifact_role": "exploratory_run",
             "evidence_class": EVIDENCE_CLASS,
             "claim_ceiling": CLAIM_CEILING,
@@ -1785,6 +2422,8 @@ def run_bounded_exploratory(
                 "identity": summary["identity"],
             },
             "counts": counts,
+            "observation_count": result["observation_count"],
+            "observation_identities": result["observation_identities"],
             "economic_metrics_published": False,
             "empirical_conclusion_authorized": False,
         }
@@ -1822,6 +2461,12 @@ def run_bounded_exploratory(
             "candidate_required_inventory_contract_identity": (
                 candidate_required_inventory_contract_identity()
             ),
+            "candidate_structured_observation_contract_identity": (
+                candidate_structured_observation_contract_identity()
+            ),
+            "candidate_free_text_domain_contract_identity": (
+                candidate_free_text_domain_contract_identity()
+            ),
             "candidate_artifact_role": "exploratory_manifest",
             "run_identity": run_identity,
             "plan_identity": config["config_identity"],
@@ -1841,6 +2486,12 @@ def run_bounded_exploratory(
         "candidate_specific_labels": list(CANDIDATE_SPECIFIC_LABELS),
         "candidate_prohibited_claim_contract_identity": (
             candidate_prohibited_claim_contract_identity()
+        ),
+        "candidate_structured_observation_contract_identity": (
+            candidate_structured_observation_contract_identity()
+        ),
+        "candidate_free_text_domain_contract_identity": (
+            candidate_free_text_domain_contract_identity()
         ),
         "evidence_manifest_identity": evidence_manifest["identity"],
         "counts": counts,
@@ -1886,6 +2537,10 @@ def verify_opening_range_exploratory_bundle(
         != candidate_prohibited_claim_contract_identity()
         or manifest.get("candidate_required_inventory_contract_identity")
         != candidate_required_inventory_contract_identity()
+        or manifest.get("candidate_structured_observation_contract_identity")
+        != candidate_structured_observation_contract_identity()
+        or manifest.get("candidate_free_text_domain_contract_identity")
+        != candidate_free_text_domain_contract_identity()
         or manifest.get("candidate_artifact_role") != "exploratory_manifest"
     ):
         raise OpeningRangeExpansionError(
@@ -1894,9 +2549,11 @@ def verify_opening_range_exploratory_bundle(
     _reject_candidate_prohibited_claims(manifest, artifact_name="manifest.json")
     if set(manifest) != {
         "candidate_artifact_role",
+        "candidate_free_text_domain_contract_identity",
         "candidate_prohibited_claim_contract_identity",
         "candidate_required_inventory_contract_identity",
         "candidate_specific_labels",
+        "candidate_structured_observation_contract_identity",
         "files",
         "identity",
         "labels",
@@ -1950,6 +2607,10 @@ def verify_opening_range_exploratory_bundle(
             != candidate_prohibited_claim_contract_identity()
             or value.get("candidate_required_inventory_contract_identity")
             != candidate_required_inventory_contract_identity()
+            or value.get("candidate_structured_observation_contract_identity")
+            != candidate_structured_observation_contract_identity()
+            or value.get("candidate_free_text_domain_contract_identity")
+            != candidate_free_text_domain_contract_identity()
             or value.get("candidate_artifact_role") != role
         ):
             raise OpeningRangeExpansionError(
@@ -1984,6 +2645,7 @@ def verify_opening_range_exploratory_bundle(
             raise OpeningRangeExpansionError(
                 f"candidate artifact schema changed:{artifact_name}"
             )
+    _validate_candidate_result_string_domain(result)
     if (
         summary.get("schema_version") != EXPLORATORY_SUMMARY_SCHEMA
         or summary.get("labels") != list(LABELS)
@@ -2063,6 +2725,11 @@ def verify_opening_range_exploratory_bundle(
         != {"path": "summary.json", "identity": summary.get("identity")}
         or run.get("counts") != result.get("counts")
         or summary.get("counts") != result.get("counts")
+        or summary.get("observation_count") != result.get("observation_count")
+        or run.get("observation_count") != result.get("observation_count")
+        or summary.get("observation_identities")
+        != result.get("observation_identities")
+        or run.get("observation_identities") != result.get("observation_identities")
     ):
         raise OpeningRangeExpansionError("candidate result-summary-run graph changed")
     verified = verify_bundle(root)

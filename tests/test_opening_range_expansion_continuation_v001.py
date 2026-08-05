@@ -32,10 +32,18 @@ from aml.exploratory_research_mode_v001 import (
     verify_bundle,
 )
 from aml.opening_range_expansion_continuation_v001 import (
+    CANDIDATE_FREE_TEXT_DOMAIN_SCHEMA,
+    CANDIDATE_IMPLEMENTATION_NOTE_CODES,
+    CANDIDATE_OBSERVATION_ASSERTION_SCOPE,
+    CANDIDATE_OBSERVATION_DETAILS,
+    CANDIDATE_OBSERVATION_OUTCOMES,
+    CANDIDATE_OBSERVATION_REASON_CODES,
+    CANDIDATE_OBSERVATION_SUBJECTS,
+    CANDIDATE_OBSERVATION_TYPES,
     CANDIDATE_PROHIBITED_FIELDS,
-    CANDIDATE_SAFE_ENGINEERING_PROSE,
     CANDIDATE_SPECIFIC_LABEL,
     CANDIDATE_SPECIFIC_LABELS,
+    CANDIDATE_STRUCTURED_OBSERVATION_SCHEMA,
     DATASET_VINTAGE,
     FROZEN_DOWNSTREAM_PATHS,
     FROZEN_SPECIFICATION,
@@ -44,15 +52,21 @@ from aml.opening_range_expansion_continuation_v001 import (
     _reject_candidate_prohibited_claims,
     _source_hashes,
     build_evidence,
+    candidate_free_text_domain_contract,
+    candidate_free_text_domain_contract_identity,
     candidate_prohibited_claim_contract_identity,
     candidate_required_inventory_contract,
     candidate_required_inventory_contract_identity,
+    candidate_structured_observation_contract,
+    candidate_structured_observation_contract_identity,
+    create_structured_observation,
     finalize_config,
     load_config,
     normalize_candidate_claim_name,
     run_bounded_exploratory,
     specification_identity,
     validate_config,
+    validate_structured_observation,
     verify_evidence_directory,
     verify_opening_range_exploratory_bundle,
     write_evidence,
@@ -149,6 +163,50 @@ def _rehash_manifest(output: Path) -> None:
     path.write_bytes(canonical_json(value))
 
 
+def _rehash_complete_publication_chain(output: Path) -> None:
+    result_path = next(output.glob("01-*.json"))
+    summary_path = output / "summary.json"
+    run_path = output / "run.json"
+    manifest_path = output / "manifest.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["identity"] = canonical_hash(
+        {key: item for key, item in result.items() if key != "identity"}
+    )
+    result_path.write_bytes(canonical_json(result))
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["result_identity"] = result["identity"]
+    summary["observation_count"] = result.get("observation_count")
+    summary["observation_identities"] = result.get("observation_identities")
+    summary["identity"] = canonical_hash(
+        {key: item for key, item in summary.items() if key != "identity"}
+    )
+    summary_path.write_bytes(canonical_json(summary))
+    run = json.loads(run_path.read_text(encoding="utf-8"))
+    run["result_references"] = [
+        {"path": result_path.name, "identity": result["identity"]}
+    ]
+    run["summary_reference"] = {
+        "path": summary_path.name,
+        "identity": summary["identity"],
+    }
+    run["observation_count"] = result.get("observation_count")
+    run["observation_identities"] = result.get("observation_identities")
+    run["identity"] = canonical_hash(
+        {key: item for key, item in run.items() if key != "identity"}
+    )
+    run_path.write_bytes(canonical_json(run))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    by_path = {item["path"]: item for item in manifest["files"]}
+    for path, value in ((result_path, result), (summary_path, summary), (run_path, run)):
+        by_path[path.name]["identity"] = value["identity"]
+        by_path[path.name]["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    manifest["files"] = sorted(by_path.values(), key=lambda item: item["path"])
+    manifest["identity"] = canonical_hash(
+        {key: item for key, item in manifest.items() if key != "identity"}
+    )
+    manifest_path.write_bytes(canonical_json(manifest))
+
+
 def _evidence_copy(tmp_path: Path, *, name: str) -> Path:
     target = tmp_path / name
     shutil.copytree(ROOT / "manifests/opening_range_expansion_continuation_v001", target)
@@ -210,13 +268,19 @@ def test_specification_and_config_identities_are_frozen() -> None:
         "13611f02dcb749c0f8f13ffae5485dfa87df8b469baf9e59044c9d4b698a5494"
     )
     assert config["config_identity"] == (
-        "baea73f4e62bd8a11340b05e5b6964e75651d9b18ca7e8e7b9b440800a91c1df"
+        "c832be1b9b92a2b58906a597e7bfd95dee3a10aba664b6f201868d243f1e89da"
     )
     assert config["candidate_prohibited_claim_contract_identity"] == (
-        "c2ab0ba48db8f912e648ae642b11d0d088a178177fda8e340c3a6ed6ad0f503c"
+        "90535566580282d3746af19b2511059018a92120ad94d090526f9881ec36cc17"
     )
     assert config["candidate_required_inventory_contract_identity"] == (
-        "5c16aa965099582a02c96c25323d617ca1f645a3054858667a96b1562f8f6cde"
+        "95cc8aa48dffa373daa612cba90162856087d745e4d9222be622e08aff5532b7"
+    )
+    assert config["candidate_structured_observation_contract_identity"] == (
+        "571d9d773b615cc4e46ee9dad997cb1e602d9a18fa7a4a709b78cf54ce9f91aa"
+    )
+    assert config["candidate_free_text_domain_contract_identity"] == (
+        "2530347c729e5baaab4b1ba9697d1e4a256e2ecd4b7518364aa47946321127c7"
     )
     assert config["exploratory_dataset_binding"]["binding_identity"] == (
         "21c33ab375b57f4b9b3804068c5dedd56321befa47cbdb44fec5e0cb23bcd17c"
@@ -336,16 +400,16 @@ def test_evidence_chain_is_complete_and_reconciled() -> None:
         "08-executor-registration.json",
     ]
     assert evidence["06-implementation-binding.json"]["identity"] == (
-        "8a372dcc3fe647ba1efe9ca485d9fdc7cff5cbfc699a0ba001c46eb954f3fbdb"
+        "9c3c42e5ccd38a6eb58a8db01ae35a7b928c84cfc2fac246768faf8415b8a661"
     )
     assert evidence["07-conformance.json"]["identity"] == (
-        "56c57f587ef5a19a590cb844a5a93a9bd644785a00f6e61b140a4c27a00c47cb"
+        "84023264f928dfc63d68001785006b807b5c0ae7e58078cd997fa8b6f1d258b0"
     )
     assert evidence["08-executor-registration.json"]["identity"] == (
-        "cae99c0b523c19280f16925d44cdd5637645594e8b8f2846f8fcb658f5e1b361"
+        "d33e589fae8a4fb46fc513ad8335ba83611783d119ef032d18ea0d594f728af4"
     )
     assert _evidence_manifest(evidence)["identity"] == (
-        "7533ce919759811777083250595c1463a28cc4d2ead5816cb4e2da0604681dc8"
+        "5e42cbae714035ce64dbdc455e542e5e761f4d8d6b12dc777785f758121a452e"
     )
     preregistration = evidence["05-preregistration.json"]["payload"]
     assert preregistration["permitted_empirical_dataset_identities"] == []
@@ -1084,26 +1148,257 @@ def test_fully_rehashed_run_claim_fails_semantically(
         verify_opening_range_exploratory_bundle(output)
 
 
-@pytest.mark.parametrize("sentence", sorted(CANDIDATE_SAFE_ENGINEERING_PROSE))
-def test_safe_engineering_prose_is_not_a_claim(sentence: str) -> None:
-    _reject_candidate_prohibited_claims(
-        {"qualitative_engineering_observations": [sentence]},
-        artifact_name="synthetic.json",
-    )
+def test_structured_observation_contract_is_closed_and_identity_bound() -> None:
+    contract = candidate_structured_observation_contract()
+    assert contract["schema_version"] == CANDIDATE_STRUCTURED_OBSERVATION_SCHEMA
+    assert contract["observation_types"] == sorted(CANDIDATE_OBSERVATION_TYPES)
+    assert contract["outcomes"] == sorted(CANDIDATE_OBSERVATION_OUTCOMES)
+    assert contract["subjects"] == sorted(CANDIDATE_OBSERVATION_SUBJECTS)
+    assert contract["reason_codes"] == sorted(CANDIDATE_OBSERVATION_REASON_CODES)
+    assert contract["assertion_scopes"] == [CANDIDATE_OBSERVATION_ASSERTION_SCOPE]
+    assert contract["details_policy"]["arbitrary_prose_permitted"] is False
+    assert candidate_structured_observation_contract_identity() == _config()[
+        "candidate_structured_observation_contract_identity"
+    ]
+
+
+def test_free_text_domain_has_no_unrestricted_channels() -> None:
+    contract = candidate_free_text_domain_contract()
+    assert contract["schema_version"] == CANDIDATE_FREE_TEXT_DOMAIN_SCHEMA
+    assert contract["arbitrary_prose_permitted"] is False
+    assert contract["unrestricted_string_channels"] == []
+    assert candidate_free_text_domain_contract_identity() == _config()[
+        "candidate_free_text_domain_contract_identity"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("signature", "details"), sorted(CANDIDATE_OBSERVATION_DETAILS.items())
+)
+def test_canonical_structured_observations_are_deterministic(
+    signature: tuple[str, str, str, str], details: str
+) -> None:
+    first = create_structured_observation(*signature)
+    second = create_structured_observation(*signature)
+    assert first == second
+    assert first["details"] == details
+    assert validate_structured_observation(first) == first
 
 
 @pytest.mark.parametrize(
     "sentence",
     [
-        "This candidate has an empirical edge.",
-        "Validation passed.",
-        "Ready for production.",
-        "Capital allocation is recommended.",
+        "This strategy earns positive returns.",
+        "The candidate generated net P&L of 100 dollars.",
+        "The strategy outperformed the benchmark.",
+        "The candidate has favorable risk-adjusted performance.",
+        "The strategy should receive investment capital.",
+        "The candidate passed out-of-sample testing.",
+        "The strategy is profitable.",
+        "The candidate has alpha.",
+        "The system is ready for production.",
+        "Begin paper trading.",
+        "This has statistical significance.",
+        "The candidate is validated.",
+        "The strategy deserves capital allocation.",
+        "Returns were favorable.",
+        "The result proves an edge.",
+        "This strategy earned positive return.",
+        "The candidate was validated.",
+        "The result has riskAdjustedReturn.",
+        "The result has risk-adjusted returns.",
+        "The strategy earns positive returns．",
     ],
 )
-def test_affirmative_claim_hidden_in_observation_is_rejected(sentence: str) -> None:
-    with pytest.raises(OpeningRangeExpansionError, match="claim value"):
-        _reject_candidate_prohibited_claims(
-            {"qualitative_engineering_observations": [sentence]},
-            artifact_name="synthetic.json",
-        )
+def test_arbitrary_details_cannot_carry_claims(sentence: str) -> None:
+    observation = create_structured_observation(
+        "EVALUATOR_PATH",
+        "frozen_evaluator",
+        "EXERCISED",
+        "PROPOSAL_EMITTED",
+    )
+    observation["details"] = sentence
+    observation["identity"] = canonical_hash(
+        {
+            "domain": CANDIDATE_STRUCTURED_OBSERVATION_SCHEMA,
+            "observation": {
+                key: item for key, item in observation.items() if key != "identity"
+            },
+        }
+    )
+    with pytest.raises(
+        OpeningRangeExpansionError,
+        match="details changed|prohibited candidate claim value",
+    ):
+        validate_structured_observation(observation)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("observation_type", "PROFITABILITY"),
+        ("subject", "positive_returns"),
+        ("outcome", "OUTPERFORMED"),
+        ("reason_code", "VALIDATION_PASSED"),
+        ("assertion_scope", "EMPIRICAL"),
+    ],
+)
+def test_unknown_or_claim_bearing_observation_vocabulary_fails(
+    field: str, value: str
+) -> None:
+    observation = create_structured_observation(
+        "EVALUATOR_PATH",
+        "frozen_evaluator",
+        "EXERCISED",
+        "PROPOSAL_EMITTED",
+    )
+    observation[field] = value
+    observation["identity"] = canonical_hash(
+        {
+            "domain": CANDIDATE_STRUCTURED_OBSERVATION_SCHEMA,
+            "observation": {
+                key: item for key, item in observation.items() if key != "identity"
+            },
+        }
+    )
+    with pytest.raises(OpeningRangeExpansionError):
+        validate_structured_observation(observation)
+
+
+def test_implementation_notes_are_controlled_codes() -> None:
+    assert CANDIDATE_IMPLEMENTATION_NOTE_CODES == {
+        "EVALUATOR_BINDING_VERIFIED",
+        "EVALUATOR_INVOCATION_REFUSED",
+        "FROZEN_COMPONENTS_REUSED",
+        "MISSING_INPUT_NOT_SUBSTITUTED",
+    }
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "This strategy earns positive returns.",
+        "The candidate generated net P&L of 100 dollars.",
+        "The strategy outperformed the benchmark.",
+        "The candidate has favorable risk-adjusted performance.",
+        "The strategy should receive investment capital.",
+        "The candidate passed out-of-sample testing.",
+        "The strategy is profitable.",
+        "The candidate has alpha.",
+        "The system is ready for production.",
+        "Begin paper trading.",
+        "This has statistical significance.",
+        "The candidate is validated.",
+        "The strategy deserves capital allocation.",
+        "Returns were favorable.",
+        "The result proves an edge.",
+    ],
+)
+def test_fully_rehashed_observation_claim_fails_semantically(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sentence: str,
+) -> None:
+    output = _publish_stub_bundle(
+        tmp_path,
+        monkeypatch,
+        name=f"observation-claim-{hashlib.sha256(sentence.encode()).hexdigest()[:10]}",
+    )
+    result_path = next(output.glob("01-*.json"))
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    observation = result["qualitative_observations"][0]
+    observation["details"] = sentence
+    observation["identity"] = canonical_hash(
+        {
+            "domain": CANDIDATE_STRUCTURED_OBSERVATION_SCHEMA,
+            "observation": {
+                key: item for key, item in observation.items() if key != "identity"
+            },
+        }
+    )
+    result["observation_identities"][0] = observation["identity"]
+    result["observation_identities"] = sorted(result["observation_identities"])
+    result_path.write_bytes(canonical_json(result))
+    _rehash_complete_publication_chain(output)
+    with pytest.raises(
+        OpeningRangeExpansionError,
+        match="details changed|prohibited candidate claim value",
+    ):
+        verify_opening_range_exploratory_bundle(output)
+
+
+@pytest.mark.parametrize(
+    ("field", "payload"),
+    [
+        ("implementation_notes", ["THIS_STRATEGY_EARNS_POSITIVE_RETURNS"]),
+        ("obvious_anomalies", ["VALIDATION_PASSED"]),
+        ("confidence_warnings", ["capital allocation recommended"]),
+    ],
+)
+def test_fully_rehashed_other_string_channel_claim_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    payload: list[str],
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name=f"string-channel-{field}")
+    result_path = next(output.glob("01-*.json"))
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result[field] = payload
+    result_path.write_bytes(canonical_json(result))
+    _rehash_complete_publication_chain(output)
+    with pytest.raises(OpeningRangeExpansionError):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_nested_or_wrapped_observation_claim_cannot_enter_closed_schema(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="nested-observation-claim")
+    result_path = next(output.glob("01-*.json"))
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    result["qualitative_observations"][0]["wrapper"] = {
+        "claims": ["This strategy earns positive returns."]
+    }
+    result_path.write_bytes(canonical_json(result))
+    _rehash_complete_publication_chain(output)
+    with pytest.raises(OpeningRangeExpansionError):
+        verify_opening_range_exploratory_bundle(output)
+
+
+@pytest.mark.parametrize("artifact_name", ["summary.json", "run.json"])
+def test_fully_rehashed_observation_reconciliation_mismatch_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    artifact_name: str,
+) -> None:
+    output = _publish_stub_bundle(
+        tmp_path, monkeypatch, name=f"observation-reconciliation-{artifact_name}"
+    )
+    path = output / artifact_name
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["observation_count"] += 1
+    path.write_bytes(canonical_json(value))
+    _rehash_artifact_and_manifest(output, artifact_name)
+    with pytest.raises(OpeningRangeExpansionError, match="result-summary-run graph"):
+        verify_opening_range_exploratory_bundle(output)
+
+
+def test_published_observations_are_structured_and_reconciled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = _publish_stub_bundle(tmp_path, monkeypatch, name="structured-observations")
+    result = json.loads(next(output.glob("01-*.json")).read_text(encoding="utf-8"))
+    summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    run = json.loads((output / "run.json").read_text(encoding="utf-8"))
+    observations = result["qualitative_observations"]
+    assert observations
+    assert all(validate_structured_observation(item) == item for item in observations)
+    identities = [item["identity"] for item in observations]
+    assert identities == sorted(identities)
+    assert result["observation_count"] == len(observations)
+    assert result["observation_identities"] == identities
+    assert summary["observation_count"] == len(observations)
+    assert summary["observation_identities"] == identities
+    assert run["observation_count"] == len(observations)
+    assert run["observation_identities"] == identities
