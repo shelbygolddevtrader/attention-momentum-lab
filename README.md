@@ -531,3 +531,14 @@ midpoint target, and 90-bar lifecycle before outcome access. It adds only a
 narrow candidate evaluator and publishes contaminated-data engineering
 diagnostics under the merged non-evidence contract. See
 `docs/OPENING_RANGE_FAILED_BREAKOUT_REVERSAL_CHILD_V001.md`.
+
+### VWAP Deviation Mean Reversion — Prospective Child V001
+
+The explicitly human-authorized long-only child of
+`vwap-deviation-mean-reversion-v001` prospectively freezes an exact semantic
+alias of the existing `vwap_mean_reversion_fade_long_v002` contract. It tests a
+1.5×-ATR downside VWAP deviation, three-bar deceleration, positive confirmation,
+next-bar entry, structure stop, frozen-VWAP target, and 60-bar lifecycle without
+changing the frozen evaluator or any downstream component. Any bounded output
+is contaminated-data engineering diagnostics only. See
+`docs/VWAP_DEVIATION_MEAN_REVERSION_CHILD_V001.md`.
