@@ -217,6 +217,51 @@ FROZEN_POC_CONTRACT: dict[str, object] = {
         "longest_losing_streak", "largest_symbol_concentration",
         "top_trade_concentration",
     ],
+    "metric_semantics": {
+        "completed_trade": "accepted trade returned by the unchanged simulator",
+        "winner_loser_flat": "scenario net P&L strictly positive, strictly negative, or exactly zero",
+        "gross_pnl": "quantity times (raw exit minus raw entry), before friction and commissions",
+        "modeled_transaction_costs": (
+            "quantity times adverse per-side entry and exit friction plus both frozen commissions"
+        ),
+        "net_pnl": "gross P&L minus modeled transaction costs",
+        "profit_factor": (
+            "sum positive scenario net P&L divided by absolute sum negative scenario net P&L; "
+            "null with explicit no-loss flag when denominator is zero"
+        ),
+        "initial_risk": (
+            "quantity times (base 10-bps adjusted raw entry minus frozen stop)"
+        ),
+        "r_distribution_buckets": [
+            "r_le_minus_1",
+            "minus_1_lt_r_lt_0",
+            "r_eq_0",
+            "0_lt_r_lt_1",
+            "1_le_r_lt_2",
+            "r_ge_2",
+        ],
+        "median": "arithmetic mean of the two central sorted values for an even count",
+        "target_exit_reasons": ["gap_target", "intrabar_target"],
+        "stop_exit_reasons": ["gap_stop", "intrabar_stop"],
+        "timeout_or_other": "every exit reason not listed as target or stop",
+        "drawdown_order": [
+            "exit_timestamp", "candidate_id", "proposal_identity",
+        ],
+        "maximum_drawdown": (
+            "largest peak-to-subsequent-trough decline from zero-start cumulative scenario net P&L"
+        ),
+        "maximum_drawdown_r": (
+            "largest peak-to-subsequent-trough decline from zero-start cumulative scenario net R"
+        ),
+        "longest_losing_streak": "maximum consecutive strictly negative scenario net P&L trades",
+        "top_trade_concentration": (
+            "largest positive net R divided by sum positive net R; zero when no positive net R"
+        ),
+        "largest_symbol_concentration": (
+            "largest absolute symbol total net R divided by sum absolute symbol total net R; "
+            "zero when denominator is zero"
+        ),
+    },
     "aggregate": {
         "name": "all_mechanism_equal_normalized_risk_concatenation",
         "not_a_portfolio_or_allocation": True,
@@ -242,6 +287,12 @@ FROZEN_POC_CONTRACT: dict[str, object] = {
             "1.5x, and 2x costs"
         ),
         "otherwise": "EXPLORATORY_MIXED",
+        "precedence": [
+            "EXPLORATORY_TOO_FEW_TRADES",
+            "EXPLORATORY_ECONOMICALLY_INTERESTING",
+            "EXPLORATORY_ECONOMICALLY_UNATTRACTIVE",
+            "EXPLORATORY_MIXED",
+        ],
         "labels": [
             "EXPLORATORY_ECONOMICALLY_UNATTRACTIVE",
             "EXPLORATORY_MIXED",

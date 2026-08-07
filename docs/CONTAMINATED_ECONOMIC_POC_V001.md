@@ -45,6 +45,14 @@ concatenation of normalized trades, not a portfolio, blend, weighting, or
 allocation. Dollar translations at $50, $100, and $250 risk are illustrations
 only.
 
+R distributions use six closed, named buckets (`R <= -1`, `-1 < R < 0`,
+`R = 0`, `0 < R < 1`, `1 <= R < 2`, and `R >= 2`). Medians average the two
+central sorted values for an even count. Drawdown sequences are ordered by exit
+timestamp, candidate identifier, and proposal identity. Top-trade concentration
+uses the largest positive R divided by all positive R; symbol concentration uses
+the largest absolute symbol R contribution divided by the sum of absolute
+symbol contributions.
+
 Interpretations are coarse research-priority labels. Fewer than 30 completed
 trades is `EXPLORATORY_TOO_FEW_TRADES`. A mechanism is
 `EXPLORATORY_ECONOMICALLY_UNATTRACTIVE` only when mean net R is nonpositive at
