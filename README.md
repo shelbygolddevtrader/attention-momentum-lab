@@ -510,3 +510,13 @@ and verifies its 390 regular minutes. It fails closed as
 feed identity, point-in-time corporate-action lineage, and an uncontaminated
 discovery sample are absent. It grants no execution authority and runs no
 strategy. See `docs/HISTORICAL_PIT_DATASET_AUTHORIZATION_V001.md`.
+
+### Volatility Expansion Breakout — Prospective Child V001
+
+The explicitly human-authorized long-only child of
+`volatility-expansion-breakout-v001` freezes one deterministic OHLCV/ATR,
+recent-high, adjacent-continuation, and same-clock-volume experiment before any
+outcome access. It adds only a narrow candidate evaluator, reuses every frozen
+downstream component, and publishes a bounded contaminated-data diagnostic
+bundle with no economic claims. See
+`docs/VOLATILITY_EXPANSION_BREAKOUT_CHILD_V001.md`.
