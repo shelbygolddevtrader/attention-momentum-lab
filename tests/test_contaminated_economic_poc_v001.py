@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import json
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +15,7 @@ from aml.contaminated_economic_poc_v001 import (
     poc_contract_identity,
     summarize_trade_records,
     validate_poc_contract,
+    verify_poc_directory,
     verify_frozen_mechanism_identities,
 )
 
@@ -190,3 +193,34 @@ def test_interpretation_thresholds_are_coarse_and_prospective() -> None:
     for value in too_few.values():
         value["completed_trade_count"] = 29
     assert exploratory_interpretation(too_few) == "EXPLORATORY_TOO_FEW_TRADES"
+
+
+def test_committed_poc_bundle_is_closed_reconciled_and_verified() -> None:
+    root = (
+        Path(__file__).resolve().parents[1]
+        / "manifests/exploratory_economic_poc/v001"
+    )
+    verified = verify_poc_directory(root)
+    assert verified == {
+        "contract_identity": poc_contract_identity(),
+        "run_identity": (
+            "3d6c4f94b9ac8391c101d55de607b7a2a80ab524d43bf9422d0952da0c722b9f"
+        ),
+        "manifest_identity": (
+            "5f328a98560010a5e98a4755b4cb6e6a497a81a7b500bb0b75465a84d8520075"
+        ),
+        "verified": True,
+    }
+    aggregate = json.loads((root / "aggregate.json").read_text(encoding="utf-8"))
+    base = aggregate["scenarios"]["base"]
+    assert base["proposal_count"] == 3617
+    assert base["completed_trade_count"] == 498
+    assert base["rejected_proposal_count"] == 3119
+    assert base["proposal_count"] == (
+        base["completed_trade_count"] + base["rejected_proposal_count"]
+    )
+    assert base["winner_count"] + base["loser_count"] + base["flat_trade_count"] == 498
+    assert sum(base["exit_reason_distribution"].values()) == 498
+    assert aggregate["exploratory_interpretation"] == (
+        "EXPLORATORY_ECONOMICALLY_UNATTRACTIVE"
+    )

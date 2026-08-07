@@ -542,3 +542,14 @@ next-bar entry, structure stop, frozen-VWAP target, and 60-bar lifecycle without
 changing the frozen evaluator or any downstream component. Any bounded output
 is contaminated-data engineering diagnostics only. See
 `docs/VWAP_DEVIATION_MEAN_REVERSION_CHILD_V001.md`.
+
+### Contaminated Economic Proof of Concept V001
+
+The prospectively frozen development-only POC evaluates all five executable
+exploratory mechanisms without changing or selecting among them. Across 498
+completed trades, none meets the frozen economically-interesting prioritization
+threshold, and all sufficiently sampled mechanisms fail higher-cost stress.
+These are contaminated research-management diagnostics—not empirical evidence,
+validation, proof of an edge, production readiness, or capital eligibility.
+See `docs/CONTAMINATED_ECONOMIC_POC_V001.md` and the write-once bundle under
+`manifests/exploratory_economic_poc/v001/`.
