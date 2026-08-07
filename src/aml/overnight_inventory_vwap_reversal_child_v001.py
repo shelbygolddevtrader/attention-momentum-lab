@@ -863,7 +863,7 @@ def _load_partitions(
             except ExploratoryResearchError as exc:
                 if "partition regular minute gap" not in str(exc):
                     raise
-                item = _load_early_close_partition(
+                item = _load_source_declared_partition(
                     dataset_root,
                     symbol=symbol,
                     session=session,
@@ -882,10 +882,10 @@ def _load_partitions(
     return partitions, records
 
 
-def _load_early_close_partition(
+def _load_source_declared_partition(
     dataset_root: Path, *, symbol: str, session: str, dataset_fingerprint: str
 ) -> LoadedPartition:
-    """Validate a source-declared 13:00 XNYS early close without changing `_partition`."""
+    """Load an early-close or source-declared incomplete regular partition."""
 
     base = dataset_root / "sip" / symbol / session
     csv_path = base / "processed" / "regular_1min.csv"
@@ -897,6 +897,10 @@ def _load_early_close_partition(
     requested_end = datetime.fromisoformat(
         str(metadata.get("requested_end_timestamp_exclusive"))
     ).astimezone(NY)
+    expected_count = metadata.get("normalization", {}).get("expected_minute_count")
+    output_count = metadata.get("normalization", {}).get("output_record_count")
+    missing_count = metadata.get("normalization", {}).get("missing_timestamp_count")
+    expected_end = "13:00" if expected_count == 210 else "16:00"
     if (
         metadata.get("symbol") != symbol
         or metadata.get("trading_date") != session
@@ -906,29 +910,32 @@ def _load_early_close_partition(
         or requested_start.date().isoformat() != session
         or requested_start.strftime("%H:%M") != "09:30"
         or requested_end.date().isoformat() != session
-        or requested_end.strftime("%H:%M") != "13:00"
-        or metadata.get("normalization", {}).get("expected_minute_count") != 210
-        or metadata.get("record_count") != 210
+        or requested_end.strftime("%H:%M") != expected_end
+        or expected_count not in {210, 390}
+        or output_count != metadata.get("record_count")
+        or missing_count != expected_count - output_count
     ):
-        raise OvernightInventoryVwapReversalMilestoneError("early-close metadata changed")
+        raise OvernightInventoryVwapReversalMilestoneError("source partition metadata changed")
     processed_hash = _sha256(csv_path)
     if metadata.get("processed_sha256") != processed_hash:
-        raise OvernightInventoryVwapReversalMilestoneError("early-close partition hash changed")
+        raise OvernightInventoryVwapReversalMilestoneError("source partition hash changed")
     frame = pd.read_csv(csv_path)
     required = {"timestamp", "symbol", "open", "high", "low", "close", "volume"}
-    if not required.issubset(frame.columns) or len(frame) != 210:
-        raise OvernightInventoryVwapReversalMilestoneError("early-close columns changed")
+    if not required.issubset(frame.columns) or len(frame) != output_count:
+        raise OvernightInventoryVwapReversalMilestoneError("source partition columns changed")
     timestamps = pd.to_datetime(frame["timestamp"], utc=True).dt.tz_convert(NY)
-    expected = pd.date_range(f"{session} 09:30", f"{session} 12:59", freq="min", tz=NY)
     numeric = frame[["open", "high", "low", "close", "volume"]].astype(float)
     if (
-        not pd.DatetimeIndex(timestamps).equals(expected)
+        not timestamps.is_monotonic_increasing
+        or timestamps.duplicated().any()
+        or timestamps.iloc[0] != requested_start
+        or timestamps.iloc[-1] >= requested_end
         or frame["symbol"].astype(str).ne(symbol).any()
         or not all(math.isfinite(value) for value in numeric.to_numpy().ravel())
         or (numeric[["open", "high", "low", "close"]] <= 0).any().any()
         or (numeric["volume"] < 0).any()
     ):
-        raise OvernightInventoryVwapReversalMilestoneError("early-close partition integrity changed")
+        raise OvernightInventoryVwapReversalMilestoneError("source partition integrity changed")
     bars = tuple(
         MinuteBar(
             security_id=symbol,
@@ -946,12 +953,14 @@ def _load_early_close_partition(
         )
         for timestamp, row in zip(timestamps, frame.itertuples(index=False), strict=True)
     )
-    warnings = (
+    warnings = [
         "CONTAMINATED_PARENT_DATASET",
         "POINT_IN_TIME_CORPORATE_ACTION_LINEAGE_UNPROVEN",
         "PROVIDER_FEED_IDENTITY_NOT_ECHOED",
         "WRITTEN_LICENSE_RETENTION_EVIDENCE_MISSING",
-    )
+    ]
+    if missing_count:
+        warnings.append("SOURCE_DECLARED_REGULAR_GAPS")
     return LoadedPartition(
         symbol,
         date.fromisoformat(session),
@@ -992,6 +1001,14 @@ def _evaluate_exploratory(
             prior_partition = partitions[(symbol, prior_by_session[session])]
             opened = datetime.combine(partition.session, time(9, 30), NY)
             closed = partition.bars[-1].timestamp + timedelta(minutes=1)
+            if "SOURCE_DECLARED_REGULAR_GAPS" in partition.warning_codes:
+                statuses["unavailable"] += 1
+                reasons["unavailable:current_regular_session_incomplete"] += 1
+                continue
+            if "SOURCE_DECLARED_REGULAR_GAPS" in prior_partition.warning_codes:
+                statuses["unavailable"] += 1
+                reasons["unavailable:prior_regular_session_incomplete"] += 1
+                continue
             if len(partition.bars) < 16:
                 statuses["unavailable"] += 1
                 reasons["unavailable:opening_window_or_entry_bar_missing"] += 1
