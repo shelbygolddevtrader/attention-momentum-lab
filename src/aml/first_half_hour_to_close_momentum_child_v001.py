@@ -1001,12 +1001,6 @@ def _observations(counts: Mapping[str, int]) -> list[dict[str, object]]:
             "RECONCILED",
             "COUNTS_RECONCILED",
         ),
-        create_structured_observation(
-            "NO_SIGNAL_REASON",
-            "candidate_result",
-            "NO_SIGNAL",
-            "CONDITION_NOT_MET",
-        ),
     ]
     if counts["proposal_count"]:
         values.append(
