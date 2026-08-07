@@ -994,7 +994,7 @@ def _evaluate_exploratory(
         symbol_sessions = sorted(session for item_symbol, session in partitions if item_symbol == symbol)
         prior_by_session = {
             current: previous
-            for previous, current in zip(symbol_sessions, symbol_sessions[1:], strict=True)
+            for previous, current in zip(symbol_sessions, symbol_sessions[1:])
         }
         for session in evaluation_sessions:
             partition = partitions[(symbol, session)]
