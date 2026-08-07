@@ -563,3 +563,14 @@ contaminated SPY sessions it emitted and completed 19 proposals with no
 unavailable or integrity events. Because that is below the frozen 30-trade POC
 minimum, no candidate economic extension or outcome inspection occurred. See
 `docs/FIRST_HALF_HOUR_TO_CLOSE_MOMENTUM_CHILD_V001.md`.
+# Overnight Inventory / VWAP Reversal — Prospective Child V001
+
+The repository includes a prospectively frozen, long-only gap-down inventory-
+reversal child for DIA, IWM, QQQ, and SPY. It uses one 09:45 decision, developing
+session VWAP, the prior bound regular-session close, and the unchanged lifecycle.
+See `docs/OVERNIGHT_INVENTORY_VWAP_REVERSAL_CHILD_V001.md`. The work is
+contaminated exploratory research only and grants no empirical, validation,
+production, or capital authority. The bounded exercise evaluated 3,008 symbol-
+sessions, emitted 21 proposals, completed 12 lifecycles, rejected 9, recorded
+387 unavailable sessions and zero integrity failures. Because 12 is below the
+frozen minimum of 30, no candidate economic POC ran.
