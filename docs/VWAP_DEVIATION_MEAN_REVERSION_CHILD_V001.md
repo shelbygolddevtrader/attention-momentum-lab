@@ -90,11 +90,11 @@ frozen threshold (442). These are implementation diagnostics, not economic
 results.
 
 The write-once run identity is
-`84c7efaaf11d8a983638a9675a221f95b90d9c17f3966428df8743704cf19a50`;
+`0296941d9ab20f61b538b35d9d8675cb6f5e048f6f72cadee5f9d483515f13d5`;
 the exploratory manifest identity is
-`069916b9791f38cea48aac8dc18c1c2a55c9e05740c30f9db5b9939752550796`;
+`4c279bdaa524260edfca3ee97c3ab902818df1de8adaf8a29953c0fede696f0e`;
 and the candidate-result identity is
-`6572b11ff6f4f345edf5f1e4036e62cd5fb9d270bb26141a8a677e54938f6b3e`.
+`b400983034d7e0c8765e1b8070ed44b099a67aeca5f9ce86e22095cea2220fc8`.
 Runs under `PYTHONHASHSEED=1, TZ=UTC` and `PYTHONHASHSEED=777,
 TZ=Asia/Tokyo` were byte-identical.
 

@@ -29,6 +29,7 @@ from aml.benchmark_strategy_research_v001 import canonical_hash, canonical_json
 from aml.professional_strategy_executors_v001 import (
     EXECUTOR_IDENTITIES,
     STRATEGIES,
+    evaluate as evaluate_reference_strategy,
 )
 from aml.vwap_deviation_mean_reversion_child_v001 import (
     CANDIDATE_SPECIFIC_LABELS,
@@ -96,6 +97,7 @@ def test_prospective_child_identities_and_registration_reproduce() -> None:
         ("cooldown-active", "no_signal", "cooldown_active"),
         ("duplicate-signal", "no_signal", "maximum_entries_reached"),
         ("unavailable", "unavailable", "missing_next_bar"),
+        ("vwap-unavailable", "unavailable", "regular_vwap_unavailable"),
     ],
 )
 def test_frozen_decision_paths(case: str, status: str, reason: str | None) -> None:
@@ -144,6 +146,19 @@ def test_malformed_and_gapped_bars_raise_integrity_failure() -> None:
 def test_no_lookahead_and_frozen_pipeline_conformance() -> None:
     assert no_lookahead_conformance()
     assert proposal_pipeline_conformance()
+
+
+@pytest.mark.parametrize("case", sorted(conformance_inputs()))
+def test_adapter_is_byte_exact_alias_of_frozen_reference(case: str) -> None:
+    value = conformance_inputs()[case]
+    try:
+        adapter = evaluate_vwap_deviation_mean_reversion(value)
+    except Exception as adapter_error:
+        with pytest.raises(type(adapter_error)):
+            evaluate_reference_strategy(REFERENCE_STRATEGY_ID, value)
+        return
+    reference = evaluate_reference_strategy(REFERENCE_STRATEGY_ID, value)
+    assert adapter.canonical_bytes() == reference.canonical_bytes()
 
 
 def test_config_is_exact_and_contaminated_only() -> None:

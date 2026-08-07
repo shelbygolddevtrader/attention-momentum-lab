@@ -697,6 +697,13 @@ def build_evidence(
                 "proposal",
                 lambda: evaluate_vwap_deviation_mean_reversion(inputs["positive"]),
             ),
+            ConformanceCase(
+                "vwap-unavailable",
+                "unavailable",
+                lambda: evaluate_vwap_deviation_mean_reversion(
+                    inputs["vwap-unavailable"]
+                ),
+            ),
         ),
         repeat_case_id="positive",
         no_lookahead_check=no_lookahead_conformance,

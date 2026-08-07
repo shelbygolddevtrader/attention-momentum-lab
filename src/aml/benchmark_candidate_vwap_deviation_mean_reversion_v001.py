@@ -344,6 +344,7 @@ def conformance_inputs() -> dict[str, EvaluationInput]:
     )
     confirmation_bars = list(bars[:25])
     confirmation_bars[24] = replace(confirmation_bars[24], close=94.4)
+    zero_volume_bars = tuple(replace(bar, volume=0.0) for bar in bars[:25])
     unavailable = evaluation_input(bars[:25], next_bar=None)
     duplicate = list(bars[:25])
     duplicate[20] = replace(duplicate[20], timestamp=duplicate[19].timestamp)
@@ -382,6 +383,7 @@ def conformance_inputs() -> dict[str, EvaluationInput]:
         "negative": evaluation_input(tuple(negative_bars), next_bar=bars[25]),
         "positive": positive,
         "unavailable": unavailable,
+        "vwap-unavailable": evaluation_input(zero_volume_bars, next_bar=bars[25]),
     }
 
 
