@@ -8,10 +8,13 @@ from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 import hashlib
 import json
+import math
 from pathlib import Path
 import shutil
 import tempfile
 from zoneinfo import ZoneInfo
+
+import pandas as pd
 
 from aml.benchmark_candidate_first_half_hour_to_close_momentum_v001 import (
     CHILD_HYPOTHESIS_ID,
@@ -58,6 +61,7 @@ from aml.exploratory_research_mode_v001 import (
     LABELS,
     MANIFEST_SCHEMA,
     LoadedPartition,
+    ExploratoryResearchError,
     _next_open,
     _output_path,
     _partition,
@@ -75,7 +79,7 @@ from aml.opening_range_expansion_continuation_v001 import (
     create_structured_observation,
     validate_structured_observation,
 )
-from aml.professional_strategy_executor_models_v001 import EvaluationInput
+from aml.professional_strategy_executor_models_v001 import EvaluationInput, MinuteBar
 from aml.professional_strategy_executors_v001 import ExecutorIntegrityError
 
 
@@ -792,12 +796,19 @@ def _load_partitions(
     ):
         raise FirstHalfHourToCloseMilestoneError("frozen SPY session universe changed")
     for session in session_dirs:
-        item = _partition(
-            dataset_root,
-            symbol=FROZEN_SYMBOL,
-            session=session,
-            dataset_fingerprint=binding["dataset_fingerprint"],
-        )
+        try:
+            item = _partition(
+                dataset_root,
+                symbol=FROZEN_SYMBOL,
+                session=session,
+                dataset_fingerprint=binding["dataset_fingerprint"],
+            )
+        except ExploratoryResearchError as exc:
+            if "partition regular minute gap" not in str(exc):
+                raise
+            item = _load_early_close_partition(
+                dataset_root, session=session, dataset_fingerprint=binding["dataset_fingerprint"]
+            )
         partitions[(FROZEN_SYMBOL, session)] = item
         records.append(
             {
@@ -809,6 +820,86 @@ def _load_partitions(
             }
         )
     return partitions, records
+
+
+def _load_early_close_partition(
+    dataset_root: Path, *, session: str, dataset_fingerprint: str
+) -> LoadedPartition:
+    """Validate a source-declared 13:00 XNYS early close without changing `_partition`."""
+
+    base = dataset_root / "sip" / FROZEN_SYMBOL / session
+    csv_path = base / "processed" / "regular_1min.csv"
+    metadata_path = base / "metadata" / "regular_acquisition.json"
+    metadata = _strict_json(metadata_path)
+    requested_start = datetime.fromisoformat(
+        str(metadata.get("requested_start_timestamp"))
+    ).astimezone(NY)
+    requested_end = datetime.fromisoformat(
+        str(metadata.get("requested_end_timestamp_exclusive"))
+    ).astimezone(NY)
+    if (
+        metadata.get("symbol") != FROZEN_SYMBOL
+        or metadata.get("trading_date") != session
+        or metadata.get("segment") != "regular"
+        or metadata.get("requested_feed") != "sip"
+        or metadata.get("status") != "success"
+        or requested_start.date().isoformat() != session
+        or requested_start.strftime("%H:%M") != "09:30"
+        or requested_end.date().isoformat() != session
+        or requested_end.strftime("%H:%M") != "13:00"
+        or metadata.get("normalization", {}).get("expected_minute_count") != 210
+        or metadata.get("record_count") != 210
+    ):
+        raise FirstHalfHourToCloseMilestoneError("early-close metadata changed")
+    processed_hash = _sha256(csv_path)
+    if metadata.get("processed_sha256") != processed_hash:
+        raise FirstHalfHourToCloseMilestoneError("early-close partition hash changed")
+    frame = pd.read_csv(csv_path)
+    required = {"timestamp", "symbol", "open", "high", "low", "close", "volume"}
+    if not required.issubset(frame.columns) or len(frame) != 210:
+        raise FirstHalfHourToCloseMilestoneError("early-close columns changed")
+    timestamps = pd.to_datetime(frame["timestamp"], utc=True).dt.tz_convert(NY)
+    expected = pd.date_range(f"{session} 09:30", f"{session} 12:59", freq="min", tz=NY)
+    numeric = frame[["open", "high", "low", "close", "volume"]].astype(float)
+    if (
+        not pd.DatetimeIndex(timestamps).equals(expected)
+        or frame["symbol"].astype(str).ne(FROZEN_SYMBOL).any()
+        or not all(math.isfinite(value) for value in numeric.to_numpy().ravel())
+        or (numeric[["open", "high", "low", "close"]] <= 0).any().any()
+        or (numeric["volume"] < 0).any()
+    ):
+        raise FirstHalfHourToCloseMilestoneError("early-close partition integrity changed")
+    bars = tuple(
+        MinuteBar(
+            security_id=FROZEN_SYMBOL,
+            symbol=FROZEN_SYMBOL,
+            session=date.fromisoformat(session),
+            timestamp=timestamp.to_pydatetime(),
+            open=float(row.open),
+            high=float(row.high),
+            low=float(row.low),
+            close=float(row.close),
+            volume=float(row.volume),
+            feed="sip",
+            adjustment_identity=dataset_fingerprint,
+            source_manifest_identity=processed_hash,
+        )
+        for timestamp, row in zip(timestamps, frame.itertuples(index=False), strict=True)
+    )
+    warnings = (
+        "CONTAMINATED_PARENT_DATASET",
+        "POINT_IN_TIME_CORPORATE_ACTION_LINEAGE_UNPROVEN",
+        "PROVIDER_FEED_IDENTITY_NOT_ECHOED",
+        "WRITTEN_LICENSE_RETENTION_EVIDENCE_MISSING",
+    )
+    return LoadedPartition(
+        FROZEN_SYMBOL,
+        date.fromisoformat(session),
+        bars,
+        processed_hash,
+        _sha256(metadata_path),
+        tuple(sorted(warnings)),
+    )
 
 
 def _evaluate_exploratory(
