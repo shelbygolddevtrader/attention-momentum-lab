@@ -553,3 +553,13 @@ These are contaminated research-management diagnostics—not empirical evidence,
 validation, proof of an edge, production readiness, or capital eligibility.
 See `docs/CONTAMINATED_ECONOMIC_POC_V001.md` and the write-once bundle under
 `manifests/exploratory_economic_poc/v001/`.
+
+### First Half-Hour To Close Momentum — Prospective Child V001
+
+The human-authorized long-SPY child freezes one 10:00 ET decision from the exact
+first 30 regular-session bars, a 0.50% signal threshold, next-bar entry,
+first-half-hour-low stop, and unchanged close liquidation. Across all 753
+contaminated SPY sessions it emitted and completed 19 proposals with no
+unavailable or integrity events. Because that is below the frozen 30-trade POC
+minimum, no candidate economic extension or outcome inspection occurred. See
+`docs/FIRST_HALF_HOUR_TO_CLOSE_MOMENTUM_CHILD_V001.md`.

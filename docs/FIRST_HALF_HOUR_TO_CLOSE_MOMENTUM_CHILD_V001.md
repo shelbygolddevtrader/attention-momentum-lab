@@ -70,3 +70,32 @@ after the preregistration. A semantic change requires a new child identity.
 No optimization, parameter search, validation/holdout access, forward testing,
 paper/live trading, broker interaction, Olympics execution, or capital
 allocation is authorized.
+
+## Contaminated engineering result
+
+The preregistered run inspected and evaluated all 753 bound SPY sessions. It
+made 753 causal and eligible decisions, emitted 19 proposals, completed all 19
+lifecycles, rejected none, and recorded zero unavailable events and zero
+integrity failures. Reconciliation is `753 = 734 no-signal + 19 proposals` and
+`19 = 19 completed + 0 rejected`.
+
+The write-once external exploratory run identity is
+`b92807d9a8d439be672f94fe1e82d16e73ccef2135d6191e00c9b1c142205b0b`;
+its manifest identity is
+`c5e86d2639b61da29ad498bfed051567365411be1db809499810dbf907d2e05a`.
+The merged exploratory contract requires this bundle to remain outside Git.
+
+The 19 completed lifecycles are below Contaminated Economic POC V001's frozen
+minimum of 30 completed trades. The candidate-only economic extension therefore
+did not run, and no candidate economic outcome was inspected. The engineering
+result establishes a distinct and genuinely lower-frequency mechanism, but it
+is too sparse for the authorized contaminated economic prioritization gate.
+
+The current dataset is broad enough for unified engineering diagnostics, but a
+single SPY market-persistence rule produces too few events for this POC. A next
+current-data candidate should test another prospectively frozen lower-turnover
+OHLCV mechanism with a wider cross-sectional universe. Authorized PIT data,
+especially independently licensed and uncontaminated minute OHLCV with proven
+corporate-action lineage, remains the principal blocker to empirical claims.
+
+NO ADDITIONAL GENERIC INFRASTRUCTURE RECOMMENDED
