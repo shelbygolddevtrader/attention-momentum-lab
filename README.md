@@ -570,4 +570,7 @@ reversal child for DIA, IWM, QQQ, and SPY. It uses one 09:45 decision, developin
 session VWAP, the prior bound regular-session close, and the unchanged lifecycle.
 See `docs/OVERNIGHT_INVENTORY_VWAP_REVERSAL_CHILD_V001.md`. The work is
 contaminated exploratory research only and grants no empirical, validation,
-production, or capital authority.
+production, or capital authority. The bounded exercise evaluated 3,008 symbol-
+sessions, emitted 21 proposals, completed 12 lifecycles, rejected 9, recorded
+387 unavailable sessions and zero integrity failures. Because 12 is below the
+frozen minimum of 30, no candidate economic POC ran.

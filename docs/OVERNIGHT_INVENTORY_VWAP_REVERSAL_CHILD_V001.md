@@ -52,8 +52,8 @@ development exercise; it is not an independently authoritative PIT official
 close and cannot support empirical conclusions.
 
 The first of 753 sessions per symbol supplies prior-close warm-up. The remaining
-752 sessions per symbol are evaluated prospectively, for 3,012 decisions from
-3,016 inspected partitions. No outcome-based partition selection is permitted.
+752 sessions per symbol are evaluated prospectively, for 3,008 decisions from
+3,012 inspected partitions. No outcome-based partition selection is permitted.
 
 ## Conditional economic POC
 
@@ -68,5 +68,30 @@ does not authorize any strategy change or empirical conclusion.
 No optimization, parameter search, validation, holdout access, forward test,
 paper/live trading, broker interaction, Olympics execution, or capital action is
 authorized. Any semantic revision requires a new child identity.
+
+## Bounded engineering result
+
+The immutable child inspected 3,012 partitions, including four prior-close
+warm-up partitions, and evaluated 3,008 symbol-sessions. It produced 3,008
+causal decisions: 2,592 no-signal, 8 pre-entry no-trade, 21 proposals, and 387
+unavailable. The unchanged lifecycle completed 12 proposals and rejected 9;
+there were zero integrity failures.
+
+Reconciliation is `3,008 = 2,592 + 8 + 21 + 387` and `21 = 12 + 9`.
+Dominant no-signal reasons were insufficient gap magnitude (2,219), absent
+adjacent upside reversal (300), and signal close not below VWAP (73). The eight
+pre-entry failures had no target room after next-open friction. Unavailability
+was entirely fail-closed source completeness: 287 current sessions and 100
+prior-close sessions contained source-declared regular-minute gaps.
+
+The frozen 30-completed-lifecycle gate was not met, so the candidate-only
+contaminated economic POC did not run and no economic outcome was inspected.
+The result adds a distinct mechanism and shows that the current data can exercise
+it broadly, but sparse signals and incomplete regular sessions prevent an
+informative candidate economics readout under V001.
+
+The next current-data mechanism should be a prospective
+`failed-volume-breakout-reversal-v001` child, which can use existing OHLCV and
+volume primitives while adding a distinct rejection/reversal mechanism.
 
 NO ADDITIONAL GENERIC INFRASTRUCTURE RECOMMENDED
