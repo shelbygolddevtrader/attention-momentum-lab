@@ -68,7 +68,7 @@ def test_prospective_child_identities_and_registration_reproduce() -> None:
     ("case", "status", "reason"),
     [
         ("positive", "proposal", None),
-        ("threshold-absent", "no_signal", "first_half_hour_return_below_threshold"),
+        ("threshold-absent", "no_signal", "signal_strength_below_threshold"),
         ("missing-entry", "unavailable", "missing_next_bar"),
         ("duplicate-signal", "no_signal", "maximum_proposals_reached"),
     ],

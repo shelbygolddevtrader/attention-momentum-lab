@@ -230,7 +230,7 @@ def evaluate_first_half_hour_to_close_momentum(value: EvaluationInput) -> Evalua
             return _decision(value, "unavailable", "first_half_hour_window_incomplete")
     first_half_hour_return = current.close / bars[0].open - 1.0
     if first_half_hour_return < 0.005:
-        return _decision(value, "no_signal", "first_half_hour_return_below_threshold")
+        return _decision(value, "no_signal", "signal_strength_below_threshold")
     return build_proposal(
         value,
         CHILD_STRATEGY,
