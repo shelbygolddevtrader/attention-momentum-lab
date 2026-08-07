@@ -68,11 +68,67 @@ stop-before-target collision, timeout, and deterministic repeatability.
 
 ## Exploratory diagnostics
 
-The bounded 920-partition diagnostic and five-mechanism engineering comparison
-are recorded after execution in this section. No economic metric is permitted.
+The prospective freeze was committed before execution. The bounded run then
+inspected 920 partitions (460 selection-warm-up, 460 evaluated) and made
+149,960 causal decisions, of which 109,859 passed common/state availability
+gates. It recorded:
 
-_Prospective freeze recorded before exploratory execution; diagnostic counts
-pending._
+- 411 triggers: 406 proposals and five deterministic pre-entry `no_trade`
+  decisions;
+- 194 completed lifecycles and 212 lifecycle rejections;
+- 149,549 no-signal decisions, zero unavailable decisions, and zero integrity
+  failures;
+- exact decision reconciliation:
+  `149,960 = 149,549 + 5 + 406 + 0`;
+- exact lifecycle reconciliation: `406 = 194 + 212`.
+
+The dominant no-signal reasons were non-strict deceleration (101,864), maximum
+entries reached (20,037), price above the frozen ceiling (12,283), outside the
+observation window (6,189), cooldown active (4,847), price below the frozen
+floor (2,934), missing positive confirmation (953), and extension below the
+frozen threshold (442). These are implementation diagnostics, not economic
+results.
+
+The write-once run identity is
+`84c7efaaf11d8a983638a9675a221f95b90d9c17f3966428df8743704cf19a50`;
+the exploratory manifest identity is
+`069916b9791f38cea48aac8dc18c1c2a55c9e05740c30f9db5b9939752550796`;
+and the candidate-result identity is
+`6572b11ff6f4f345edf5f1e4036e62cd5fb9d270bb26141a8a677e54938f6b3e`.
+Runs under `PYTHONHASHSEED=1, TZ=UTC` and `PYTHONHASHSEED=777,
+TZ=Asia/Tokyo` were byte-identical.
+
+## Five-mechanism engineering comparison
+
+| Mechanism | Engineering behavior | Principal dependency / complexity |
+|---|---|---|
+| First-pullback continuation | Executable multi-stage impulse, retracement, and resumption chain; committed records do not provide a like-for-like 460-partition diagnostic | OHLCV, ATR, local volume; highest state complexity |
+| Opening-range expansion continuation | 25 evaluated partitions; 177 proposals; 10 completed, 167 rejected; zero unavailable/integrity | Five-minute range plus 20-session same-clock volume |
+| Volatility-expansion breakout | 460 evaluated; 194 proposals; 128 completed, 66 rejected; 6,602 ATR warm-up unavailable; zero integrity | ATR20, prior-15 high, adjacent continuation, same-clock volume |
+| Opening-range failed-breakout reversal | 460 evaluated; 145 triggers, 102 proposals; 88 completed, 14 rejected; 413 ATR warm-up unavailable; zero integrity | Opening range, ATR20, adjacent reclaim, same-clock volume, midpoint feasibility |
+| VWAP-deviation mean reversion | 460 evaluated; 411 triggers, 406 proposals; 194 completed, 212 rejected; zero unavailable/integrity | Session VWAP, ATR20, four-bar deceleration/confirmation; exact frozen-evaluator reuse |
+
+This adds a fifth genuinely distinct mechanism: continuous session-consensus
+reversion rather than opening structure or directional continuation. The local
+dataset is broad enough for a unified contaminated engineering campaign across
+the mechanisms, but not for authorized empirical conclusions.
+
+The aggregate completed-lifecycle volume now justifies designing a separate,
+explicitly contaminated economic proof-of-concept readout solely to test cost,
+metric, and reconciliation plumbing. Such a future readout must prospectively
+include every mechanism, prohibit selection/ranking and rule changes, remain in
+a separate non-evidence namespace, use no validation/holdout data, confer no
+advancement or capital status, and state that its outputs cannot support an edge
+claim. No economic field was inspected in this milestone.
+
+The next current-data mechanism recommended for prospective design is
+`first-half-hour-to-close-momentum-v001`, because it adds a time-of-day,
+longer-horizon mechanism without new data. The largest remaining data-family
+unlock is authorized point-in-time auction/imbalance and signed-flow history;
+authorized PIT provenance and licensing remain the principal blocker to any
+empirical conclusion.
+
+**NO ADDITIONAL GENERIC INFRASTRUCTURE RECOMMENDED.**
 
 ## Frozen boundaries
 
