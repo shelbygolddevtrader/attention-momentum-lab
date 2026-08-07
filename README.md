@@ -520,3 +520,14 @@ outcome access. It adds only a narrow candidate evaluator, reuses every frozen
 downstream component, and publishes a bounded contaminated-data diagnostic
 bundle with no economic claims. See
 `docs/VOLATILITY_EXPANSION_BREAKOUT_CHILD_V001.md`.
+
+### Opening Range Failed Breakout Reversal — Prospective Child V001
+
+The explicitly human-authorized long-only child of
+`opening-range-failed-breakout-reversal-v001` freezes a five-minute opening
+range, ATR-normalized downside excursion, immediately adjacent reclaim,
+same-clock-volume confirmation, next-bar entry, structure stop, internal
+midpoint target, and 90-bar lifecycle before outcome access. It adds only a
+narrow candidate evaluator and publishes contaminated-data engineering
+diagnostics under the merged non-evidence contract. See
+`docs/OPENING_RANGE_FAILED_BREAKOUT_REVERSAL_CHILD_V001.md`.
